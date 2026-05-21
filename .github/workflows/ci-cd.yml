@@ -6,7 +6,7 @@
 #
 # Variables Firebase : dans Vercel (Settings → Environment Variables),
 # reproduire les clés NEXT_PUBLIC_FIREBASE_* de .env.local
-name: CI/CD Pipeline
+name: deploy production
 
 on:
   push:
