@@ -303,7 +303,7 @@ export default function ExpensesPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Filtrer par motif ou catégorie..." 
-            className="pl-9 h-10 bg-background border-border rounded-xl text-sm"
+            className="pl-10 h-10 bg-background border-border rounded-xl text-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />

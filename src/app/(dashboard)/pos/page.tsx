@@ -375,7 +375,7 @@ export default function POSPage() {
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Rechercher (Nom, SKU, Code-barres)..." 
-                className="pl-9.5 h-10 w-full bg-background border-border rounded-xl text-xs focus-visible:ring-primary/20"
+                className="pl-10 h-10 w-full bg-background border-border rounded-xl text-xs focus-visible:ring-primary/20"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -391,7 +391,7 @@ export default function POSPage() {
                 ref={scannerInputRef}
                 placeholder="Scanner Code-barres [F2] + Entrée..." 
                 className={cn(
-                  "pl-9.5 h-10 w-full bg-background border-border rounded-xl text-xs transition-all duration-200 font-semibold focus-visible:ring-primary/20",
+                  "pl-10 h-10 w-full bg-background border-border rounded-xl text-xs transition-all duration-200 font-semibold focus-visible:ring-primary/20",
                   isScannerFocused && "border-primary/50 shadow-sm"
                 )}
                 value={scannerInput}
@@ -611,7 +611,7 @@ export default function POSPage() {
                       <Input
                         type="text"
                         placeholder="Rechercher un client (Nom, Tel)..."
-                        className="pl-9 h-10 text-xs border border-input rounded-xl bg-background focus-visible:ring-primary/20 font-medium"
+                        className="pl-10 h-10 text-xs border border-input rounded-xl bg-background focus-visible:ring-primary/20 font-medium"
                         value={clientSearch}
                         onChange={(e) => {
                           setClientSearch(e.target.value)

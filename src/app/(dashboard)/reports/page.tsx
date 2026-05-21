@@ -169,7 +169,7 @@ export default function ReportsPage() {
             placeholder="Rechercher un rapport..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-10 w-full bg-background border-border rounded-xl text-xs focus-visible:ring-primary/20"
+            className="pl-10 h-10 w-full bg-background border-border rounded-xl text-xs focus-visible:ring-primary/20"
           />
         </div>
       </div>
