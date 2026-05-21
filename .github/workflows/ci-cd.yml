@@ -9,6 +9,10 @@
 name: CI/CD Pipeline
 
 on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
   workflow_dispatch:
     inputs:
       environment:
@@ -21,9 +25,38 @@ on:
           - preview
 
 jobs:
+  validate:
+    name: Validate Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript type check
+        run: npm run typecheck
+
+      - name: Build application
+        run: npm run build
+        env:
+          NODE_ENV: production
+
   deploy:
     name: Deploy to Vercel
     runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

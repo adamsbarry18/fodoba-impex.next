@@ -15,7 +15,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isManager: boolean;
   isSeller: boolean;
-  login: (email: string, pass: string) => Promise<void>;
+  login: (email: string, pass: string) => Promise<any>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
