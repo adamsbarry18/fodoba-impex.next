@@ -34,7 +34,7 @@ export const AuthService = {
     if (!auth) return;
     try {
       await firebaseSignOut(auth);
-    } catch (error: any) {
+    } catch {
       throw new Error("Erreur lors de la déconnexion.");
     }
   },

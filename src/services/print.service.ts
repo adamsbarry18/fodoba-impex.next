@@ -68,7 +68,7 @@ export const PrintService = {
     try {
       const qrDataUrl = await QRCode.toDataURL(sale.id);
       doc.addImage(qrDataUrl, 'PNG', pageWidth / 2 - 10, y, 20, 20);
-    } catch (e) {}
+    } catch {}
 
     window.open(doc.output('bloburl'), '_blank');
   },
