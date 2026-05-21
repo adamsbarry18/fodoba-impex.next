@@ -152,7 +152,7 @@ export default function ClientsPage() {
                           <Badge variant={client.status === "suspendu" ? "destructive" : client.status === "vip" ? "secondary" : "default"}>
                             {client.status}
                           </Badge>
-                          {isOverLimit && <AlertCircle className="w-4 h-4 text-destructive inline ml-1" title="Plafond dépassé" />}
+                          {isOverLimit && <span title="Plafond dépassé"><AlertCircle className="w-4 h-4 text-destructive inline ml-1" /></span>}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">

@@ -16,7 +16,7 @@ import {
   Truck,
   Coins,
   BarChart3,
-  Settings,
+  Cog,
   ShieldCheck,
   Receipt,
 } from "lucide-react"
@@ -234,7 +234,7 @@ export const AppSidebar = memo(function AppSidebar() {
                       "data-[state=open]:ring-primary/20"
                     )}
                   >
-                    <Settings className="h-4 w-4 shrink-0" />
+                    <Cog className="h-4 w-4 shrink-0" />
                     <span className="truncate">Paramètres</span>
                   </SidebarMenuButton>
 
@@ -293,7 +293,7 @@ export const AppSidebar = memo(function AppSidebar() {
                         "data-[state=open]:ring-primary/20"
                       )}
                     >
-                      <Settings className="h-4 w-4 shrink-0" />
+                      <Cog className="h-4 w-4 shrink-0" />
                       <span className="truncate">Paramètres</span>
                     </SidebarMenuButton>
                   </DropdownMenuTrigger>

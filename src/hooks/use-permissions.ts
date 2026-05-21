@@ -24,13 +24,13 @@ export function usePermissions() {
       return hasAnyPermission(role, permissions);
     },
 
-    /** Helpers sémantiques basés sur le cahier des charges */
+    /** Helpers sémantiques basés*/
     canManageProducts: () => role && hasPermission(role, 'manage:catalog'),
     canManageSales: () => role && hasPermission(role, 'create:sale'),
     canViewGlobalReports: () => role && hasPermission(role, 'view:reports:global'),
     canReconcileCash: () => role && hasPermission(role, 'reconcile:cash'),
     canManageInventory: () => role && hasPermission(role, 'manage:transfers'),
-    
+
     /** Raccourcis de rôle (à utiliser avec parcimonie, préférer les permissions) */
     role
   };

@@ -129,7 +129,7 @@ export default function InventoryReportPage() {
                       <TableCell className="text-xs font-mono text-muted-foreground">{item.sku}</TableCell>
                       <TableCell className="text-center font-bold">
                         {item.stock} <span className="text-[10px] font-normal text-muted-foreground">{item.unit}</span>
-                        {item.stock <= 0 && <AlertTriangle className="w-3 h-3 text-destructive inline ml-1" title="Rupture" />}
+                        {item.stock <= 0 && <span title="Rupture"><AlertTriangle className="w-3 h-3 text-destructive inline ml-1" /></span>}
                       </TableCell>
                       <TableCell className="text-right">{item.unitCost.toLocaleString()} FCFA</TableCell>
                       <TableCell className="text-right font-headline font-bold text-accent">

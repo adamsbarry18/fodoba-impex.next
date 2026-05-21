@@ -4,10 +4,10 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { 
-  BarChart3, 
-  Package, 
-  ArrowRight, 
+import {
+  BarChart3,
+  Package,
+  ArrowRight,
   History,
   ShoppingCart,
   Users,
@@ -102,9 +102,9 @@ export default function ReportsPage() {
   const allowedReports = REPORT_CARDS.filter(report => {
     const hasPermission = can(report.permission)
     const matchesCategory = activeCategory === "all" || report.category === activeCategory
-    const matchesSearch = report.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          report.description.toLowerCase().includes(searchQuery.toLowerCase())
-    
+    const matchesSearch = report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      report.description.toLowerCase().includes(searchQuery.toLowerCase())
+
     return hasPermission && matchesCategory && matchesSearch
   })
 
@@ -240,9 +240,9 @@ export default function ReportsPage() {
               Nous n'avons trouvé aucun rapport correspondant à vos critères de recherche ou de catégorie.
             </p>
           </div>
-          <Button 
+          <Button
             onClick={() => { setSearchQuery(""); setActiveCategory("all") }}
-            variant="outline" 
+            variant="outline"
             className="h-9 text-xs rounded-xl"
           >
             Réinitialiser les filtres
@@ -261,8 +261,7 @@ export default function ReportsPage() {
               Conformité et Synchronisation
             </h4>
             <p className="text-xs text-muted-foreground leading-relaxed max-w-3xl">
-              Les rapports et graphiques analytiques sont recalculés en temps réel avec conversion automatique en **FCFA**. 
-              Conformément à la **section 12.3 du Cahier des Charges**, chaque vue de rapport permet d'exporter les données officielles au format **PDF et Excel (CSV)** avec traçabilité complète des transactions.
+              Les rapports et graphiques analytiques sont recalculés en temps réel avec conversion automatique en FCFA.
             </p>
           </div>
         </div>
