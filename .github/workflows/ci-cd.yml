@@ -1,0 +1,39 @@
+# .github/workflows/ci-cd.yml
+# Secrets GitHub du dépôt (Réglages → Secrets) :
+#   VERCEL_TOKEN      - https://vercel.com/account/tokens
+#   VERCEL_ORG_ID     - .vercel/project.json ou paramètres équipe
+#   VERCEL_PROJECT_ID - id du projet Vercel « FODOBA IMPEX »
+#
+# Variables Firebase : dans Vercel (Settings → Environment Variables),
+# reproduire les clés NEXT_PUBLIC_FIREBASE_* de .env.local
+name: CI/CD Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environnement de déploiement'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - preview
+
+jobs:
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-version: 53.1.0
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: .
+          vercel-args: ${{ github.event.inputs.environment == 'production' && '--prod' || '--preview' }}
