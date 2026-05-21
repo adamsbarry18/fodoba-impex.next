@@ -1,0 +1,16 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-dashboard",
+      "description": "Professional business analytical dashboard",
+      "imageUrl": "https://picsum.photos/seed/12/1200/600",
+      "imageHint": "dashboard analytics"
+    },
+    {
+      "id": "product-placeholder",
+      "description": "General food distribution product",
+      "imageUrl": "https://picsum.photos/seed/45/400/400",
+      "imageHint": "food product"
+    }
+  ]
+}

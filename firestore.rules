@@ -1,0 +1,136 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- FONCTIONS HELPER ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function getProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isActif() {
+      let profile = getProfile();
+      return profile != null && profile.actif == true;
+    }
+    
+    function hasRole(role) {
+      return isSignedIn() && getProfile().role == role;
+    }
+    
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isManager() {
+      return hasRole('manager');
+    }
+
+    function isStoreAuthorized(storeId) {
+      let profile = getProfile();
+      return isAdmin() || (profile.boutiqueIds != null && storeId in profile.boutiqueIds);
+    }
+
+    // --- RÈGLES PAR COLLECTION (Alignées CDC v1.0) ---
+
+    // Utilisateurs : Seul l'admin gère tout par défaut pour garantir la sécurité.
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // Boutiques : Écriture Admin uniquement (CDC 2.2).
+    match /stores/{storeId} {
+      allow read: if isSignedIn() && isActif();
+      allow write: if isAdmin();
+    }
+
+    // Produits (Catalogue Global) : Admin et Manager peuvent éditer (CDC 2.2).
+    match /products/{productId} {
+      allow read: if isSignedIn() && isActif();
+      allow write: if isAdmin() || isManager();
+    }
+
+    // Catégories (Catalogue Global)
+    match /categories/{categoryId} {
+      allow read: if isSignedIn() && isActif();
+      allow write: if isAdmin() || isManager();
+    }
+
+    // Ventes : Isolation par boutique. Tous peuvent créer (CDC 2.2).
+    match /sales/{saleId} {
+      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
+      allow create: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId);
+      allow update, delete: if isAdmin();
+    }
+
+    // Mouvements de stock : Admin et Manager (CDC 2.2).
+    match /inventory_movements/{moveId} {
+      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
+      allow create: if isSignedIn() && isActif() && (isAdmin() || isManager()) && isStoreAuthorized(request.resource.data.storeId);
+      allow update, delete: if isAdmin();
+    }
+    
+    // Niveaux de stock
+    match /stocks/{stockId} {
+      allow read: if isSignedIn() && isActif();
+      allow write: if isSignedIn() && isActif() && (isAdmin() || isManager());
+    }
+
+    // Dépenses : Tous les rôles peuvent créer (CDC 2.2).
+    match /expenses/{expenseId} {
+      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
+      allow create: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId);
+      allow update, delete: if isAdmin();
+    }
+
+    // Caisse et Sessions : Tous les rôles peuvent ouvrir/clôturer (CDC 2.2).
+    match /cash_sessions/{sessionId} {
+      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
+      allow write: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId);
+    }
+    
+    match /cash_movements/{moveId} {
+      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
+      allow create: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId);
+      allow update, delete: if isAdmin();
+    }
+
+    // Achats : Admin et Manager uniquement (CDC 2.2).
+    match /purchases/{purchaseId} {
+      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
+      allow write: if isSignedIn() && isActif() && (isAdmin() || isManager()) && isStoreAuthorized(request.resource.data.storeId);
+    }
+
+    // Clients & Fournisseurs : Accès global.
+    match /clients/{clientId} {
+      allow read: if isSignedIn() && isActif();
+      allow write: if isSignedIn() && isActif();
+    }
+    match /client_payments/{paymentId} {
+      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
+      allow create: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId);
+    }
+    
+    match /suppliers/{supplierId} {
+      allow read: if isSignedIn() && isActif();
+      allow write: if isAdmin() || isManager();
+    }
+
+    // Devises : Admin uniquement (CDC 4.2).
+    match /currencies/{currencyId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Logs d'Audit
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && isActif();
+    }
+  }
+}
