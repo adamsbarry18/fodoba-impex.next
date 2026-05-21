@@ -11,7 +11,7 @@ export function LoadingScreen() {
           <Loader2 className="absolute -bottom-2 -right-2 h-8 w-8 text-primary animate-spin" />
         </div>
         <div className="text-center">
-          <h2 className="text-2xl font-headline font-bold text-[#111827]">OmniStock Nexus</h2>
+          <h2 className="text-2xl font-headline font-bold text-[#111827]">FODOBA IMPEX</h2>
           <p className="text-sm text-gray-400 mt-2 font-medium tracking-wide uppercase text-[10px]">Sécurisation de la connexion en cours...</p>
         </div>
       </div>

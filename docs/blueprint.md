@@ -1,4 +1,4 @@
-# **App Name**: OmniStock Nexus
+# **App Name**: FODOBA IMPEX
 
 ## Core Features:
 

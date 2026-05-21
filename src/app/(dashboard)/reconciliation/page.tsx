@@ -176,83 +176,91 @@ export default function ReconciliationPage() {
     <div className="space-y-8 pb-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-[#111827]">Trésorerie & Caisse</h2>
-          <p className="text-muted-foreground text-[15px]">Cycle quotidien et rapprochement pour <strong>{activeStore?.name}</strong>.</p>
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">Trésorerie & Caisse</h1>
+          <p className="text-xs text-muted-foreground mt-1">Cycle quotidien et rapprochement pour <span className="font-semibold text-foreground">{activeStore?.name}</span>.</p>
         </div>
-        <div className="flex gap-3 w-full md:w-auto">
+        <div className="flex items-center gap-3 w-full md:w-auto">
           {activeSession ? (
             <Dialog open={isFundDialogOpen} onOpenChange={setIsFundDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" className="h-12 px-6 rounded-xl font-bold border-gray-200">
+                <Button variant="outline" className="h-10 px-4 border border-border bg-background hover:bg-muted text-foreground font-semibold rounded-xl text-xs transition-all flex-1 md:flex-none">
                   <ArrowRightLeft className="w-4 h-4 mr-2" /> Opération de Caisse
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md rounded-[24px]">
-                <DialogHeader>
-                  <DialogTitle className="text-xl">Alimentation / Retrait</DialogTitle>
-                  <DialogDescription>Enregistrez un mouvement de fonds exceptionnel (hors vente/dépense).</DialogDescription>
+              <DialogContent className="max-w-md rounded-2xl border bg-background shadow-lg p-0 overflow-hidden">
+                <DialogHeader className="p-6 bg-muted/30 border-b border-border">
+                  <DialogTitle className="text-xl font-bold text-foreground">Alimentation / Retrait</DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground mt-1">Enregistrez un mouvement de fonds exceptionnel (hors vente/dépense).</DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
+                
+                <div className="p-6 space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-[13px] font-bold text-gray-700">Type d'opération</Label>
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Type d'opération</Label>
                       <Select value={fundData.type} onValueChange={(v: any) => setFundData({...fundData, type: v})}>
-                        <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-gray-100">
+                        <SelectTrigger className="h-10 rounded-lg bg-background border-border text-sm">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="IN">Alimentation (+)</SelectItem>
-                          <SelectItem value="OUT">Retrait (-)</SelectItem>
+                        <SelectContent className="rounded-xl border-border shadow-md">
+                          <SelectItem value="IN" className="text-xs">Alimentation (+)</SelectItem>
+                          <SelectItem value="OUT" className="text-xs">Retrait (-)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[13px] font-bold text-gray-700">Ligne de caisse</Label>
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Ligne de caisse</Label>
                       <Select value={fundData.method} onValueChange={(v) => setFundData({...fundData, method: v})}>
-                        <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-gray-100">
+                        <SelectTrigger className="h-10 rounded-lg bg-background border-border text-sm">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          {PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m.replace('_', ' ')}</SelectItem>)}
+                        <SelectContent className="rounded-xl border-border shadow-md">
+                          {PAYMENT_METHODS.map(m => (
+                            <SelectItem key={m} value={m} className="text-xs">
+                              {m.replace('_', ' ')}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
+                  
                   <div className="space-y-2">
-                    <Label className="text-[13px] font-bold text-gray-700">Montant (FCFA)</Label>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Montant (FCFA)</Label>
                     <Input 
                       type="number" 
                       placeholder="0" 
                       value={fundData.amount} 
                       onChange={e => setFundData({...fundData, amount: e.target.value})}
-                      className="h-11 bg-gray-50 border-gray-100 rounded-xl font-bold text-lg"
+                      className="h-10 bg-background border-border rounded-lg font-bold text-[15px] focus-visible:ring-primary/20"
                     />
                   </div>
+                  
                   <div className="space-y-2">
-                    <Label className="text-[13px] font-bold text-gray-700">Motif du mouvement</Label>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Motif du mouvement</Label>
                     <Input 
                       placeholder="Ex: Apport fonds de roulement, retrait personnel..." 
                       value={fundData.reason} 
                       onChange={e => setFundData({...fundData, reason: e.target.value})}
-                      className="h-11 bg-gray-50 border-gray-100 rounded-xl"
+                      className="h-10 bg-background border-border rounded-lg text-sm focus-visible:ring-primary/20"
                     />
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" className="h-12 px-6 rounded-xl font-bold" onClick={() => setIsFundDialogOpen(false)}>Annuler</Button>
+                
+                <DialogFooter className="p-6 bg-muted/20 border-t border-border flex flex-row items-center justify-end gap-3">
+                  <Button variant="outline" className="h-10 px-4 rounded-xl text-xs font-semibold" onClick={() => setIsFundDialogOpen(false)}>Annuler</Button>
                   <Button 
-                    className="h-12 px-8 bg-primary hover:bg-primary/90 rounded-xl font-bold flex-1"
+                    className="h-10 px-6 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl shadow-sm flex-1 md:flex-none"
                     onClick={handleFundMovement}
                     disabled={processing}
                   >
-                    {processing ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
+                    {processing ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                     Valider le mouvement
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           ) : (
-            <Button onClick={handleOpenCash} disabled={processing} className="bg-primary hover:bg-primary/90 text-white font-bold h-12 px-8 rounded-xl shadow-lg shadow-primary/20 transition-all">
+            <Button onClick={handleOpenCash} disabled={processing} className="bg-primary hover:bg-primary/90 text-white font-semibold h-10 px-6 rounded-xl shadow-sm transition-all text-xs flex-1 md:flex-none">
               <Unlock className="w-4 h-4 mr-2" /> Ouvrir la Caisse
             </Button>
           )}
@@ -260,13 +268,13 @@ export default function ReconciliationPage() {
       </div>
 
       {!activeSession ? (
-        <Card className="border-none shadow-sm ring-1 ring-gray-100 bg-gray-50/50 rounded-[32px] overflow-hidden">
+        <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden bg-muted/10">
           <CardContent className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="bg-white p-6 rounded-3xl shadow-sm mb-6 ring-1 ring-gray-100">
-              <Lock className="w-12 h-12 text-gray-300" />
+            <div className="bg-background p-5 rounded-2xl border border-border shadow-sm mb-4">
+              <Lock className="w-12 h-12 text-muted-foreground/40" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900">Caisse Fermée</h3>
-            <p className="text-gray-400 max-w-md mt-2 font-medium">
+            <h3 className="text-xl font-bold text-foreground">Caisse Fermée</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mt-2">
               Aucune session de caisse n'est actuellement ouverte. Ouvrez la caisse pour enregistrer des ventes ou des dépenses.
             </p>
           </CardContent>
@@ -274,156 +282,176 @@ export default function ReconciliationPage() {
       ) : (
         <div className="grid gap-8 md:grid-cols-12 items-start">
           <div className="md:col-span-8 space-y-8">
-             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                {PAYMENT_METHODS.map(method => (
-                  <Card key={method} className="border-none shadow-sm ring-1 ring-gray-100 bg-white rounded-2xl">
-                    <CardHeader className="p-4 pb-2">
-                      <CardTitle className="text-[10px] uppercase font-bold text-gray-400 tracking-wider truncate">{method.replace('_', ' ')}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                      <div className="text-xl font-bold font-headline text-gray-900">{(activeSession.expectedBalances[method] || 0).toLocaleString()}</div>
-                    </CardContent>
-                  </Card>
-                ))}
-             </div>
-
-             <Card className="border-none shadow-sm ring-1 ring-gray-100 bg-white rounded-[24px] overflow-hidden">
-               <CardHeader className="p-6 border-b border-gray-50">
-                 <CardTitle className="flex items-center gap-3 text-lg">
-                    <div className="bg-primary/10 p-2 rounded-xl">
-                      <History className="w-5 h-5 text-primary" />
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              {PAYMENT_METHODS.map(method => (
+                <Card key={method} className="border bg-card rounded-2xl shadow-sm">
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider truncate">
+                      {method.replace('_', ' ')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <div className="text-xl font-bold font-headline text-foreground">
+                      {(activeSession.expectedBalances[method] || 0).toLocaleString()}
                     </div>
-                    Journal de Session
-                 </CardTitle>
-               </CardHeader>
-               <CardContent className="p-0">
-                  <ScrollArea className="h-[450px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
-                          <TableHead className="pl-6">Heure</TableHead>
-                          <TableHead>Source / Motif</TableHead>
-                          <TableHead>Mode</TableHead>
-                          <TableHead className="text-right pr-6">Montant</TableHead>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden">
+              <CardHeader className="p-6 border-b border-border">
+                <CardTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                  <div className="bg-primary/10 p-1.5 rounded-lg">
+                    <History className="w-4 h-4 text-primary" />
+                  </div>
+                  Journal de Session
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ScrollArea className="h-[450px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <TableHead className="py-4 pl-6 text-xs uppercase tracking-wider text-muted-foreground">Heure</TableHead>
+                        <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Source / Motif</TableHead>
+                        <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Mode</TableHead>
+                        <TableHead className="text-right pr-6 text-xs uppercase tracking-wider text-muted-foreground">Montant</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {movements.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic">
+                            Aucun mouvement enregistré.
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {movements.length === 0 ? (
-                          <TableRow><TableCell colSpan={4} className="text-center py-20 text-gray-400 italic">Aucun mouvement enregistré.</TableCell></TableRow>
-                        ) : (
-                          movements.map(m => (
-                            <TableRow key={m.id} className="hover:bg-gray-50/30 transition-colors">
-                              <TableCell className="text-[11px] font-bold text-gray-400 pl-6">{format(m.timestamp.toDate(), "HH:mm:ss")}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-col py-1">
-                                  <span className="text-[12px] font-bold text-gray-900 uppercase tracking-tight">{m.source.replace('_', ' ')}</span>
-                                  <span className="text-[11px] text-gray-400 line-clamp-1 font-medium">{m.description}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell><Badge variant="outline" className="text-[9px] font-bold bg-white text-gray-500 border-gray-200">{m.method}</Badge></TableCell>
-                              <TableCell className={cn(
-                                "text-right font-headline font-bold pr-6 text-[15px]",
-                                m.type === 'IN' ? 'text-emerald-600' : 'text-destructive'
-                              )}>
-                                {m.type === 'IN' ? '+' : '-'}{m.amount.toLocaleString()}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-               </CardContent>
-             </Card>
+                      ) : (
+                        movements.map(m => (
+                          <TableRow key={m.id} className="group hover:bg-muted/30 transition-colors">
+                            <TableCell className="py-4 pl-6 font-mono text-xs text-muted-foreground">
+                              {format(m.timestamp.toDate(), "HH:mm:ss")}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col py-0.5">
+                                <span className="text-xs font-semibold text-foreground uppercase tracking-tight">
+                                  {m.source.replace('_', ' ')}
+                                </span>
+                                <span className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
+                                  {m.description}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="font-semibold text-[9px] bg-background text-muted-foreground border-border">
+                                {m.method}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className={cn(
+                              "text-right pr-6 font-headline font-bold text-[14px]",
+                              m.type === 'IN' ? 'text-emerald-600' : 'text-destructive'
+                            )}>
+                              {m.type === 'IN' ? '+' : '-'}{m.amount.toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
           </div>
 
-          <Card className="md:col-span-4 border-none shadow-xl ring-1 ring-primary/10 bg-primary/5 rounded-[32px] overflow-hidden sticky top-6">
-            <CardHeader className="p-8 pb-4">
-              <CardTitle className="flex items-center gap-3 text-xl">
-                <div className="bg-white p-2 rounded-xl shadow-sm">
-                  <Wallet className="w-5 h-5 text-primary" />
+          <Card className="md:col-span-4 border border-primary/20 bg-primary/5 rounded-2xl shadow-sm overflow-hidden sticky top-6">
+            <CardHeader className="p-6 pb-2">
+              <CardTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                <div className="bg-background p-1.5 rounded-lg border border-border shadow-sm">
+                  <Wallet className="w-4 h-4 text-primary" />
                 </div>
                 Clôture de Session
               </CardTitle>
-              <CardDescription className="text-primary/60 font-medium">Saisissez les montants réellement comptés.</CardDescription>
+              <CardDescription className="text-xs text-primary/70 mt-1">Saisissez les montants réellement comptés.</CardDescription>
             </CardHeader>
-            <CardContent className="p-8 pt-4 space-y-4">
-               {PAYMENT_METHODS.map(method => {
-                  const expected = activeSession.expectedBalances[method] || 0;
-                  const actual = Number(actualBalances[method]) || 0;
-                  const variance = actual - expected;
+            <CardContent className="p-6 space-y-4">
+              {PAYMENT_METHODS.map(method => {
+                const expected = activeSession.expectedBalances[method] || 0;
+                const actual = Number(actualBalances[method]) || 0;
+                const variance = actual - expected;
 
-                  return (
-                    <div key={method} className="space-y-2 p-4 rounded-2xl bg-white/80 border border-white shadow-sm">
-                      <div className="flex justify-between items-center">
-                        <Label className="text-[11px] font-bold uppercase text-gray-400 tracking-wider">{method.replace('_', ' ')}</Label>
-                        <span className="text-[10px] font-bold text-primary/60">THÉORIQUE: {expected.toLocaleString()}</span>
-                      </div>
-                      <div className="relative">
-                        <Input 
-                          type="number" 
-                          placeholder="Compter..." 
-                          className="h-11 bg-white border-transparent rounded-xl focus:ring-4 focus:ring-primary/10 font-bold text-gray-900 pr-12"
-                          value={actualBalances[method]}
-                          onChange={e => setActualBalances(prev => ({ ...prev, [method]: e.target.value }))}
-                        />
-                        {actualBalances[method] && (
-                          <div className={cn(
-                            "absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold px-2 py-0.5 rounded-md",
-                            variance === 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'
-                          )}>
-                            {variance === 0 ? "OK" : `${variance > 0 ? '+' : ''}${variance.toLocaleString()}`}
-                          </div>
-                        )}
-                      </div>
+                return (
+                  <div key={method} className="space-y-1.5 p-3 rounded-xl bg-background border border-border shadow-sm">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                        {method.replace('_', ' ')}
+                      </Label>
+                      <span className="text-[9px] font-bold text-primary/70">THÉORIQUE: {expected.toLocaleString()}</span>
                     </div>
-                  )
-               })}
+                    <div className="relative">
+                      <Input 
+                        type="number" 
+                        placeholder="Compter..." 
+                        className="h-10 bg-background border-border rounded-lg focus-visible:ring-primary/20 font-bold text-foreground pr-14 text-sm"
+                        value={actualBalances[method]}
+                        onChange={e => setActualBalances(prev => ({ ...prev, [method]: e.target.value }))}
+                      />
+                      {actualBalances[method] && (
+                        <div className={cn(
+                          "absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold px-1.5 py-0.5 rounded",
+                          variance === 0 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-destructive/10 text-destructive border border-destructive/20'
+                        )}>
+                          {variance === 0 ? "OK" : `${variance > 0 ? '+' : ''}${variance.toLocaleString()}`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
 
-               <div className="space-y-2 pt-4">
-                  <Label className="text-[13px] font-bold text-primary/80 ml-1">Notes de clôture</Label>
-                  <Input 
-                    value={notes} 
-                    onChange={e => setNotes(e.target.value)} 
-                    placeholder="Observations, écarts..." 
-                    className="h-12 bg-white/50 border-white rounded-xl focus:bg-white transition-all"
-                  />
-               </div>
+              <div className="space-y-1.5 pt-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Notes de clôture</Label>
+                <Input 
+                  value={notes} 
+                  onChange={e => setNotes(e.target.value)} 
+                  placeholder="Observations, écarts..." 
+                  className="h-10 bg-background border-border rounded-lg text-sm"
+                />
+              </div>
             </CardContent>
-            <CardContent className="p-8 pt-0">
-               <Button 
-                className="w-full h-14 text-[15px] font-bold bg-primary hover:bg-primary/90 text-white rounded-2xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2" 
+            <CardContent className="p-6 pt-0">
+              <Button 
+                className="w-full h-11 text-[13px] font-bold bg-primary hover:bg-primary/90 text-white rounded-xl shadow-sm flex items-center justify-center gap-2" 
                 onClick={handleCloseCash} 
                 disabled={processing}
-               >
-                 {processing ? <Loader2 className="animate-spin mr-2 w-5 h-5" /> : <Lock className="mr-2 w-5 h-5" />}
-                 Clôturer la Journée
-               </Button>
+              >
+                {processing ? <Loader2 className="animate-spin mr-2 w-4 h-4" /> : <Lock className="mr-2 w-4 h-4" />}
+                Clôturer la Journée
+              </Button>
             </CardContent>
           </Card>
         </div>
       )}
 
-      <Card className="border-none shadow-sm ring-1 ring-gray-100 bg-white rounded-[24px] overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between p-6 border-b border-gray-50">
+      <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between p-6 border-b border-border gap-4">
           <div>
-            <CardTitle className="text-lg font-bold">Historique des Sessions</CardTitle>
-            <CardDescription className="font-medium">Dernières clôtures du réseau FODOBA IMPEX.</CardDescription>
+            <CardTitle className="text-base font-bold text-foreground">Historique des Sessions</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground mt-1">Dernières clôtures du réseau FODOBA IMPEX.</CardDescription>
           </div>
-          <Button variant="outline" size="sm" className="rounded-xl font-bold border-gray-200">
-            <ArrowDownToLine className="w-4 h-4 mr-2 text-gray-400" /> Rapport Consolidé
+          <Button variant="outline" size="sm" className="h-10 px-4 border border-border bg-background hover:bg-muted text-foreground font-semibold rounded-xl text-xs flex items-center gap-2">
+            <ArrowDownToLine className="w-4 h-4 text-muted-foreground" /> Rapport Consolidé
           </Button>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
-                <TableHead className="pl-6">Période</TableHead>
-                <TableHead>Caissier</TableHead>
-                <TableHead className="text-right">Attendu</TableHead>
-                <TableHead className="text-right">Réel</TableHead>
-                <TableHead className="text-center">Écarts</TableHead>
-                <TableHead className="pr-6">Statut</TableHead>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="py-4 pl-6 text-xs uppercase tracking-wider text-muted-foreground">Période</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Caissier</TableHead>
+                <TableHead className="text-right text-xs uppercase tracking-wider text-muted-foreground">Attendu</TableHead>
+                <TableHead className="text-right text-xs uppercase tracking-wider text-muted-foreground">Réel</TableHead>
+                <TableHead className="text-center text-xs uppercase tracking-wider text-muted-foreground">Écarts</TableHead>
+                <TableHead className="pr-6 text-xs uppercase tracking-wider text-muted-foreground">Statut</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -433,30 +461,32 @@ export default function ReconciliationPage() {
                 const totalVariance = session.variances ? Object.values(session.variances).reduce((a, b) => a + b, 0) : 0;
 
                 return (
-                  <TableRow key={session.id} className="hover:bg-gray-50/30 transition-colors">
-                    <TableCell className="pl-6">
+                  <TableRow key={session.id} className="group hover:bg-muted/30 transition-colors">
+                    <TableCell className="py-4 pl-6">
                       <div className="flex flex-col">
-                        <span className="text-[13px] font-bold text-gray-900">{format(session.openedAt.toDate(), "dd MMM yyyy", { locale: fr })}</span>
-                        <span className="text-[10px] font-medium text-gray-400">
+                        <span className="text-xs font-semibold text-foreground">
+                          {format(session.openedAt.toDate(), "dd MMM yyyy", { locale: fr })}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground mt-0.5">
                           {format(session.openedAt.toDate(), "HH:mm")} → {session.closedAt ? format(session.closedAt.toDate(), "HH:mm") : "En cours"}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-[13px] font-medium text-gray-600">{session.openedByName}</TableCell>
-                    <TableCell className="text-right font-headline font-bold text-gray-900">{totalExpected.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-headline font-bold text-gray-600">{totalActual.toLocaleString()}</TableCell>
+                    <TableCell className="text-xs font-medium text-muted-foreground">{session.openedByName}</TableCell>
+                    <TableCell className="text-right font-headline font-bold text-foreground">{totalExpected.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-headline font-bold text-muted-foreground">{totalActual.toLocaleString()}</TableCell>
                     <TableCell className="text-center">
                       <Badge variant={totalVariance === 0 ? "outline" : "destructive"} className={cn(
-                        "text-[10px] font-bold rounded-lg px-2.5",
-                        totalVariance === 0 ? "border-emerald-200 text-emerald-600" : ""
+                        "text-[9px] font-bold rounded px-1.5 py-0.5",
+                        totalVariance === 0 ? "border-emerald-500/20 text-emerald-600 bg-emerald-500/5" : ""
                       )}>
                         {totalVariance === 0 ? "CONFORME" : `${totalVariance > 0 ? '+' : ''}${totalVariance}`}
                       </Badge>
                     </TableCell>
                     <TableCell className="pr-6">
                       <Badge variant="secondary" className={cn(
-                        "font-bold text-[10px] rounded-lg px-2.5 py-1",
-                        session.status === "OPEN" ? "bg-primary/10 text-primary" : "bg-gray-100 text-gray-500"
+                        "font-bold text-[9px] rounded px-1.5 py-0.5",
+                        session.status === "OPEN" ? "bg-primary/10 text-primary border border-primary/20" : "bg-muted text-muted-foreground border border-border"
                       )}>
                         {session.status === "OPEN" ? "OUVERTE" : "CLÔTURÉE"}
                       </Badge>

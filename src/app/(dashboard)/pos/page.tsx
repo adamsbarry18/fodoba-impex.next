@@ -202,18 +202,18 @@ export default function POSPage() {
         
         {/* Left Column: Search & Products */}
         <div className="md:col-span-8 space-y-6">
-          <div className="flex gap-4">
+          <div className="flex gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Rechercher (Nom, SKU, Code-barres)..." 
-                className="pl-9 h-12 rounded-xl border-gray-100 bg-white"
+                className="pl-9 h-10 rounded-xl border bg-background"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-gray-100 bg-white">
-              <ScanLine className="h-5 w-5 text-gray-400" />
+            <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border bg-background hover:bg-secondary transition-colors">
+              <ScanLine className="h-4 w-4 text-muted-foreground" />
             </Button>
           </div>
 
@@ -221,21 +221,21 @@ export default function POSPage() {
             {filteredProducts.map((product) => (
               <Card 
                 key={product.id} 
-                className="cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all shadow-sm border-none bg-white rounded-[24px] overflow-hidden"
+                className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all shadow-sm border bg-card rounded-2xl overflow-hidden group"
                 onClick={() => addToCart(product)}
               >
                 <div className="p-6 space-y-4">
-                  <Badge variant="secondary" className="bg-gray-50 text-gray-400 border-none font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider">
+                  <Badge variant="secondary" className="bg-secondary/50 text-muted-foreground border-none font-semibold px-2 py-0.5 rounded-md text-[10px] uppercase tracking-wider">
                     {product.unit}
                   </Badge>
-                  <p className="font-bold text-[15px] text-gray-900 leading-tight line-clamp-2 min-h-[40px]">
+                  <p className="font-semibold text-sm leading-tight line-clamp-2 min-h-[40px] text-foreground">
                     {product.name}
                   </p>
                   <div className="flex items-center justify-between">
                     <div className="text-primary font-bold text-lg font-headline">
-                      {product.sellingPriceFCFA.toLocaleString()} <span className="text-[10px] font-medium text-gray-400 ml-1">FCFA</span>
+                      {product.sellingPriceFCFA.toLocaleString()} <span className="text-[10px] font-medium text-muted-foreground ml-1">FCFA</span>
                     </div>
-                    <div className="bg-primary/10 p-1.5 rounded-full text-primary">
+                    <div className="bg-primary/10 p-1.5 rounded-full text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-200">
                       <Plus className="w-4 h-4" />
                     </div>
                   </div>
@@ -261,27 +261,27 @@ export default function POSPage() {
 
         {/* Right Column: Panier */}
         <div className="md:col-span-4">
-          <Card className="border-none shadow-[0_10px_40px_rgba(0,0,0,0.04)] sticky top-6 bg-white rounded-[24px] overflow-hidden">
-            <CardHeader className="border-b border-gray-50 p-6 pb-4 flex flex-row items-center justify-between space-y-0">
+          <Card className="border bg-card shadow-sm sticky top-6 rounded-2xl overflow-hidden">
+            <CardHeader className="border-b border-border p-6 pb-4 flex flex-row items-center justify-between space-y-0">
               <div className="flex items-center gap-3">
-                <div className="bg-gray-50 p-2 rounded-xl">
-                  <ShoppingCart className="w-5 h-5 text-gray-400" />
+                <div className="bg-secondary p-2 rounded-xl text-muted-foreground">
+                  <ShoppingCart className="w-5 h-5" />
                 </div>
-                <CardTitle className="text-lg font-bold text-gray-900">Panier</CardTitle>
+                <CardTitle className="text-base font-bold text-foreground">Panier</CardTitle>
               </div>
-              <Badge variant="secondary" className="bg-primary/10 text-primary font-bold border-none rounded-full px-3 py-1 text-[11px]">
+              <Badge variant="secondary" className="bg-primary/10 text-primary font-semibold rounded-full px-2.5 py-0.5 text-[11px]">
                 {cart.length} articles
               </Badge>
             </CardHeader>
             <CardContent className="p-0">
               {/* Client Selection */}
-              <div className="p-6 border-b border-gray-50 space-y-4">
-                <Label className="text-[12px] font-bold uppercase text-gray-500 tracking-[0.1em] ml-1">CLIENT</Label>
+              <div className="p-6 border-b border-border space-y-2">
+                <Label className="text-[11px] font-semibold uppercase text-muted-foreground tracking-wider ml-1">CLIENT</Label>
                 <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                  <SelectTrigger className="h-14 rounded-2xl bg-gray-50 border-gray-50 text-[15px] font-bold text-gray-900 px-5">
+                  <SelectTrigger className="h-10 rounded-xl border border-input bg-background text-sm font-medium px-4">
                     <SelectValue placeholder="Client de passage" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-gray-100 shadow-xl">
+                  <SelectContent className="rounded-xl border shadow-md bg-popover text-popover-foreground">
                     <SelectItem value="none" className="font-medium">Client de passage</SelectItem>
                     {clients.map(c => (
                       <SelectItem key={c.id} value={c.id} className="font-medium">{c.name}</SelectItem>
@@ -294,44 +294,44 @@ export default function POSPage() {
               <ScrollArea className="h-[320px]">
                 {cart.length === 0 ? (
                   <div className="p-12 text-center flex flex-col items-center gap-3">
-                    <div className="bg-gray-50 p-4 rounded-full">
-                      <ShoppingCart className="w-8 h-8 text-gray-200" />
+                    <div className="bg-secondary/50 p-4 rounded-full text-muted-foreground/30">
+                      <ShoppingCart className="w-8 h-8" />
                     </div>
-                    <p className="text-gray-400 text-[13px] font-medium italic">Le panier est vide.</p>
+                    <p className="text-muted-foreground text-[13px] font-medium italic">Le panier est vide.</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-50">
+                  <div className="divide-y divide-border">
                     {cart.map((item) => (
-                      <div key={item.productId} className="p-5 flex items-center justify-between gap-4 group">
+                      <div key={item.productId} className="p-4 px-6 flex items-center justify-between gap-4 group">
                         <div className="flex-1 min-w-0">
-                          <p className="text-[14px] font-bold text-gray-900 leading-snug">{item.name}</p>
-                          <p className="text-[11px] text-gray-400 mt-0.5">{item.unitPrice.toLocaleString()} FCFA / unit.</p>
+                          <p className="text-sm font-semibold text-foreground leading-snug">{item.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{item.unitPrice.toLocaleString()} FCFA / unit.</p>
                         </div>
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2">
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-8 w-8 bg-gray-50 rounded-lg hover:bg-gray-100" 
+                            className="h-7 w-7 border border-input bg-background rounded-lg hover:bg-secondary transition-colors" 
                             onClick={() => updateQty(item.productId, -1)}
                           >
-                            <Minus className="h-3.5 w-3.5 text-gray-600" />
+                            <Minus className="h-3 w-3 text-muted-foreground" />
                           </Button>
-                          <span className="text-[14px] font-bold w-6 text-center text-gray-900">{item.quantity}</span>
+                          <span className="text-sm font-bold w-6 text-center text-foreground">{item.quantity}</span>
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-8 w-8 bg-gray-50 rounded-lg hover:bg-gray-100" 
+                            className="h-7 w-7 border border-input bg-background rounded-lg hover:bg-secondary transition-colors" 
                             onClick={() => updateQty(item.productId, 1)}
                           >
-                            <Plus className="h-3.5 w-3.5 text-gray-600" />
+                            <Plus className="h-3 w-3 text-muted-foreground" />
                           </Button>
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-8 w-8 text-gray-300 hover:text-destructive hover:bg-red-50 transition-colors" 
+                            className="h-7 w-7 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors rounded-lg" 
                             onClick={() => updateQty(item.productId, -item.quantity)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </div>
@@ -341,53 +341,53 @@ export default function POSPage() {
               </ScrollArea>
 
               {/* Totals & Checkout */}
-              <div className="p-8 bg-gray-50/50 border-t border-gray-50 space-y-8">
-                <div className="space-y-4">
-                  <div className="flex justify-between text-[14px]">
-                    <span className="text-gray-500 font-medium">Sous-total</span>
-                    <span className="font-bold text-gray-900">{subtotal.toLocaleString()} FCFA</span>
+              <div className="p-6 bg-muted/30 border-t border-border space-y-6">
+                <div className="space-y-3.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground font-medium">Sous-total</span>
+                    <span className="font-semibold text-foreground">{subtotal.toLocaleString()} FCFA</span>
                   </div>
-                  <div className="flex justify-between items-center text-[14px]">
-                    <span className="text-gray-500 font-medium">Remise</span>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground font-medium">Remise</span>
                     <Input 
                       type="number" 
-                      className="w-24 h-10 text-right px-4 rounded-xl bg-white border-gray-100 font-bold text-gray-900" 
+                      className="w-24 h-9 text-right px-3 rounded-lg border border-input bg-background font-semibold text-sm" 
                       value={discount} 
                       onChange={(e) => setDiscount(Number(e.target.value))} 
                     />
                   </div>
-                  <div className="flex justify-between items-center pt-5 border-t border-gray-200/50">
-                    <span className="font-bold text-gray-900 text-[15px] uppercase tracking-widest">TOTAL</span>
-                    <span className="text-3xl font-bold text-primary font-headline tracking-tight">{total.toLocaleString()} FCFA</span>
+                  <div className="flex justify-between items-center pt-4 border-t border-border">
+                    <span className="font-bold text-xs uppercase tracking-wider text-muted-foreground">TOTAL</span>
+                    <span className="text-2xl font-bold text-primary font-headline tracking-tight">{total.toLocaleString()} FCFA</span>
                   </div>
                 </div>
 
                 <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
                   <Button 
                     onClick={() => setIsPaymentOpen(true)}
-                    className="w-full h-16 text-xl bg-primary hover:bg-primary/90 text-white font-bold rounded-[20px] shadow-lg shadow-primary/20 transition-all active:scale-[0.98]" 
+                    className="w-full h-12 text-base bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200 active:scale-[0.98]" 
                     disabled={cart.length === 0}
                   >
                     Encaisser
                   </Button>
-                  <DialogContent className="max-w-md rounded-[32px] p-0 overflow-hidden border-none shadow-2xl">
-                    <DialogHeader className="p-8 bg-gray-50/50 border-b border-gray-100">
-                      <DialogTitle className="text-2xl font-bold text-gray-900">Règlement final</DialogTitle>
-                      <DialogDescription className="text-gray-500">Saisissez les montants perçus par mode de paiement.</DialogDescription>
+                  <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden border bg-background shadow-lg">
+                    <DialogHeader className="p-6 bg-muted/30 border-b border-border">
+                      <DialogTitle className="text-lg font-semibold text-foreground">Règlement final</DialogTitle>
+                      <DialogDescription className="text-sm text-muted-foreground">Saisissez les montants perçus par mode de paiement.</DialogDescription>
                     </DialogHeader>
-                    <div className="p-8 space-y-6">
-                      <div className="bg-primary/5 p-6 rounded-3xl flex items-center justify-between border border-primary/10">
-                        <span className="text-sm font-bold text-primary uppercase tracking-widest">Net à payer</span>
-                        <span className="text-3xl font-bold text-primary font-headline">{total.toLocaleString()} FCFA</span>
+                    <div className="p-6 space-y-6">
+                      <div className="bg-primary/5 p-4 rounded-xl flex items-center justify-between border border-primary/10">
+                        <span className="text-xs font-bold text-primary uppercase tracking-wider">Net à payer</span>
+                        <span className="text-2xl font-bold text-primary font-headline">{total.toLocaleString()} FCFA</span>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         {['CASH', 'ORANGE_MONEY', 'MOBILE_MONEY', 'CARD', 'TRANSFER'].map((method) => (
-                          <div key={method} className="space-y-2">
-                            <Label className="text-[11px] uppercase font-bold text-gray-400 tracking-wider ml-1">{method.replace('_', ' ')}</Label>
+                          <div key={method} className="space-y-1.5">
+                            <Label className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider ml-1">{method.replace('_', ' ')}</Label>
                             <Input 
                               type="number" 
                               placeholder="0" 
-                              className="h-12 bg-gray-50 border-transparent rounded-xl focus:bg-white font-bold text-gray-900"
+                              className="h-10 border border-input bg-background rounded-lg font-semibold text-foreground focus:ring-1 focus:ring-primary/20 text-sm"
                               value={paymentAmounts[method]}
                               onChange={(e) => setPaymentAmounts(prev => ({ ...prev, [method]: e.target.value }))}
                             />
@@ -395,16 +395,16 @@ export default function POSPage() {
                         ))}
                       </div>
                       {change > 0 && (
-                        <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100 flex justify-between items-center text-amber-700">
-                          <span className="text-[11px] font-bold uppercase tracking-widest">Monnaie à rendre</span>
-                          <span className="text-2xl font-bold font-headline">-{change.toLocaleString()} FCFA</span>
+                        <div className="p-4 bg-amber-500/5 rounded-xl border border-amber-500/10 flex justify-between items-center text-amber-600 dark:text-amber-500 text-sm font-medium">
+                          <span className="text-[10px] font-bold uppercase tracking-wider">Monnaie à rendre</span>
+                          <span className="text-xl font-bold font-headline">-{change.toLocaleString()} FCFA</span>
                         </div>
                       )}
                     </div>
-                    <DialogFooter className="p-8 bg-gray-50/50 border-t border-gray-100 flex-col sm:flex-row gap-3">
-                      <Button variant="outline" onClick={() => setIsPaymentOpen(false)} className="h-12 rounded-xl flex-1 font-bold">Annuler</Button>
+                    <DialogFooter className="p-6 bg-muted/30 border-t border-border flex-col sm:flex-row gap-2">
+                      <Button variant="outline" onClick={() => setIsPaymentOpen(false)} className="h-10 rounded-xl flex-1 font-medium">Annuler</Button>
                       <Button 
-                        className="bg-primary hover:bg-primary/90 h-12 rounded-xl flex-1 font-bold" 
+                        className="bg-primary hover:bg-primary/90 h-10 rounded-xl flex-1 font-semibold text-white" 
                         disabled={processing || (debtAmount > 0 && selectedClientId === "none") || (totalPaid === 0 && total > 0)}
                         onClick={handleCheckout}
                       >
@@ -415,10 +415,10 @@ export default function POSPage() {
                   </DialogContent>
                 </Dialog>
 
-                <div className="pt-2">
+                <div className="pt-1">
                   <Button 
                     variant="link" 
-                    className="w-full text-[12px] text-gray-400 h-auto p-0 flex items-center justify-center gap-2 font-bold hover:text-primary transition-colors" 
+                    className="w-full text-xs text-muted-foreground h-auto p-0 flex items-center justify-center gap-2 font-medium hover:text-primary transition-colors" 
                     onClick={() => lastSale && PrintService.generateThermalTicket(lastSale, activeStore!)}
                   >
                     <Printer className="h-4 w-4" /> Aperçu ticket thermique
@@ -432,17 +432,17 @@ export default function POSPage() {
 
       {/* Success Dialog */}
       <Dialog open={isSuccessOpen} onOpenChange={setIsSuccessOpen}>
-        <DialogContent className="max-w-sm text-center p-10 rounded-[40px] border-none shadow-2xl">
-          <div className="mx-auto bg-primary/10 p-6 rounded-full w-fit mb-6">
-            <CheckCircle2 className="h-12 w-12 text-primary" />
+        <DialogContent className="max-w-sm text-center p-6 rounded-2xl border bg-background shadow-lg">
+          <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-4">
+            <CheckCircle2 className="h-10 w-10 text-primary" />
           </div>
-          <DialogTitle className="text-2xl font-bold text-gray-900">Vente réussie !</DialogTitle>
-          <DialogDescription className="text-gray-500 mt-2">La transaction a été enregistrée avec succès dans le réseau FODOBA.</DialogDescription>
-          <div className="mt-10 space-y-4">
-            <Button onClick={() => lastSale && PrintService.generateThermalTicket(lastSale, activeStore!)} className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20">
-              <Printer className="mr-2 h-5 w-5" /> Imprimer le ticket
+          <DialogTitle className="text-xl font-semibold text-foreground">Vente réussie !</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground mt-2">La transaction a été enregistrée avec succès dans le réseau FODOBA.</DialogDescription>
+          <div className="mt-6 space-y-2">
+            <Button onClick={() => lastSale && PrintService.generateThermalTicket(lastSale, activeStore!)} className="w-full h-10 bg-primary text-white font-semibold rounded-xl shadow-sm hover:bg-primary/90">
+              <Printer className="mr-2 h-4 w-4" /> Imprimer le ticket
             </Button>
-            <Button variant="ghost" className="w-full h-12 text-gray-400 font-bold hover:text-gray-900" onClick={() => setIsSuccessOpen(false)}>
+            <Button variant="ghost" className="w-full h-10 text-muted-foreground hover:text-foreground font-medium rounded-xl hover:bg-secondary transition-colors" onClick={() => setIsSuccessOpen(false)}>
               Fermer
             </Button>
           </div>

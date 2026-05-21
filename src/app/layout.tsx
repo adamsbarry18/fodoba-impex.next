@@ -1,5 +1,5 @@
 
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
@@ -9,8 +9,8 @@ import { NotificationProvider } from "@/lib/contexts/NotificationContext";
 import { AuthLayoutWrapper } from "@/components/auth/auth-layout-wrapper";
 
 export const metadata: Metadata = {
-  title: 'OmniStock Nexus | FODOBA IMPEX',
-  description: 'Enterprise Grade Commercial Management Multi-Store POS & ERP',
+  title: 'FODOBA IMPEX',
+  description: 'Gestion Commerciale Multi-Boutiques',
 };
 
 export default function RootLayout({

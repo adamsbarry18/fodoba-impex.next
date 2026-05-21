@@ -196,29 +196,29 @@ export default function DashboardPage() {
           <p className="text-[13px] font-bold text-primary/60 uppercase tracking-widest mb-1">
             {format(new Date(), "EEEE, d MMMM yyyy", { locale: fr })}
           </p>
-          <h1 className="text-4xl font-bold tracking-tight text-[#111827]">
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">
             Bonjour <span className="text-primary">{userProfile?.prenom}</span>
           </h1>
-          <p className="text-xs text-muted-foreground mt-1">Boutique active : <span className="font-bold text-gray-900">{activeStore?.name}</span></p>
+          <p className="text-xs text-muted-foreground mt-1">Boutique active : <span className="font-semibold text-foreground">{activeStore?.name}</span></p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
           <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-full md:w-[220px] h-12 bg-white border-gray-100 rounded-xl shadow-sm text-[13px] font-bold text-gray-600 focus:ring-4 focus:ring-primary/5 transition-all">
+            <SelectTrigger className="w-full md:w-[220px] h-10 bg-background border-border rounded-xl text-[13px] font-medium text-muted-foreground focus:ring-2 focus:ring-primary/5 transition-all">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-primary" />
                 <SelectValue placeholder="Période" />
               </div>
             </SelectTrigger>
-            <SelectContent className="rounded-xl border-gray-100 shadow-xl">
-              <SelectItem value="24h" className="text-[13px] py-2.5">Dernières 24h</SelectItem>
-              <SelectItem value="7d" className="text-[13px] py-2.5">7 derniers jours</SelectItem>
-              <SelectItem value="30d" className="text-[13px] py-2.5">30 derniers jours</SelectItem>
-              <SelectItem value="3m" className="text-[13px] py-2.5">3 derniers mois</SelectItem>
-              <SelectItem value="12m" className="text-[13px] py-2.5">12 derniers mois</SelectItem>
+            <SelectContent className="rounded-xl border-border shadow-md">
+              <SelectItem value="24h" className="text-[13px] py-2">Dernières 24h</SelectItem>
+              <SelectItem value="7d" className="text-[13px] py-2">7 derniers jours</SelectItem>
+              <SelectItem value="30d" className="text-[13px] py-2">30 derniers jours</SelectItem>
+              <SelectItem value="3m" className="text-[13px] py-2">3 derniers mois</SelectItem>
+              <SelectItem value="12m" className="text-[13px] py-2">12 derniers mois</SelectItem>
             </SelectContent>
           </Select>
           
-          <Button className="h-12 px-8 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all text-[14px]" asChild>
+          <Button className="h-10 px-6 bg-primary hover:bg-primary/90 text-white font-medium rounded-xl transition-all text-[14px]" asChild>
             <Link href="/pos">
               Vente
             </Link>
@@ -227,80 +227,80 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden ring-1 ring-gray-100">
+        <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400">CA Boutique</CardTitle>
+            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">CA Boutique</CardTitle>
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-headline text-gray-900">{formatAmount(stats.periodRevenue)}</div>
-            <p className="text-[10px] text-gray-400 mt-1 font-medium">{stats.salesCount} transactions locale(s)</p>
+            <div className="text-2xl font-bold font-headline text-foreground">{formatAmount(stats.periodRevenue)}</div>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">{stats.salesCount} transaction(s) locale(s)</p>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden ring-1 ring-gray-100">
+        <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Créances Clients</CardTitle>
+            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Créances Clients</CardTitle>
             <CreditCard className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold font-headline text-destructive">{formatAmount(stats.totalClientDebt)}</div>
-            <p className="text-[10px] text-gray-400 mt-1 font-medium">Encours global réseau</p>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">Encours global réseau</p>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden ring-1 ring-gray-100">
+        <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Dettes Fournisseurs</CardTitle>
+            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Dettes Fournisseurs</CardTitle>
             <Truck className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-headline text-gray-900">{formatAmount(stats.totalSupplierDebt)}</div>
-            <p className="text-[10px] text-gray-400 mt-1 font-medium">Global FODOBA</p>
+            <div className="text-2xl font-bold font-headline text-foreground">{formatAmount(stats.totalSupplierDebt)}</div>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">Global FODOBA</p>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden ring-1 ring-gray-100">
+        <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Trésorerie Locale</CardTitle>
+            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Trésorerie Locale</CardTitle>
             <ShoppingCart className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-headline text-gray-900">{formatAmount(cashSession?.expectedBalances?.CASH || 0)}</div>
-            <p className="text-[10px] text-gray-400 mt-1 font-medium">Espèces en caisse</p>
+            <div className="text-2xl font-bold font-headline text-foreground">{formatAmount(cashSession?.expectedBalances?.CASH || 0)}</div>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">Espèces en caisse</p>
           </CardContent>
         </Card>
       </div>
 
       {lowStockItems.length > 0 && (
-        <Card className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white rounded-[24px] ring-1 ring-red-100 overflow-hidden">
+        <Card className="border border-red-500/10 bg-red-500/5 rounded-2xl shadow-sm overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between p-6 pb-4">
             <div className="flex items-center gap-3">
-              <div className="bg-red-50 p-2 rounded-xl">
+              <div className="bg-red-500/10 p-2 rounded-xl">
                 <AlertCircle className="h-5 w-5 text-red-500" />
               </div>
               <div>
-                <CardTitle className="text-[17px] font-bold text-gray-900">Alertes de stock</CardTitle>
-                <p className="text-[11px] text-red-400 font-medium">Produits en rupture à {activeStore?.code}</p>
+                <CardTitle className="text-[17px] font-bold text-foreground">Alertes de stock</CardTitle>
+                <p className="text-[11px] text-red-500/80 font-medium">Produits en rupture à {activeStore?.code}</p>
               </div>
             </div>
-            <Button variant="link" className="text-primary font-bold text-[13px] h-auto p-0 flex items-center gap-1.5" asChild>
+            <Button variant="link" className="text-primary font-semibold text-[13px] h-auto p-0 flex items-center gap-1.5" asChild>
               <Link href="/inventory">
                 Voir tout <ChevronRight className="w-4 h-4" />
               </Link>
             </Button>
           </CardHeader>
           <CardContent className="p-6 pt-0">
-            <div className="space-y-2">
+            <div className="grid gap-2 sm:grid-cols-2">
               {lowStockItems.slice(0, 4).map((item) => (
                 <Link key={item.id} href={`/inventory/${item.id}`}>
-                  <div className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-2xl hover:border-primary/20 transition-all group">
-                    <span className="text-[14px] font-bold text-gray-700 group-hover:text-primary transition-colors">{item.name}</span>
+                  <div className="flex items-center justify-between p-4 bg-background border border-border rounded-xl hover:border-red-500/30 transition-all group">
+                    <span className="text-[14px] font-bold text-foreground group-hover:text-primary transition-colors">{item.name}</span>
                     <div className="flex items-center gap-3">
                       <span className="text-[15px] font-headline font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-lg">
                         {item.currentStock}
                       </span>
-                      <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-primary transition-all" />
+                      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-all" />
                     </div>
                   </div>
                 </Link>
@@ -311,15 +311,15 @@ export default function DashboardPage() {
       )}
 
       <div className="grid gap-6 md:grid-cols-7">
-        <Card className="md:col-span-4 border-none shadow-sm bg-white rounded-[24px] ring-1 ring-gray-100">
+        <Card className="md:col-span-4 border bg-card rounded-2xl shadow-sm overflow-hidden">
           <CardHeader>
-            <CardTitle className="text-lg font-bold text-gray-900">Performance - {activeStore?.code}</CardTitle>
+            <CardTitle className="text-lg font-bold text-foreground">Performance - {activeStore?.code}</CardTitle>
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={stats.chartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                   <XAxis dataKey="name" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
                   <YAxis stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v / 1000}k`} />
                   <ChartTooltip content={<ChartTooltipContent />} />
@@ -330,25 +330,25 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-3 border-none shadow-sm bg-white rounded-[24px] ring-1 ring-gray-100">
+        <Card className="md:col-span-3 border bg-card rounded-2xl shadow-sm overflow-hidden">
           <CardHeader>
-            <CardTitle className="text-lg font-bold text-gray-900">Ventes Locales</CardTitle>
+            <CardTitle className="text-lg font-bold text-foreground">Ventes Locales</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5">
+          <CardContent className="space-y-4">
             {sales.slice(0, 6).map((sale) => (
-              <div key={sale.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-gray-50 transition-colors group">
+              <div key={sale.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-colors group">
                 <div className="flex items-center gap-4">
                   <div className="bg-primary/10 p-2.5 rounded-xl group-hover:bg-primary/20 transition-colors">
                     <ShoppingCart className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <p className="text-[12px] font-bold text-gray-900 uppercase">#{sale.id.slice(-6)}</p>
-                    <p className="text-[11px] text-gray-400 font-medium">{sale.clientName || "Passage"}</p>
+                    <p className="text-[12px] font-bold text-foreground uppercase">#{sale.id.slice(-6)}</p>
+                    <p className="text-[11px] text-muted-foreground font-medium">{sale.clientName || "Passage"}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-[14px] font-bold text-gray-900">{formatAmount(sale.total)}</p>
-                  <p className="text-[9px] text-gray-400">{sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'HH:mm') : ''}</p>
+                  <p className="text-[14px] font-bold text-foreground">{formatAmount(sale.total)}</p>
+                  <p className="text-[9px] text-muted-foreground">{sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'HH:mm') : ''}</p>
                 </div>
               </div>
             ))}

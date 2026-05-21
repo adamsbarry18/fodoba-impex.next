@@ -53,21 +53,21 @@ export default function LandedCostPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Analyse du Coût de Revient</h1>
-        <p className="text-muted-foreground">
+    <div className="max-w-5xl mx-auto space-y-8 pb-10">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-4xl font-bold tracking-tight text-foreground">Analyse du Coût de Revient</h1>
+        <p className="text-xs text-muted-foreground mt-1">
           Outil de calcul pour déterminer le coût total des marchandises importées en incluant les droits et la logistique.
         </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Paramètres de Calcul</CardTitle>
-            <CardDescription>Saisissez les détails de l'approvisionnement pour déterminer le coût final.</CardDescription>
+        <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden">
+          <CardHeader className="p-6 border-b border-border bg-muted/30">
+            <CardTitle className="text-lg font-bold text-foreground">Paramètres de Calcul</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground mt-1">Saisissez les détails de l'approvisionnement pour déterminer le coût final.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -76,9 +76,9 @@ export default function LandedCostPage() {
                     name="purchasePrice"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Prix Unitaire</FormLabel>
+                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Prix Unitaire</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" {...field} />
+                          <Input type="number" step="0.01" {...field} className="h-10 bg-background border-border rounded-lg text-sm focus-visible:ring-primary/20" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -89,17 +89,17 @@ export default function LandedCostPage() {
                     name="purchaseCurrency"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Devise d'Origine</FormLabel>
+                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Devise d'Origine</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="h-10 bg-background border-border rounded-lg text-sm focus:ring-primary/20">
                               <SelectValue placeholder="Choisir" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value="USD">USD ($)</SelectItem>
-                            <SelectItem value="EUR">EUR (€)</SelectItem>
-                            <SelectItem value="CNY">CNY (¥)</SelectItem>
+                          <SelectContent className="rounded-xl border-border shadow-md">
+                            <SelectItem value="USD" className="text-xs">USD ($)</SelectItem>
+                            <SelectItem value="EUR" className="text-xs">EUR (€)</SelectItem>
+                            <SelectItem value="CNY" className="text-xs">CNY (¥)</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -113,9 +113,9 @@ export default function LandedCostPage() {
                   name="transportFees"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Logistique & Transport</FormLabel>
+                      <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Logistique & Transport</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" {...field} />
+                        <Input type="number" step="0.01" {...field} className="h-10 bg-background border-border rounded-lg text-sm focus-visible:ring-primary/20" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -128,9 +128,9 @@ export default function LandedCostPage() {
                     name="customsDutyPercentage"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Droits de Douane (%)</FormLabel>
+                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Droits de Douane (%)</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} />
+                          <Input type="number" {...field} className="h-10 bg-background border-border rounded-lg text-sm focus-visible:ring-primary/20" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -141,9 +141,9 @@ export default function LandedCostPage() {
                     name="otherFees"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Autres Frais</FormLabel>
+                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Autres Frais</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" {...field} />
+                          <Input type="number" step="0.01" {...field} className="h-10 bg-background border-border rounded-lg text-sm focus-visible:ring-primary/20" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -151,22 +151,22 @@ export default function LandedCostPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
                   <FormField
                     control={form.control}
                     name="targetCurrency"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Devise de Destination</FormLabel>
+                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Devise de Destination</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="h-10 bg-background border-border rounded-lg text-sm focus:ring-primary/20">
                               <SelectValue placeholder="Choisir" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value="FCFA">FCFA</SelectItem>
-                            <SelectItem value="GNF">GNF</SelectItem>
+                          <SelectContent className="rounded-xl border-border shadow-md">
+                            <SelectItem value="FCFA" className="text-xs">FCFA</SelectItem>
+                            <SelectItem value="GNF" className="text-xs">GNF</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -178,18 +178,18 @@ export default function LandedCostPage() {
                     name="exchangeRateToTargetCurrency"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Taux de Change</FormLabel>
+                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Taux de Change</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.0001" {...field} />
+                          <Input type="number" step="0.0001" {...field} className="h-10 bg-background border-border rounded-lg text-sm focus-visible:ring-primary/20" />
                         </FormControl>
-                        <FormDescription>Valeur pour 1 unité d'origine</FormDescription>
+                        <FormDescription className="text-[10px] text-muted-foreground mt-1">Valeur pour 1 unité d'origine</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
 
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="w-full h-10 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl shadow-sm transition-all text-sm" disabled={loading}>
                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
                   Lancer le Calcul
                 </Button>
@@ -201,49 +201,49 @@ export default function LandedCostPage() {
         <div className="space-y-6">
           {result ? (
             <>
-              <Card className="border-accent">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Coût de Revient Total</CardTitle>
+              <Card className="border border-primary/20 bg-primary/5 rounded-2xl shadow-sm overflow-hidden">
+                <CardHeader className="p-6 pb-2">
+                  <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-primary">Coût de Revient Total</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-6 pt-2">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold font-headline">
+                    <span className="text-4xl font-bold font-headline text-foreground">
                       {result.totalLandedCostInTargetCurrency.toLocaleString()}
                     </span>
-                    <span className="text-xl font-medium text-accent">
+                    <span className="text-xl font-semibold text-primary">
                       {form.getValues().targetCurrency}
                     </span>
                   </div>
-                  <div className="mt-4 flex items-center text-sm text-muted-foreground">
-                    <TrendingUp className="w-4 h-4 mr-1 text-accent" />
+                  <div className="mt-4 flex items-center text-xs text-muted-foreground font-medium">
+                    <TrendingUp className="w-4 h-4 mr-1 text-primary" />
                     Taux utilisé: 1 {form.getValues().purchaseCurrency} = {result.exchangeRateUsed} {form.getValues().targetCurrency}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Détails des Coûts</CardTitle>
-                  <CardDescription>Valeurs en {form.getValues().purchaseCurrency} (Devise d'origine)</CardDescription>
+              <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden">
+                <CardHeader className="p-6 border-b border-border bg-muted/30">
+                  <CardTitle className="text-base font-bold text-foreground">Détails des Coûts</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground mt-1">Valeurs en {form.getValues().purchaseCurrency} (Devise d'origine)</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center py-2 border-b border-dashed">
-                    <span className="text-sm text-muted-foreground">Prix d'Achat de Base</span>
-                    <span className="font-medium">{result.costBreakdown.purchasePrice.toFixed(2)}</span>
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex justify-between items-center py-2 border-b border-border border-dashed text-sm">
+                    <span className="text-muted-foreground">Prix d'Achat de Base</span>
+                    <span className="font-semibold text-foreground">{result.costBreakdown.purchasePrice.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-dashed">
-                    <span className="text-sm text-muted-foreground">Transport & Logistique</span>
-                    <span className="font-medium text-destructive">+{result.costBreakdown.transportFees.toFixed(2)}</span>
+                  <div className="flex justify-between items-center py-2 border-b border-border border-dashed text-sm">
+                    <span className="text-muted-foreground">Transport & Logistique</span>
+                    <span className="font-semibold text-destructive">+{result.costBreakdown.transportFees.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-dashed">
-                    <span className="text-sm text-muted-foreground">Droits de Douane ({form.getValues().customsDutyPercentage}%)</span>
-                    <span className="font-medium text-destructive">+{result.costBreakdown.customsDuty.toFixed(2)}</span>
+                  <div className="flex justify-between items-center py-2 border-b border-border border-dashed text-sm">
+                    <span className="text-muted-foreground">Droits de Douane ({form.getValues().customsDutyPercentage}%)</span>
+                    <span className="font-semibold text-destructive">+{result.costBreakdown.customsDuty.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-dashed">
-                    <span className="text-sm text-muted-foreground">Autres Frais de Dossier</span>
-                    <span className="font-medium text-destructive">+{result.costBreakdown.otherFees.toFixed(2)}</span>
+                  <div className="flex justify-between items-center py-2 border-b border-border border-dashed text-sm">
+                    <span className="text-muted-foreground">Autres Frais de Dossier</span>
+                    <span className="font-semibold text-destructive">+{result.costBreakdown.otherFees.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center pt-2 font-bold">
+                  <div className="flex justify-between items-center pt-2 font-bold text-foreground text-base">
                     <span>Sous-total</span>
                     <span>{result.totalLandedCostInOriginalCurrency.toFixed(2)} {form.getValues().purchaseCurrency}</span>
                   </div>
@@ -251,10 +251,12 @@ export default function LandedCostPage() {
               </Card>
             </>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-12 text-center bg-muted/20">
-              <Calculator className="w-12 h-12 text-muted-foreground/30 mb-4" />
-              <h3 className="text-lg font-medium text-muted-foreground">En attente de saisie</h3>
-              <p className="text-sm text-muted-foreground/60 max-w-[250px]">
+            <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-border rounded-2xl p-12 text-center bg-card shadow-sm">
+              <div className="bg-muted/50 p-4 rounded-xl border border-border mb-4">
+                <Calculator className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">En attente de saisie</h3>
+              <p className="text-xs text-muted-foreground max-w-[280px] mt-2">
                 Remplissez les paramètres à gauche et lancez le calcul pour voir l'analyse détaillée.
               </p>
             </div>

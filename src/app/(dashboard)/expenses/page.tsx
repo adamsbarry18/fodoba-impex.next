@@ -162,87 +162,99 @@ export default function ExpensesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 pb-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Gestion des Dépenses</h1>
-          <p className="text-muted-foreground">Suivez les charges opérationnelles de <strong>{activeStore?.name}</strong>.</p>
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">Gestion des Dépenses</h1>
+          <p className="text-xs text-muted-foreground mt-1">Suivez les charges opérationnelles de <span className="font-semibold text-foreground">{activeStore?.name}</span>.</p>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
-          <Button variant="outline" onClick={handleExportCSV} className="flex-1 md:flex-none">
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <Button 
+            variant="outline" 
+            onClick={handleExportCSV} 
+            className="h-10 px-4 border border-border bg-background hover:bg-muted text-foreground font-semibold rounded-xl text-xs flex-1 md:flex-none transition-all"
+          >
             <Download className="w-4 h-4 mr-2" /> Export CSV
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button className="flex-1 md:flex-none bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all">
+              <Button className="h-10 px-4 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl shadow-sm transition-all text-xs flex-1 md:flex-none">
                 <Plus className="w-4 h-4 mr-2" /> Nouvelle Dépense
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md rounded-[24px]">
-              <DialogHeader>
-                <DialogTitle className="text-xl">Enregistrer une dépense</DialogTitle>
-                <DialogDescription>Cette action débitera immédiatement la caisse active.</DialogDescription>
+            <DialogContent className="max-w-md rounded-2xl border bg-background shadow-lg p-0 overflow-hidden">
+              <DialogHeader className="p-6 bg-muted/30 border-b border-border">
+                <DialogTitle className="text-xl font-bold text-foreground">Enregistrer une dépense</DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-1">Cette action débitera immédiatement la caisse active.</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
+              
+              <div className="p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-[13px] font-bold text-gray-700">Montant (FCFA)</Label>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Montant (FCFA)</Label>
                     <Input 
                       type="number" 
                       value={amount} 
                       onChange={e => setAmount(e.target.value)} 
                       placeholder="0" 
-                      className="h-11 bg-gray-50 border-gray-100 rounded-xl font-bold text-lg"
+                      className="h-10 bg-background border-border rounded-lg font-bold text-[15px] focus-visible:ring-primary/20"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[13px] font-bold text-gray-700">Catégorie</Label>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Catégorie</Label>
                     <Select value={category} onValueChange={setCategory}>
-                      <SelectTrigger className="h-11 bg-gray-50 border-gray-100 rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      <SelectTrigger className="h-10 bg-background border-border rounded-lg text-sm focus:ring-primary/20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-border shadow-md">
+                        {CATEGORIES.map(c => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
+                
                 <div className="space-y-2">
-                  <Label className="text-[13px] font-bold text-gray-700">Libellé / Motif</Label>
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Libellé / Motif</Label>
                   <Input 
                     value={label} 
                     onChange={e => setLabel(e.target.value)} 
                     placeholder="Ex: Facture EDM Mai 2026" 
-                    className="h-11 bg-gray-50 border-gray-100 rounded-xl"
+                    className="h-10 bg-background border-border rounded-lg text-sm focus-visible:ring-primary/20"
                   />
                 </div>
+                
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-[13px] font-bold text-gray-700">Mode de règlement</Label>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Mode de règlement</Label>
                     <Select value={method} onValueChange={setMethod}>
-                      <SelectTrigger className="h-11 bg-gray-50 border-gray-100 rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        {METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                      <SelectTrigger className="h-10 bg-background border-border rounded-lg text-sm focus:ring-primary/20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-border shadow-md">
+                        {METHODS.map(m => <SelectItem key={m} value={m} className="text-xs">{m.replace('_', ' ')}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[13px] font-bold text-gray-700">Justificatif (Réf)</Label>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/80">Justificatif (Réf)</Label>
                     <Input 
                       value={notes} 
                       onChange={e => setNotes(e.target.value)} 
                       placeholder="N° Facture..." 
-                      className="h-11 bg-gray-50 border-gray-100 rounded-xl"
+                      className="h-10 bg-background border-border rounded-lg text-sm focus-visible:ring-primary/20"
                     />
                   </div>
                 </div>
               </div>
-              <DialogFooter className="gap-3">
-                <Button variant="outline" className="h-12 px-6 rounded-xl font-bold" onClick={() => setOpen(false)}>Annuler</Button>
+              
+              <DialogFooter className="p-6 bg-muted/20 border-t border-border flex flex-row items-center justify-end gap-3">
+                <Button variant="outline" className="h-10 px-4 rounded-xl text-xs font-semibold" onClick={() => setOpen(false)}>Annuler</Button>
                 <Button 
                   onClick={handleSubmit} 
                   disabled={submitting} 
-                  className="h-12 px-8 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-lg shadow-primary/20 flex-1"
+                  className="h-10 px-6 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl shadow-sm flex-1 md:flex-none"
                 >
-                  {submitting ? <Loader2 className="animate-spin mr-2" /> : <Wallet className="mr-2" />}
+                  {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Wallet className="mr-2 h-4 w-4" />}
                   Valider la Sortie
                 </Button>
               </DialogFooter>
@@ -251,110 +263,111 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-white border-none shadow-sm ring-1 ring-gray-100 rounded-2xl overflow-hidden">
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-xs uppercase text-muted-foreground flex items-center">
-              <TrendingDown className="w-3 h-3 mr-1" /> Dépenses du mois
-            </CardTitle>
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Dépenses du mois</CardTitle>
+            <TrendingDown className="h-4 w-4 text-destructive" />
           </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold font-headline">{stats.totalThisMonth.toLocaleString()} FCFA</div>
-            <p className="text-[10px] text-muted-foreground mt-1">Arrêté au {format(new Date(), "dd MMMM", { locale: fr })}</p>
+          <CardContent>
+            <div className="text-2xl font-bold font-headline text-foreground">{stats.totalThisMonth.toLocaleString()} FCFA</div>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">Arrêté au {format(new Date(), "dd MMMM", { locale: fr })}</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-none shadow-sm ring-1 ring-gray-100 rounded-2xl overflow-hidden">
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-xs uppercase text-muted-foreground flex items-center">
-              <PieChart className="w-3 h-3 mr-1" /> Poste Principal
-            </CardTitle>
+        <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Poste Principal</CardTitle>
+            <PieChart className="h-4 w-4 text-primary" />
           </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold">{stats.topCategory}</div>
-            <div className="flex justify-between items-center mt-1">
-               <span className="text-[10px] text-muted-foreground">Consommé: {stats.topCategoryAmount.toLocaleString()} FCFA</span>
-            </div>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">{stats.topCategory}</div>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">Consommé: {stats.topCategoryAmount.toLocaleString()} FCFA</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-none shadow-sm ring-1 ring-gray-100 rounded-2xl overflow-hidden">
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-xs uppercase text-muted-foreground flex items-center">
-              <FileText className="w-3 h-3 mr-1" /> Volume d'écritures
-            </CardTitle>
+        <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Volume d'écritures</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold">{stats.count}</div>
-            <p className="text-[10px] text-muted-foreground mt-1">Opérations enregistrées au total</p>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">{stats.count}</div>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">Opérations enregistrées au total</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex gap-4 items-center">
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Filtrer par motif ou catégorie..." 
-            className="pl-9 h-11 bg-white border-gray-100 rounded-xl"
+            className="pl-9 h-10 bg-background border-border rounded-xl text-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[180px] h-11 rounded-xl border-gray-100">
-            <Filter className="w-3 h-3 mr-2" />
-            <SelectValue placeholder="Catégorie" />
+          <SelectTrigger className="w-full sm:w-[220px] h-10 bg-background border-border rounded-xl text-[13px] font-medium text-muted-foreground focus:ring-2 focus:ring-primary/5 transition-all">
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-primary" />
+              <SelectValue placeholder="Catégorie" />
+            </div>
           </SelectTrigger>
-          <SelectContent className="rounded-xl">
-            <SelectItem value="all">Toutes les catégories</SelectItem>
-            {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          <SelectContent className="rounded-xl border-border shadow-md">
+            <SelectItem value="all" className="text-xs">Toutes les catégories</SelectItem>
+            {CATEGORIES.map(c => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
 
-      <Card className="border-none shadow-sm ring-1 ring-gray-100 rounded-2xl overflow-hidden">
+      <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden">
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center p-12"><Loader2 className="animate-spin text-accent" /></div>
+            <div className="flex justify-center p-12"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Date & Heure</TableHead>
-                  <TableHead>Catégorie / Motif</TableHead>
-                  <TableHead>Mode</TableHead>
-                  <TableHead>Auteur</TableHead>
-                  <TableHead className="text-right">Montant (FCFA)</TableHead>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="py-4 pl-6 text-xs uppercase tracking-wider text-muted-foreground">Date & Heure</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Catégorie / Motif</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Mode</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Auteur</TableHead>
+                  <TableHead className="text-right pr-6 text-xs uppercase tracking-wider text-muted-foreground">Montant (FCFA)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredExpenses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">Aucune dépense trouvée.</TableCell>
+                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground italic">Aucune dépense trouvée.</TableCell>
                   </TableRow>
                 ) : (
                   filteredExpenses.map(e => (
-                    <TableRow key={e.id}>
-                      <TableCell className="text-[10px] whitespace-nowrap">
+                    <TableRow key={e.id} className="group hover:bg-muted/30 transition-colors">
+                      <TableCell className="py-4 pl-6 font-mono text-xs text-muted-foreground">
                         {e.timestamp?.toDate ? format(e.timestamp.toDate(), "dd/MM/yyyy HH:mm", { locale: fr }) : "-"}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-bold flex items-center gap-1 text-sm">
-                            <Tag className="w-3 h-3 text-muted-foreground" /> {e.category}
+                          <span className="font-semibold text-foreground text-sm flex items-center gap-1.5">
+                            <Tag className="w-3.5 h-3.5 text-primary" /> {e.category}
                           </span>
-                          <span className="text-[11px] text-muted-foreground">{e.label}</span>
-                          {e.notes && <span className="text-[9px] italic text-muted-foreground mt-0.5">Réf: {e.notes}</span>}
+                          <span className="text-xs text-muted-foreground mt-0.5">{e.label}</span>
+                          {e.notes && <span className="text-[10px] italic text-muted-foreground mt-1 bg-muted/40 px-2 py-0.5 rounded border border-border/50 w-max">Réf: {e.notes}</span>}
                         </div>
                       </TableCell>
-                      <TableCell><Badge variant="outline" className="text-[9px]">{e.method.replace('_', ' ')}</Badge></TableCell>
-                      <TableCell className="text-[10px]">
-                         <div className="flex items-center gap-1">
-                            <User className="w-3 h-3 text-muted-foreground" /> {e.performedByName}
-                         </div>
+                      <TableCell>
+                        <Badge variant="outline" className="font-semibold text-[10px] bg-background text-muted-foreground border-border">
+                          {e.method.replace('_', ' ')}
+                        </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-headline font-bold text-destructive">
+                      <TableCell>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <User className="w-3.5 h-3.5 text-muted-foreground/70" /> {e.performedByName}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right pr-6 font-headline font-bold text-destructive text-base">
                         -{e.amount.toLocaleString()}
                       </TableCell>
                     </TableRow>
