@@ -35,6 +35,7 @@ export default function CategoriesPage() {
       setCategories(data)
     } catch (error) {
       toast.error("Erreur lors du chargement des catégories")
+      console.error(error)
     } finally {
       setLoading(false)
     }
@@ -66,6 +67,7 @@ export default function CategoriesPage() {
       loadCategories()
     } catch (error) {
       toast.error("Erreur lors de la suppression")
+      console.error(error)
     }
   }
 
