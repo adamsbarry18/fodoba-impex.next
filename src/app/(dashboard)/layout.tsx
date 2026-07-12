@@ -8,6 +8,7 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { NotificationPanel } from "@/components/notifications/notification-panel"
+import { StoreReadyGate } from "@/components/auth/store-ready-gate"
 import { cn } from "@/lib/utils"
 
 export default function DashboardLayout({
@@ -34,7 +35,7 @@ export default function DashboardLayout({
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border bg-card shadow-sm">
             <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
               <div className="mx-auto w-full max-w-[1600px] p-4 md:p-8">
-                {children}
+                <StoreReadyGate>{children}</StoreReadyGate>
               </div>
             </div>
           </div>

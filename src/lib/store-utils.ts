@@ -34,3 +34,95 @@ export function formatStoreCreatedAt(createdAt: Store["createdAt"]): Date | null
   if (!createdAt) return null
   return createdAt.toDate ? createdAt.toDate() : new Date(createdAt)
 }
+
+const LEGACY_ACTIVE_STORE_KEY = "activeStoreId"
+const ACTIVE_STORE_KEY_PREFIX = "activeStoreId:"
+
+export function getActiveStoreStorageKey(uid: string): string {
+  return `${ACTIVE_STORE_KEY_PREFIX}${uid}`
+}
+
+export function readSavedActiveStoreId(uid: string): string | null {
+  return localStorage.getItem(getActiveStoreStorageKey(uid))
+}
+
+export function writeSavedActiveStoreId(uid: string, storeId: string): void {
+  localStorage.setItem(getActiveStoreStorageKey(uid), storeId)
+  localStorage.removeItem(LEGACY_ACTIVE_STORE_KEY)
+}
+
+/** Supprime uniquement l'ancienne clé globale (migration). */
+export function clearLegacyActiveStoreKey(): void {
+  localStorage.removeItem(LEGACY_ACTIVE_STORE_KEY)
+}
+
+export type StoreSelectionSource = "single" | "saved" | "default"
+
+export interface ResolvedStoreSelection {
+  store: Store | null
+  source: StoreSelectionSource | null
+}
+
+function sortStoresByName(stores: Store[]): Store[] {
+  return [...stores].sort((a, b) => a.name.localeCompare(b.name, "fr"))
+}
+
+/**
+ * Choisit la boutique active parmi celles autorisées :
+ * 1. dernière boutique utilisée (localStorage par uid)
+ * 2. première boutique assignée au profil (ordre boutiqueIds)
+ * 3. première boutique par nom (fallback admin/manager)
+ */
+export function resolveActiveStore(
+  stores: Store[],
+  savedId: string | null,
+  preferredDefaultId?: string | null
+): ResolvedStoreSelection {
+  if (stores.length === 0) {
+    return { store: null, source: null }
+  }
+
+  if (savedId) {
+    const savedMatch = stores.find((store) => store.id === savedId)
+    if (savedMatch) {
+      return {
+        store: savedMatch,
+        source: stores.length === 1 ? "single" : "saved",
+      }
+    }
+  }
+
+  if (preferredDefaultId) {
+    const preferredMatch = stores.find((store) => store.id === preferredDefaultId)
+    if (preferredMatch) {
+      return {
+        store: preferredMatch,
+        source: stores.length === 1 ? "single" : "default",
+      }
+    }
+  }
+
+  const [store] = sortStoresByName(stores)
+  return {
+    store: store ?? null,
+    source: stores.length === 1 ? "single" : "default",
+  }
+}
+
+const STORE_WELCOME_SESSION_PREFIX = "storeWelcome:"
+
+export function getStoreWelcomeSessionKey(uid: string): string {
+  return `${STORE_WELCOME_SESSION_PREFIX}${uid}`
+}
+
+export function clearStoreWelcomeSession(uid: string): void {
+  sessionStorage.removeItem(getStoreWelcomeSessionKey(uid))
+}
+
+export function hasStoreWelcomeBeenShown(uid: string): boolean {
+  return sessionStorage.getItem(getStoreWelcomeSessionKey(uid)) === "1"
+}
+
+export function markStoreWelcomeShown(uid: string): void {
+  sessionStorage.setItem(getStoreWelcomeSessionKey(uid), "1")
+}

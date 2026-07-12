@@ -17,18 +17,18 @@ Lors de la rédaction ou mise à jour de documentation dans ce dépôt, suivre c
 ## Emplacement
 
 ### Documentation projet
-- `README.md` — vue d'ensemble, quick start, architecture, déploiement, règles Firestore
-- `.env.example` — variables Firebase à copier vers `.env.local`
-- `firestore.rules` — règles sécurité Firestore (à publier dans Firebase Console)
-- `docs/` — documentation technique transverse :
-  - `docs/cahier_de_charges.md` — CDC v1.0 (source métier)
-  - `docs/blueprint.md` — spec produit
+- `README.md` - vue d'ensemble, quick start, architecture, déploiement, règles Firestore
+- `.env.example` - variables Firebase à copier vers `.env.local`
+- `firestore.rules` - règles sécurité Firestore (à publier dans Firebase Console)
+- `docs/` - documentation technique transverse :
+  - `docs/cahier_de_charges.md` - CDC v1.0 (source métier)
+  - `docs/blueprint.md` - spec produit
 
 ### Documentation spécifique au code
-- **Cursor Skills** (`.cursor/skills/fodoba/`) — conventions code pour agents IA (`SKILL.md` + `reference.md`)
+- **Cursor Skills** (`.cursor/skills/fodoba/`) - conventions code pour agents IA (`SKILL.md` + `reference.md`)
 - **Cursor Rules** (`.cursor/rules/`) :
-  - `fodoba-code.mdc` — conventions TypeScript/React (`src/**`)
-  - `documentation.mdc` — rédaction documentation (`docs/**`, `README.md`)
+  - `fodoba-code.mdc` - conventions TypeScript/React (`src/**`)
+  - `documentation.mdc` - rédaction documentation (`docs/**`, `README.md`)
 
 ### Documents de revue / analyse
 - Créer un sous-dossier `docs/reviews/`
@@ -86,7 +86,7 @@ Les documents décrivent **CE QUE le système EST**, pas ce qui a changé.
 - Notifications : collection Firestore `notifications` (pas localStorage)
 - Devise de référence : **FCFA**
 - Rôles : `admin`, `manager`, `seller` (lowercase)
-- Règles Firestore : `firestore.rules` à la racine — documenter le déploiement Console ou `firebase deploy --only firestore:rules`
+- Règles Firestore : `firestore.rules` à la racine - documenter le déploiement Console ou `firebase deploy --only firestore:rules`
 - Requêtes client : filtre `storeId` requis quand les règles utilisent `isStoreAuthorized`
 - Offline/IndexedDB : documenter comme non implémenté tant qu'absent du code
 

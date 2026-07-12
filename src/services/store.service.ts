@@ -105,10 +105,16 @@ export const StoreService = {
 
   async getStoresByIds(ids: string[]) {
     if (!ids.length) return [];
-    // Firestore limited to 10 in 'in' queries, we handle it simply for small sets
-    const q = query(collection(db, COLLECTION_NAME), where("id", "in", ids));
-    const snap = await getDocs(q);
-    return snap.docs.map(doc => doc.data() as Store);
+
+    const uniqueIds = [...new Set(ids)];
+    const stores = await Promise.all(
+      uniqueIds.map(async (id) => {
+        const snap = await getDoc(doc(db, COLLECTION_NAME, id));
+        return snap.exists() ? (snap.data() as Store) : null;
+      })
+    );
+
+    return stores.filter((store): store is Store => store !== null);
   },
 
   async toggleStoreStatus(id: string, active: boolean) {

@@ -54,7 +54,7 @@ export default function LoginPage() {
       footer={
         <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
           <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          Connexion sécurisée — en cas de problème, contactez votre administrateur.
+          Connexion sécurisée - en cas de problème, contactez votre administrateur.
         </p>
       }
     >
