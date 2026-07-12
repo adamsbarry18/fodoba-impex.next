@@ -17,10 +17,10 @@ Lors de la rédaction ou mise à jour de documentation dans ce dépôt, suivre c
 ## Emplacement
 
 ### Documentation projet
-- `README.md` — vue d'ensemble, setup, déploiement Vercel
-- `docs/` — documentation technique transverse :
-  - `docs/cahier_de_charges.md` — CDC v1.0 (source métier)
-  - `docs/blueprint.md` — spec produit
+- `README.md` -vue d'ensemble, setup, déploiement Vercel
+- `docs/` -documentation technique transverse :
+  - `docs/cahier_de_charges.md` -CDC v1.0 (source métier)
+  - `docs/blueprint.md` -spec produit
 
 ### Documentation spécifique au code
 - Préférer les **Cursor Skills** (`.cursor/skills/fodoba/`) pour les conventions de code IA
@@ -33,7 +33,7 @@ Lors de la rédaction ou mise à jour de documentation dans ce dépôt, suivre c
 
 ## Structure des dossiers
 
-Garder les dossiers plats — ne pas imbriquer pour 2-3 fichiers :
+Garder les dossiers plats -ne pas imbriquer pour 2-3 fichiers :
 
 ```
 ✅ Bon :
@@ -54,8 +54,8 @@ docs/
 ### Descriptions autonomes
 Les documents décrivent **CE QUE le système EST**, pas ce qui a changé.
 
-**Mauvais :** « Nouvelle optimisation CI/CD — le workflow détecte… »
-**Bon :** « Pipeline CI/CD — le workflow détecte… »
+**Mauvais :** « Nouvelle optimisation CI/CD -le workflow détecte… »
+**Bon :** « Pipeline CI/CD -le workflow détecte… »
 
 ### À éviter
 - Titres « New Implementation », « Optimization », « Changes », « Migration »
@@ -64,9 +64,9 @@ Les documents décrivent **CE QUE le système EST**, pas ce qui a changé.
 - Milliers de lignes illisibles
 
 ### Concision et actionnabilité
-- **Exemples plutôt qu'explications** — montrer des commandes
-- **Commandes copiables** — prêtes à exécuter
-- **Moins de 500 lignes** par fichier — scinder si nécessaire
+- **Exemples plutôt qu'explications** -montrer des commandes
+- **Commandes copiables** -prêtes à exécuter
+- **Moins de 500 lignes** par fichier -scinder si nécessaire
 
 ### Sections recommandées
 1. **Quick Start** (< 5 commandes)
@@ -87,7 +87,7 @@ Les documents décrivent **CE QUE le système EST**, pas ce qui a changé.
 ## Cross-références
 
 - Mettre à jour **toutes** les références lors d'un déplacement/renommage
-- Chemins relatifs : `[CDC](cahier_de_charges.md)` — pas de chemins absolus `/docs/...`
+- Chemins relatifs : `[CDC](cahier_de_charges.md)` -pas de chemins absolus `/docs/...`
 
 ## Checklist avant commit doc
 

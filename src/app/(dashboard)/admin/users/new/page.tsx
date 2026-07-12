@@ -3,25 +3,51 @@
 
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { UserProfileSchema, UserProfile, Store } from "@/lib/types"
+import { UserProfileSchema, Store, Role } from "@/lib/types"
 import { UserService } from "@/services/user.service"
 import { StoreService } from "@/services/store.service"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from "@/components/ui/form"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowLeft, Loader2, UserPlus, Key } from "lucide-react"
+import {
+  ArrowLeft,
+  Loader2,
+  UserPlus,
+  Key,
+  Shield,
+  Store as StoreIcon,
+  Info,
+} from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { z } from "zod"
+import { ROLE_META, ROLE_ORDER } from "@/lib/user-utils"
+import { StatusBadge } from "@/components/ui/status-badge"
+import { cn } from "@/lib/utils"
 
-const FormSchema = UserProfileSchema.omit({ uid: true }).extend({
-  password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères")
-})
+const FormSchema = UserProfileSchema.omit({ uid: true })
+  .extend({
+    password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
+  })
+  .refine(
+    (data) => data.role === "admin" || (data.boutiqueIds?.length ?? 0) > 0,
+    {
+      message: "Sélectionnez au moins une boutique pour ce rôle.",
+      path: ["boutiqueIds"],
+    }
+  )
 
 type FormValues = z.infer<typeof FormSchema>
 
@@ -29,7 +55,7 @@ export default function NewUserPage() {
   const router = useRouter()
   const [stores, setStores] = useState<Store[]>([])
   const [loadingStores, setLoadingStores] = useState(true)
-  
+
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -40,61 +66,91 @@ export default function NewUserPage() {
       boutiqueIds: [],
       actif: true,
       password: "",
+      phone: "",
     },
   })
 
+  const selectedRole = form.watch("role")
+
   useEffect(() => {
+    let cancelled = false
+
     const loadStores = async () => {
       try {
         const result = await StoreService.listStores(100)
-        setStores(result.stores)
-      } catch (error) {
-        toast.error("Impossible de charger les boutiques")
+        if (!cancelled) setStores(result.stores)
+      } catch {
+        if (!cancelled) toast.error("Impossible de charger les boutiques")
       } finally {
-        setLoadingStores(false)
+        if (!cancelled) setLoadingStores(false)
       }
     }
+
     loadStores()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const onSubmit = async (values: FormValues) => {
     try {
       await UserService.createCollaborator(values)
-      toast.success("Utilisateur créé avec succès")
+      toast.success("Collaborateur créé avec succès")
       router.push("/admin/users")
-    } catch (error: any) {
-      toast.error(error.message || "Erreur lors de la création")
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Erreur lors de la création"
+      toast.error(message)
     }
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6 pb-8">
+      {/* En-tête */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
+        <Button variant="ghost" size="icon" asChild className="rounded-xl">
           <Link href="/admin/users">
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <h1 className="text-3xl font-bold tracking-tight text-[#111827]">Nouveau Collaborateur</h1>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <UserPlus className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Nouveau collaborateur</h1>
+            <p className="text-sm text-muted-foreground">
+              Création du compte Auth et du profil d&apos;accès.
+            </p>
+          </div>
+        </div>
       </div>
 
-      <Card className="border-none shadow-sm rounded-[24px] overflow-hidden bg-white ring-1 ring-gray-100">
-        <CardHeader className="p-8 pb-4">
-          <CardTitle className="text-xl">Profil & Accès</CardTitle>
-          <CardDescription>L'UID sera généré automatiquement par le système.</CardDescription>
-        </CardHeader>
-        <CardContent className="p-8 pt-4">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Identité & connexion */}
+          <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+            <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
+              <CardTitle className="text-base">Identité & connexion</CardTitle>
+              <CardDescription className="text-xs">
+                L&apos;identifiant (UID) sera généré automatiquement par Firebase Auth.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[13px] font-bold text-gray-700">Email professionnel</FormLabel>
+                      <FormLabel required>Email professionnel</FormLabel>
                       <FormControl>
-                        <Input placeholder="nom@fodoba.com" className="h-11 bg-gray-50 border-gray-100 rounded-xl" {...field} />
+                        <Input
+                          type="email"
+                          placeholder="nom@fodoba.com"
+                          className="h-10 rounded-xl"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -105,28 +161,36 @@ export default function NewUserPage() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[13px] font-bold text-gray-700">Mot de passe provisoire</FormLabel>
+                      <FormLabel required>Mot de passe provisoire</FormLabel>
                       <FormControl>
                         <div className="relative">
-                          <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <Input type="password" placeholder="••••••••" className="h-11 pl-10 bg-gray-50 border-gray-100 rounded-xl" {...field} />
+                          <Key className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            type="password"
+                            placeholder="••••••••"
+                            className="h-10 rounded-xl pl-10"
+                            {...field}
+                          />
                         </div>
                       </FormControl>
+                      <FormDescription className="text-[11px]">
+                        Minimum 6 caractères. À communiquer au collaborateur.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="prenom"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[13px] font-bold text-gray-700">Prénom</FormLabel>
+                      <FormLabel required>Prénom</FormLabel>
                       <FormControl>
-                        <Input className="h-11 bg-gray-50 border-gray-100 rounded-xl" {...field} />
+                        <Input className="h-10 rounded-xl" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -137,9 +201,9 @@ export default function NewUserPage() {
                   name="nom"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[13px] font-bold text-gray-700">Nom</FormLabel>
+                      <FormLabel required>Nom</FormLabel>
                       <FormControl>
-                        <Input className="h-11 bg-gray-50 border-gray-100 rounded-xl" {...field} />
+                        <Input className="h-10 rounded-xl" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -149,83 +213,199 @@ export default function NewUserPage() {
 
               <FormField
                 control={form.control}
-                name="role"
+                name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-[13px] font-bold text-gray-700">Rôle du système</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-11 bg-gray-50 border-gray-100 rounded-xl">
-                          <SelectValue placeholder="Sélectionner un rôle" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="admin">Admin (Accès total)</SelectItem>
-                        <SelectItem value="manager">Gérant (Gestion de boutiques)</SelectItem>
-                        <SelectItem value="seller">Vendeur (Caisse & Stock local)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Téléphone</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="+224 6XX XX XX XX"
+                        className="h-10 rounded-xl"
+                        {...field}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            </CardContent>
+          </Card>
 
-              <div className="space-y-4">
-                <FormLabel className="text-[13px] font-bold text-gray-700">Assignation aux Boutiques</FormLabel>
-                <div className="grid grid-cols-2 gap-3 border rounded-2xl p-6 bg-gray-50/50">
-                  {loadingStores ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    stores.map((store) => (
-                      <FormField
-                        key={store.id}
-                        control={form.control}
-                        name="boutiqueIds"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-2 hover:bg-white rounded-lg transition-colors">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(store.id)}
-                                onCheckedChange={(checked) => {
-                                  return checked
-                                    ? field.onChange([...field.value, store.id])
-                                    : field.onChange(
-                                        field.value?.filter((value) => value !== store.id)
-                                      )
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="text-sm font-medium cursor-pointer">
-                              {store.name} <span className="text-xs text-gray-400 font-mono ml-1">({store.code})</span>
-                            </FormLabel>
-                          </FormItem>
-                        )}
-                      />
-                    ))
-                  )}
+          {/* Rôle */}
+          <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+            <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Shield className="h-4 w-4 text-primary" />
+                Rôle & permissions
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Détermine les actions autorisées dans l&apos;application.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="grid gap-3">
+                      {ROLE_ORDER.map((role) => {
+                        const meta = ROLE_META[role]
+                        const Icon = meta.icon
+                        const selected = field.value === role
+
+                        return (
+                          <button
+                            key={role}
+                            type="button"
+                            onClick={() => field.onChange(role as Role)}
+                            className={cn(
+                              "flex items-start gap-4 rounded-xl border p-4 text-left transition-colors",
+                              selected
+                                ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                                : "border-border bg-background hover:bg-muted/30"
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                                selected
+                                  ? "bg-primary/10 text-primary"
+                                  : "bg-muted text-muted-foreground"
+                              )}
+                            >
+                              <Icon className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold">{meta.label}</p>
+                                <StatusBadge tone={meta.tone} className="text-[9px]">
+                                  {meta.shortLabel}
+                                </StatusBadge>
+                              </div>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {meta.description}
+                              </p>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Boutiques */}
+          <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+            <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <StoreIcon className="h-4 w-4 text-primary" />
+                Boutiques autorisées
+              </CardTitle>
+              <CardDescription className="text-xs">
+                {selectedRole === "admin"
+                  ? "Les administrateurs ont accès à l'ensemble du réseau."
+                  : "Cochez les boutiques visibles par ce collaborateur."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              {selectedRole === "admin" ? (
+                <div className="flex items-start gap-3 rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <p>
+                    Aucune assignation requise - le rôle administrateur couvre toutes
+                    les boutiques et les paramètres système.
+                  </p>
                 </div>
-                <p className="text-[11px] text-gray-400 font-medium italic">
-                  Les vendeurs et gérants ne voient que les données des boutiques cochées.
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-4 pt-6">
-                <Button variant="outline" type="button" className="h-12 px-8 rounded-xl" onClick={() => router.back()}>
-                  Annuler
-                </Button>
-                <Button type="submit" disabled={form.formState.isSubmitting} className="h-12 px-10 bg-primary hover:bg-primary/90 rounded-xl font-bold">
-                  {form.formState.isSubmitting ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <UserPlus className="w-4 h-4 mr-2" />
+              ) : loadingStores ? (
+                <div className="flex justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : stores.length === 0 ? (
+                <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  Aucune boutique disponible. Créez d&apos;abord une boutique dans
+                  l&apos;administration.
+                </div>
+              ) : (
+                <FormField
+                  control={form.control}
+                  name="boutiqueIds"
+                  render={() => (
+                    <FormItem>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {stores.map((store) => (
+                          <FormField
+                            key={store.id}
+                            control={form.control}
+                            name="boutiqueIds"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center gap-3 rounded-xl border bg-background p-3 transition-colors hover:bg-muted/20">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(store.id)}
+                                    onCheckedChange={(checked) => {
+                                      const current = field.value ?? []
+                                      field.onChange(
+                                        checked
+                                          ? [...current, store.id]
+                                          : current.filter((id) => id !== store.id)
+                                      )
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormLabel className="cursor-pointer font-normal">
+                                  <span className="text-sm font-medium">{store.name}</span>
+                                  <StatusBadge
+                                    hashFromLabel
+                                    className="ml-2 text-[9px] font-mono"
+                                  >
+                                    {store.code}
+                                  </StatusBadge>
+                                </FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        ))}
+                      </div>
+                      <FormDescription className="text-[11px]">
+                        Les gérants et vendeurs ne voient que les données des boutiques
+                        cochées.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                  Enregistrer le collaborateur
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              type="button"
+              className="rounded-xl font-semibold"
+              onClick={() => router.back()}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              disabled={form.formState.isSubmitting}
+              className="rounded-xl font-semibold"
+            >
+              {form.formState.isSubmitting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="mr-2 h-4 w-4" />
+              )}
+              Enregistrer le collaborateur
+            </Button>
+          </div>
+        </form>
+      </Form>
     </div>
   )
 }

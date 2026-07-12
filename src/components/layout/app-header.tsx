@@ -3,7 +3,8 @@
 import React, { memo } from "react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/ui/user-avatar"
+import { StatusBadge } from "@/components/ui/status-badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  AppHeaderIconButton,
+  appDropdownContentClass,
+  appDropdownItemClass,
+  appDropdownItemDestructiveClass,
+} from "@/components/layout/nav-menu-items"
 
 interface AppHeaderProps {
   onNotifOpen: () => void
@@ -35,76 +42,73 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
   const { userProfile, logout } = useAuth()
   const { unreadCount } = useNotifications()
 
+  const role = userProfile?.role ?? "seller"
+
   return (
     <header
       className={cn(
         "sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3",
-        "bg-sidebar px-3 text-sidebar-foreground",
-        "sm:gap-4 sm:px-4 md:px-6"
+        "bg-sidebar pl-0 pr-3 text-sidebar-foreground",
+        "sm:gap-4 sm:pr-4 md:pr-6"
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         <SidebarTrigger
           className={cn(
-            "h-9 w-auto shrink-0 rounded-lg border-0 text-sidebar-foreground",
-            "md:w-9 md:min-w-9 md:justify-center",
-            "bg-transparent hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+            "h-9 w-9 min-w-9 shrink-0 gap-0 rounded-lg border-0 p-0 text-sidebar-foreground",
+            "justify-center [&>span]:sr-only",
+            "-ml-0.5",
+            "bg-transparent hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
           )}
         />
         {availableStores.length > 0 ? (
           <div className="flex min-w-0 shrink-0 items-center gap-1 sm:gap-1.5">
-            <Select
-              value={activeStore?.id}
-              onValueChange={setActiveStoreById}
-            >
+            <Select value={activeStore?.id} onValueChange={setActiveStoreById}>
               <SelectTrigger
                 className={cn(
-                  "h-8 min-h-8 w-auto max-w-[min(calc(100vw-9.5rem),240px)] shrink-0 rounded-lg border-sidebar-border/60",
+                  "h-8 min-h-8 w-auto max-w-[min(calc(100vw-9.5rem),240px)] shrink-0 rounded-lg border border-sidebar-border/60",
                   "sm:h-9 sm:min-h-9",
                   "bg-transparent text-sidebar-foreground shadow-none",
                   "hover:bg-sidebar-accent/80 hover:data-[state=open]:bg-sidebar-accent/80",
                   "hover:text-sidebar-accent-foreground",
-                  "justify-start gap-1.5 px-2 py-0 text-[13px] font-semibold border",
+                  "justify-start gap-1.5 px-2.5 py-0 text-[13px] font-semibold",
                   "[&>span]:min-w-0 [&>span]:shrink [&>span]:truncate",
-                  "[&>svg]:size-3.5 [&>svg]:shrink-0"
+                  "[&>svg]:size-3.5 [&>svg]:shrink-0",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
                 )}
                 aria-label="Boutique active"
               >
                 <StoreIcon className="opacity-80" aria-hidden />
                 <SelectValue placeholder="Choisir une boutique" />
               </SelectTrigger>
-              <SelectContent align="start" className="z-[200]">
-                {availableStores.map((s) => (
-                  <SelectItem key={s.id} value={s.id} className="text-xs">
-                    {s.name} ({s.code})
+              <SelectContent align="start" className="z-[200] rounded-xl">
+                {availableStores.map((store) => (
+                  <SelectItem
+                    key={store.id}
+                    value={store.id}
+                    className="rounded-lg text-xs"
+                  >
+                    {store.name} ({store.code})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
         ) : (
-          <div className="text-[12px] font-medium text-muted-foreground italic group-data-[collapsible=icon]:hidden">
+          <div className="text-[12px] font-medium italic text-muted-foreground group-data-[collapsible=icon]:hidden">
             Aucune boutique assignée
           </div>
         )}
       </div>
 
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
-        <button
-          className={cn(
-            "h-9 w-9 flex items-center justify-center rounded-lg text-sidebar-foreground transition-colors relative",
-            "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-          )}
+        <AppHeaderIconButton
+          icon={Bell}
+          label="Notifications"
           onClick={onNotifOpen}
-          aria-label="Notifications"
-        >
-          <Bell className="w-4 h-4 shrink-0" />
-          {unreadCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white ring-2 ring-background">
-              {unreadCount}
-            </span>
-          )}
-        </button>
+          badge={unreadCount}
+        />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -113,18 +117,22 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
               className={cn(
                 "h-9 gap-2 rounded-lg px-2 text-sidebar-foreground",
                 "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground",
-                "sm:pl-2 sm:pr-2.5"
+                "sm:pl-2 sm:pr-2.5",
+                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
               )}
               aria-label="Menu du compte"
             >
-              <Avatar className="h-8 w-8 border border-sidebar-border bg-primary flex items-center justify-center">
-                {userProfile?.photoURL ? (
-                  <AvatarImage src={userProfile.photoURL} />
-                ) : null}
-                <AvatarFallback className="bg-transparent text-white font-bold text-[11px]">
-                  {userProfile?.prenom?.[0].toUpperCase()}{userProfile?.nom?.[0].toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar
+                user={{
+                  uid: userProfile?.uid,
+                  email: userProfile?.email,
+                  prenom: userProfile?.prenom ?? "",
+                  nom: userProfile?.nom ?? "",
+                  photoURL: userProfile?.photoURL,
+                }}
+                size="sm"
+                className="border border-sidebar-border"
+              />
               <span className="hidden max-w-[10rem] truncate text-sm font-bold sm:inline">
                 {userProfile?.prenom}
               </span>
@@ -134,37 +142,49 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
               />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" sideOffset={8}>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="truncate text-sm font-bold leading-none text-popover-foreground">
-                  {userProfile?.prenom} {userProfile?.nom}
-                </p>
-                {userProfile?.email ? (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {userProfile.email}
+          <DropdownMenuContent
+            className={cn(appDropdownContentClass, "w-60")}
+            align="end"
+            sideOffset={8}
+          >
+            <DropdownMenuLabel className="px-3 py-3 font-normal">
+              <div className="flex items-start gap-3">
+                <UserAvatar
+                  user={{
+                    uid: userProfile?.uid,
+                    email: userProfile?.email,
+                    prenom: userProfile?.prenom ?? "",
+                    nom: userProfile?.nom ?? "",
+                    photoURL: userProfile?.photoURL,
+                  }}
+                  size="md"
+                  className="border border-border"
+                />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="truncate text-sm font-bold leading-none text-popover-foreground">
+                    {userProfile?.prenom} {userProfile?.nom}
                   </p>
-                ) : null}
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-0.5">
-                  {userProfile?.role === 'admin' ? 'Admin' : userProfile?.role === 'manager' ? 'Gérant' : 'Vendeur'}
-                </p>
+                  {userProfile?.email ? (
+                    <p className="truncate text-xs text-muted-foreground">{userProfile.email}</p>
+                  ) : null}
+                  <StatusBadge preset="userRole" value={role} className="text-[10px]" />
+                </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              asChild
-              className="cursor-pointer px-3 py-2.5 rounded-lg focus:bg-sidebar-accent focus:text-sidebar-accent-foreground data-[highlighted]:bg-sidebar-accent data-[highlighted]:text-sidebar-accent-foreground"
-            >
-              <Link href="/profile" className="flex items-center gap-3">
-                <UserCircle className="h-4 w-4 text-muted-foreground" />
+            <DropdownMenuItem asChild className={appDropdownItemClass}>
+              <Link href="/profile" className="flex items-center gap-2.5">
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted/60">
+                  <UserCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                </span>
                 Mon profil
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              className="cursor-pointer text-destructive focus:bg-sidebar-accent focus:text-destructive data-[highlighted]:bg-sidebar-accent data-[highlighted]:text-destructive gap-3 px-3 py-2.5 rounded-lg"
-              onClick={logout}
-            >
-              <LogOut className="h-4 w-4" />
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className={appDropdownItemDestructiveClass} onClick={logout}>
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-destructive/10">
+                <LogOut className="h-3.5 w-3.5" />
+              </span>
               Se déconnecter
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -101,6 +101,50 @@ export const ProductService = {
     );
   },
 
+  /** Recherche exacte code-barres / SKU / ID produit (scan). */
+  async findProductByCode(code: string): Promise<Product | null> {
+    const trimmed = code.trim();
+    if (!trimmed) return null;
+
+    const byBarcode = query(
+      collection(db, COLLECTION_NAME),
+      where("active", "==", true),
+      where("barcode", "==", trimmed),
+      limit(1)
+    );
+    const barcodeSnap = await getDocs(byBarcode);
+    if (!barcodeSnap.empty) {
+      return barcodeSnap.docs[0].data() as Product;
+    }
+
+    const bySku = query(
+      collection(db, COLLECTION_NAME),
+      where("active", "==", true),
+      where("sku", "==", trimmed),
+      limit(1)
+    );
+    const skuSnap = await getDocs(bySku);
+    if (!skuSnap.empty) {
+      return skuSnap.docs[0].data() as Product;
+    }
+
+    const idRef = doc(db, COLLECTION_NAME, trimmed);
+    const idSnap = await getDoc(idRef);
+    if (idSnap.exists()) {
+      const product = idSnap.data() as Product;
+      if (product.active) return product;
+    }
+
+    const fuzzy = await this.searchProducts(trimmed);
+    const exactFuzzy = fuzzy.find(
+      (p) =>
+        p.barcode?.toLowerCase() === trimmed.toLowerCase() ||
+        p.sku.toLowerCase() === trimmed.toLowerCase() ||
+        p.id === trimmed
+    );
+    return exactFuzzy ?? fuzzy[0] ?? null;
+  },
+
   async getStockLevel(productId: string, storeId: string): Promise<number> {
     const stockId = `${storeId}_${productId}`;
     const docRef = doc(db, STOCKS_COLLECTION, stockId);

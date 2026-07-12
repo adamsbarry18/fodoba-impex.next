@@ -1,108 +1,135 @@
 "use client"
 
-import { useState } from "react";
-import { useAuth } from "@/lib/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Store, Loader2, Eye, EyeOff } from "lucide-react";
-import { toast } from "sonner";
-import Link from "next/link";
+import { useState } from "react"
+import Link from "next/link"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useAuth } from "@/lib/contexts/AuthContext"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Loader2, LogIn, Mail, ShieldCheck } from "lucide-react"
+import { toast } from "sonner"
+import { AuthPageShell } from "@/components/auth/auth-page-shell"
+import { PasswordField } from "@/components/auth/password-field"
+import { LoginSchema, type LoginFormValues } from "@/lib/auth-utils"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [loading, setLoading] = useState(false)
+  const { login } = useAuth()
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(LoginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  })
+
+  const onSubmit = async (values: LoginFormValues) => {
+    setLoading(true)
     try {
-      await login(email, password);
-      toast.success("Connexion réussie");
-    } catch (error: any) {
-      toast.error(error.message);
+      await login(values.email.trim(), values.password)
+      toast.success("Connexion réussie")
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Impossible de se connecter."
+      toast.error(message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#f8f9fa] p-4 overflow-hidden">
-      <Card className="w-full max-w-[420px] border-none shadow-[0_10px_40px_rgba(0,0,0,0.04)] rounded-[24px] overflow-hidden bg-white">
-        <CardContent className="p-6 md:p-10">
-          {/* Logo Section - Centered */}
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="bg-primary rounded-xl p-2 shadow-sm shadow-primary/20">
-              <img src="/images/logo.png" alt="FODOBA IMPEX" className="w-6 h-6" />
-            </div>
-            <span className="font-headline font-bold text-xl tracking-tight text-[#111827]">FODOBA IMPEX</span>
-          </div>
+    <AuthPageShell
+      title="Connexion"
+      description="Accédez à votre espace de gestion commerciale."
+      footer={
+        <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          Connexion sécurisée — en cas de problème, contactez votre administrateur.
+        </p>
+      }
+    >
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel required className="text-sm font-medium">
+                  Email professionnel
+                </FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Mail
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                      aria-hidden
+                    />
+                    <Input
+                      type="email"
+                      placeholder="nom@fodoba.com"
+                      autoComplete="email"
+                      className="h-11 rounded-xl pl-10"
+                      {...field}
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-          {/* Description Section - Left Aligned */}
-          <div className="mb-6">
-            <p className="text-[14px] text-gray-500 leading-relaxed">
-              Saisissez vos identifiants pour accéder à votre espace commercial.
-            </p>
-          </div>
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-center justify-between gap-2">
+                  <FormLabel required className="text-sm font-medium">
+                    Mot de passe
+                  </FormLabel>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-semibold text-primary transition-colors hover:text-primary/80"
+                  >
+                    Mot de passe oublié ?
+                  </Link>
+                </div>
+                <FormControl>
+                  <PasswordField
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-[13px] font-semibold text-[#374151] ml-0.5">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="nom@fodoba.com" 
-                className="h-11 bg-white border-[#e5e7eb] rounded-xl focus-visible:ring-4 focus-visible:ring-primary/10 focus-visible:border-primary transition-all text-[14px] px-4"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between px-0.5">
-                <Label htmlFor="password" title="Mot de passe" className="text-[13px] font-semibold text-[#374151]">Mot de passe</Label>
-                <Link 
-                  href="/forgot-password" 
-                  className="text-[12px] font-semibold text-primary hover:text-primary/80 transition-colors"
-                >
-                  Mot de passe oublié ?
-                </Link>
-              </div>
-              <div className="relative">
-                <Input 
-                  id="password" 
-                  type={showPassword ? "text" : "password"} 
-                  placeholder="••••••••"
-                  className="h-11 bg-white border-[#e5e7eb] rounded-xl focus-visible:ring-4 focus-visible:ring-primary/10 focus-visible:border-primary transition-all text-[14px] px-4 pr-11"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <Button 
-              className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-bold text-[15px] transition-all rounded-xl mt-2 shadow-lg shadow-primary/20" 
-              type="submit" 
-              disabled={loading}
-            >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Se connecter"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
-  );
+          <Button
+            type="submit"
+            className="mt-2 h-11 w-full rounded-xl font-semibold"
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <LogIn className="mr-2 h-4 w-4" aria-hidden />
+            )}
+            Se connecter
+          </Button>
+        </form>
+      </Form>
+    </AuthPageShell>
+  )
 }

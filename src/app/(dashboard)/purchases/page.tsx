@@ -1,149 +1,409 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { DocumentSnapshot } from "firebase/firestore"
 import { PurchaseService } from "@/services/purchase.service"
 import { Purchase } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table"
-import { 
-  Plus, 
-  Loader2, 
-  Truck, 
-  ChevronRight, 
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Plus,
+  Loader2,
+  Truck,
+  ChevronRight,
   Calendar,
   User,
-  BadgeAlert,
+  Search,
+  RefreshCw,
+  Package,
+  ClipboardList,
   CheckCircle2,
-  Clock
+  Clock,
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/ui/status-badge"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { useStore } from "@/lib/contexts/StoreContext"
+import {
+  formatPurchaseRef,
+  PURCHASE_STATUS_ICONS,
+  toPurchaseDate,
+} from "@/lib/purchase-utils"
+import { cn } from "@/lib/utils"
 
-const STATUS_CONFIG = {
-  DRAFT: { label: "Brouillon", color: "bg-slate-100 text-slate-700", icon: <Clock className="w-3 h-3 mr-1" /> },
-  ORDERED: { label: "Commandé", color: "bg-blue-100 text-blue-700", icon: <Truck className="w-3 h-3 mr-1" /> },
-  RECEIVED: { label: "Reçu", color: "bg-emerald-100 text-emerald-700", icon: <CheckCircle2 className="w-3 h-3 mr-1" /> },
-  CANCELLED: { label: "Annulé", color: "bg-destructive/10 text-destructive", icon: <BadgeAlert className="w-3 h-3 mr-1" /> },
-}
+const PAGE_SIZE = 50
 
 export default function PurchasesPage() {
   const { activeStore } = useStore()
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | undefined>(undefined)
+  const [hasMore, setHasMore] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState<Purchase["status"] | "all">("all")
 
-  const loadPurchases = async () => {
+  const loadPurchases = async (options?: { loadMore?: boolean; reset?: boolean }) => {
     if (!activeStore) return
-    setLoading(true)
+    const loadMore = options?.loadMore ?? false
+    if (loadMore) setLoadingMore(true)
+    else setLoading(true)
+
     try {
-      const data = await PurchaseService.listPurchases({ storeId: activeStore.id })
-      setPurchases(data.purchases)
-    } catch (error) {
+      const result = await PurchaseService.listPurchases(
+        { storeId: activeStore.id },
+        PAGE_SIZE,
+        loadMore && !options?.reset ? lastDoc : undefined
+      )
+
+      if (loadMore) {
+        setPurchases((prev) => [...prev, ...result.purchases])
+      } else {
+        setPurchases(result.purchases)
+      }
+
+      setLastDoc(result.lastVisible)
+      setHasMore(result.purchases.length === PAGE_SIZE)
+    } catch {
       toast.error("Erreur lors du chargement des achats")
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
   useEffect(() => {
-    loadPurchases()
+    if (!activeStore) {
+      setPurchases([])
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+
+    const fetchInitial = async () => {
+      setLoading(true)
+      try {
+        const result = await PurchaseService.listPurchases(
+          { storeId: activeStore.id },
+          PAGE_SIZE
+        )
+        if (cancelled) return
+        setPurchases(result.purchases)
+        setLastDoc(result.lastVisible)
+        setHasMore(result.purchases.length === PAGE_SIZE)
+      } catch {
+        if (!cancelled) toast.error("Erreur lors du chargement des achats")
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    fetchInitial()
+    return () => {
+      cancelled = true
+    }
   }, [activeStore])
 
+  const filteredPurchases = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    return purchases.filter((p) => {
+      const matchesSearch =
+        !term ||
+        p.supplierName.toLowerCase().includes(term) ||
+        p.performedByName.toLowerCase().includes(term) ||
+        formatPurchaseRef(p.id).toLowerCase().includes(term) ||
+        p.id.toLowerCase().includes(term)
+      const matchesStatus = statusFilter === "all" || p.status === statusFilter
+      return matchesSearch && matchesStatus
+    })
+  }, [purchases, searchTerm, statusFilter])
+
+  const stats = useMemo(
+    () => ({
+      total: purchases.length,
+      draft: purchases.filter((p) => p.status === "DRAFT").length,
+      ordered: purchases.filter((p) => p.status === "ORDERED").length,
+      received: purchases.filter((p) => p.status === "RECEIVED").length,
+      totalAmount: purchases.reduce((acc, p) => acc + p.totalFCFA, 0),
+    }),
+    [purchases]
+  )
+
+  const handleRefresh = async () => {
+    setLastDoc(undefined)
+    setHasMore(true)
+    await loadPurchases({ reset: true })
+  }
+
+  if (!activeStore) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+        <Truck className="h-10 w-10 opacity-30" />
+        <p>Sélectionnez une boutique pour gérer les achats.</p>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">Gestion des Achats</h1>
-          <p className="text-muted-foreground">Commandes fournisseurs et approvisionnement pour <strong>{activeStore?.name}</strong>.</p>
+    <div className="space-y-6 pb-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <Truck className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight font-headline">
+              Gestion des achats
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Commandes fournisseurs pour{" "}
+              <strong className="text-foreground">{activeStore.name}</strong>
+            </p>
+          </div>
         </div>
-        <Button asChild>
-          <Link href="/purchases/new">
-            <Plus className="w-4 h-4 mr-2" /> Nouvel Achat
-          </Link>
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            variant="outline"
+            className="rounded-xl font-semibold"
+            onClick={handleRefresh}
+            disabled={loading}
+          >
+            <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+            Actualiser
+          </Button>
+          <Button asChild className="rounded-xl font-semibold">
+            <Link href="/purchases/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouvel approvisionnement
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      <Card>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-3 p-4">
+            <ClipboardList className="h-5 w-5 text-slate-500" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Commandes
+              </p>
+              <p className="text-xl font-bold">{stats.total}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-3 p-4">
+            <Clock className="h-5 w-5 text-slate-500" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Brouillons
+              </p>
+              <p className="text-xl font-bold">{stats.draft}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-3 p-4">
+            <Truck className="h-5 w-5 text-blue-500" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Commandées
+              </p>
+              <p className="text-xl font-bold">{stats.ordered}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-3 p-4">
+            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Reçues
+              </p>
+              <p className="text-xl font-bold">{stats.received}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="col-span-2 rounded-2xl border bg-card shadow-sm lg:col-span-1">
+          <CardContent className="flex items-center gap-3 p-4">
+            <Package className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Volume FCFA
+              </p>
+              <p className="text-sm font-bold">{stats.totalAmount.toLocaleString("fr-FR")}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="rounded-2xl border bg-card shadow-sm">
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par référence, fournisseur, auteur…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-10 rounded-xl pl-9"
+            />
+          </div>
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter(v as Purchase["status"] | "all")}
+          >
+            <SelectTrigger className="h-10 w-full rounded-xl sm:w-[200px]">
+              <SelectValue placeholder="Statut" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="all">Tous les statuts</SelectItem>
+              <SelectItem value="DRAFT">Brouillon</SelectItem>
+              <SelectItem value="ORDERED">Commandé</SelectItem>
+              <SelectItem value="RECEIVED">Reçu</SelectItem>
+              <SelectItem value="CANCELLED">Annulé</SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
+          <CardTitle className="text-base">Historique des commandes</CardTitle>
+          <CardDescription className="text-xs">
+            {filteredPurchases.length} commande{filteredPurchases.length !== 1 ? "s" : ""}
+            {searchTerm || statusFilter !== "all" ? " (filtrées)" : ""}
+          </CardDescription>
+        </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center p-12">
-              <Loader2 className="h-8 w-8 animate-spin text-accent" />
+            <div className="flex justify-center p-16">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : filteredPurchases.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 p-16 text-center text-muted-foreground">
+              <Truck className="h-10 w-10 opacity-30" />
+              <p className="font-medium">Aucune commande trouvée</p>
+              <p className="text-xs">
+                {purchases.length === 0
+                  ? "Créez votre premier approvisionnement fournisseur."
+                  : "Modifiez vos filtres de recherche."}
+              </p>
+              {purchases.length === 0 && (
+                <Button asChild className="mt-2 rounded-xl">
+                  <Link href="/purchases/new">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nouvel approvisionnement
+                  </Link>
+                </Button>
+              )}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Référence / Date</TableHead>
-                  <TableHead>Fournisseur</TableHead>
-                  <TableHead>Articles</TableHead>
-                  <TableHead className="text-right">Total (FCFA)</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {purchases.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                      Aucun achat enregistré.
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="pl-4 sm:pl-6">Référence / Date</TableHead>
+                    <TableHead>Fournisseur</TableHead>
+                    <TableHead>Articles</TableHead>
+                    <TableHead className="text-right">Total (FCFA)</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  purchases.map((p) => (
-                    <TableRow key={p.id} className="group">
-                      <TableCell>
-                        <div className="font-bold">#{p.id.slice(-6).toUpperCase()}</div>
-                        <div className="text-[10px] text-muted-foreground flex items-center">
-                          <Calendar className="w-2.5 h-2.5 mr-1" /> 
-                          {format(p.timestamp.toDate(), "dd MMM yyyy", { locale: fr })}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium text-foreground">{p.supplierName}</div>
-                        <div className="text-[10px] text-muted-foreground flex items-center">
-                          <User className="w-2.5 h-2.5 mr-1" /> {p.performedByName}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-normal">
-                          {p.items.length} produit(s)
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="font-headline font-bold text-foreground">
-                          {p.totalFCFA.toLocaleString()}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`font-medium border-none ${STATUS_CONFIG[p.status].color}`}>
-                          {STATUS_CONFIG[p.status].icon}
-                          {STATUS_CONFIG[p.status].label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" asChild>
-                          <Link href={`/purchases/${p.id}`}>
-                            <ChevronRight className="h-4 h-4 text-muted-foreground" />
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredPurchases.map((p) => {
+                    const date = toPurchaseDate(p.timestamp)
+                    const StatusIcon = PURCHASE_STATUS_ICONS[p.status]
+
+                    return (
+                      <TableRow key={p.id} className="transition-colors hover:bg-muted/20">
+                        <TableCell className="pl-4 sm:pl-6">
+                          <p className="font-mono text-sm font-bold">
+                            {formatPurchaseRef(p.id)}
+                          </p>
+                          {date && (
+                            <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              {format(date, "dd MMM yyyy", { locale: fr })}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-sm font-semibold">{p.supplierName}</p>
+                          <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <User className="h-3 w-3" />
+                            {p.performedByName}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge tone="slate" className="text-[10px]">
+                            {p.items.length} produit{p.items.length !== 1 ? "s" : ""}
+                          </StatusBadge>
+                        </TableCell>
+                        <TableCell className="text-right font-headline font-bold">
+                          {p.totalFCFA.toLocaleString("fr-FR")}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge
+                            preset="purchaseStatus"
+                            value={p.status}
+                            icon={<StatusIcon className="h-3 w-3" />}
+                            className="text-[10px]"
+                          />
+                        </TableCell>
+                        <TableCell className="pr-4 text-right sm:pr-6">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            asChild
+                            className="h-8 w-8 rounded-lg"
+                          >
+                            <Link href={`/purchases/${p.id}`}>
+                              <ChevronRight className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {hasMore && !loading && filteredPurchases.length > 0 && (
+            <div className="flex justify-center border-t p-4">
+              <Button
+                variant="ghost"
+                onClick={() => loadPurchases({ loadMore: true })}
+                disabled={loadingMore}
+                className="rounded-xl font-semibold"
+              >
+                {loadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Charger plus de commandes
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

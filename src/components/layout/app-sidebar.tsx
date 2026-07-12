@@ -1,26 +1,7 @@
 "use client"
 
 import React, { memo, useMemo, useState, useEffect, useRef } from "react"
-import {
-  LayoutDashboard,
-  ShoppingCart,
-  Package,
-  Calculator,
-  Wallet,
-  Store as StoreIcon,
-  Users,
-  FolderTree,
-  History,
-  ArrowRightLeft,
-  UsersRound,
-  Truck,
-  Coins,
-  BarChart3,
-  Cog,
-  ShieldCheck,
-  Receipt,
-} from "lucide-react"
-
+import { Cog, X } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -34,80 +15,37 @@ import {
   SidebarGroupContent,
   useSidebar,
 } from "@/components/ui/sidebar"
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import Image from "next/image"
+import { usePathname } from "next/navigation"
 import { usePermissions } from "@/hooks/use-permissions"
-import { Permission } from "@/lib/auth/permissions"
+import type { Permission } from "@/lib/auth/permissions"
 import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
-
-interface NavItem {
-  title: string;
-  icon: any;
-  url: string;
-  permission?: Permission;
-}
-
-interface NavGroup {
-  title: string;
-  items: NavItem[];
-}
-
-const navigation: NavGroup[] = [
-  {
-    title: "Général",
-    items: [
-      { title: "Accueil", icon: LayoutDashboard, url: "/dashboard", permission: 'view:reports:store' },
-    ],
-  },
-  {
-    title: "Commercial",
-    items: [
-      { title: "Point de Vente", icon: ShoppingCart, url: "/pos", permission: 'create:sale' },
-      { title: "Achats / Appro", icon: Truck, url: "/purchases", permission: 'manage:purchases' },
-      { title: "Inventaire", icon: Package, url: "/inventory", permission: 'view:stock' },
-      { title: "Clients", icon: UsersRound, url: "/clients", permission: 'view:clients' },
-    ],
-  },
-  {
-    title: "Stock & Flux",
-    items: [
-      { title: "Historique Flux", icon: History, url: "/inventory/history", permission: 'view:stock' },
-      { title: "Transfert Stock", icon: ArrowRightLeft, url: "/inventory/transfers/new", permission: 'manage:transfers' },
-      { title: "Catégories", icon: FolderTree, url: "/admin/categories", permission: 'manage:catalog' },
-    ],
-  },
-  {
-    title: "Finance & Analyse",
-    items: [
-      { title: "Rapports & BI", icon: BarChart3, url: "/reports", permission: 'view:reports:store' },
-      { title: "Caisse & Trésorerie", icon: Wallet, url: "/reconciliation", permission: 'reconcile:cash' },
-      { title: "Dépenses", icon: Receipt, url: "/expenses", permission: 'manage:expenses' },
-      { title: "Fournisseurs", icon: UsersRound, url: "/suppliers", permission: 'view:suppliers' },
-      { title: "Coût de Revient", icon: Calculator, url: "/landed-cost", permission: 'manage:purchases' },
-    ],
-  },
-]
-
-const adminItemsList = [
-  { title: "Boutiques", icon: StoreIcon, url: "/admin/stores", permission: 'manage:stores' },
-  { title: "Collaborateurs", icon: Users, url: "/admin/users", permission: 'manage:users' },
-  { title: "Taux de Change", icon: Coins, url: "/admin/currencies", permission: 'manage:currencies' },
-  { title: "Logs d'audit", icon: ShieldCheck, url: "/admin/audit", permission: 'manage:stores' },
-]
+import { Button } from "@/components/ui/button"
+import { AppLogo } from "@/components/layout/app-logo"
+import {
+  APP_ADMIN_NAV,
+  APP_NAVIGATION,
+  findActiveNavItem,
+  getAllNavItems,
+  isNavItemActive,
+} from "@/lib/navigation/app-nav"
+import {
+  AppDropdownNavItem,
+  AppMobileNavLink,
+  NavIconBox,
+  SidebarNavMenuItem,
+  appDropdownContentClass,
+} from "@/components/layout/nav-menu-items"
 
 export const AppSidebar = memo(function AppSidebar() {
   const pathname = usePathname()
-  const router = useRouter()
   const { can } = usePermissions()
   const { isMobile, setOpenMobile, openMobile } = useSidebar()
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
@@ -133,82 +71,86 @@ export const AppSidebar = memo(function AppSidebar() {
     if (isMobile) setOpenMobile(false)
   }
 
-  const allNavItems = useMemo(() => [
-    ...navigation.flatMap(group => group.items),
-    ...adminItemsList
-  ], [])
+  const activeItem = useMemo(
+    () => findActiveNavItem(pathname, getAllNavItems()),
+    [pathname]
+  )
 
-  const activeItem = useMemo(() => {
-    const matches = allNavItems.filter(item => {
-      if (item.url === "/dashboard" && pathname === "/dashboard") return true
-      if (item.url === "/dashboard") return false
-      return pathname === item.url || pathname.startsWith(item.url + "/")
-    })
-    return matches.sort((a, b) => b.url.length - a.url.length)[0]
-  }, [pathname, allNavItems])
+  const filteredNavigation = useMemo(
+    () =>
+      APP_NAVIGATION.map((group) => ({
+        ...group,
+        items: group.items.filter(
+          (item) => !item.permission || can(item.permission as Permission)
+        ),
+      })).filter((group) => group.items.length > 0),
+    [can]
+  )
 
-  const filteredNavigation = useMemo(() => navigation.map(group => ({
-    ...group,
-    items: group.items.filter(item => !item.permission || can(item.permission as Permission))
-  })).filter(group => group.items.length > 0), [can])
-
-  const allowedAdminItems = useMemo(() => adminItemsList.filter(item => !item.permission || can(item.permission as Permission)), [can])
+  const allowedAdminItems = useMemo(
+    () =>
+      APP_ADMIN_NAV.filter(
+        (item) => !item.permission || can(item.permission as Permission)
+      ),
+    [can]
+  )
 
   const showSettingsGroup = allowedAdminItems.length > 0
 
-  const settingsSectionActive = useMemo(() => allowedAdminItems.some((item) => {
-    if (item.url === "/dashboard") return false
-    return pathname === item.url || pathname.startsWith(item.url + "/")
-  }), [pathname, allowedAdminItems])
+  const settingsSectionActive = useMemo(
+    () => allowedAdminItems.some((item) => isNavItemActive(pathname, item.url)),
+    [pathname, allowedAdminItems]
+  )
 
   return (
-    <Sidebar collapsible="icon" variant="inset" className="border-0 p-1 bg-sidebar">
-      <SidebarHeader className={cn("gap-2 px-3 py-3", isMobile && "pr-12")}>
-        <div className="flex items-center gap-2.5">
-          <div
-            className={cn(
-              "relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary shadow-sm",
-              "ring-1 ring-inset ring-black/5"
-            )}
-          >
-            <Image src="/images/logo.png" alt="FODOBA" width={20} height={20} />
-          </div>
+    <Sidebar
+      collapsible="icon"
+      variant="inset"
+      hideMobileCloseButton
+      className="border-0 bg-sidebar p-1"
+    >
+      <SidebarHeader className="gap-2 px-3 py-3">
+        <div className="flex h-9 items-center gap-2.5">
+          <AppLogo />
           <div className="min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-bold tracking-tight text-sidebar-foreground">
               FODOBA
             </p>
-            <p className="truncate text-[11px] text-muted-foreground font-medium">
+            <p className="truncate text-[11px] font-medium text-muted-foreground">
               Gestion d&apos;Import-Export
             </p>
           </div>
+          {isMobile ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="ml-auto h-9 w-9 shrink-0 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+              onClick={() => setOpenMobile(false)}
+              aria-label="Fermer le menu"
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </Button>
+          ) : null}
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-1.5 pt-2 gap-0">
+      <SidebarContent className="gap-0 px-1.5 pt-2">
         {filteredNavigation.map((group) => (
           <SidebarGroup key={group.title} className="p-0 py-2">
-            <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden text-[11px] font-semibold uppercase text-muted-foreground tracking-wider mb-1 px-3">
+            <SidebarGroupLabel className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground group-data-[collapsible=icon]:hidden">
               {group.title}
             </SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map((item) => {
-                  const isActive = activeItem?.url === item.url
-                  return (
-                    <SidebarMenuItem key={item.url}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={isActive}
-                        tooltip={item.title}
-                      >
-                        <Link href={item.url} onClick={closeMobileNav}>
-                          <item.icon className="h-4 w-4 shrink-0" />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )
-                })}
+              <SidebarMenu className="gap-0.5">
+                {group.items.map((item) => (
+                  <SidebarNavMenuItem
+                    key={item.url}
+                    item={item}
+                    isActive={activeItem?.url === item.url}
+                    onNavigate={closeMobileNav}
+                  />
+                ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -228,6 +170,7 @@ export const AppSidebar = memo(function AppSidebar() {
                     aria-expanded={settingsMenuOpen}
                     onClick={() => setSettingsMenuOpen((v) => !v)}
                     className={cn(
+                      "h-9 gap-2.5 rounded-lg px-2.5",
                       "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                       "data-[state=open]:bg-[hsl(var(--sidebar-active))]",
                       "data-[state=open]:text-sidebar-accent-foreground",
@@ -235,8 +178,14 @@ export const AppSidebar = memo(function AppSidebar() {
                       "data-[state=open]:ring-primary/20"
                     )}
                   >
-                    <Cog className="h-4 w-4 shrink-0" />
-                    <span className="truncate">Paramètres</span>
+                    {settingsSectionActive ? (
+                      <span
+                        className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary"
+                        aria-hidden
+                      />
+                    ) : null}
+                    <NavIconBox icon={Cog} active={settingsSectionActive} />
+                    <span className="truncate font-medium">Paramètres</span>
                   </SidebarMenuButton>
 
                   {settingsMenuOpen ? (
@@ -251,30 +200,21 @@ export const AppSidebar = memo(function AppSidebar() {
                           Paramètres
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Gestion système
+                          Administration système
                         </p>
                       </div>
                       <Separator />
-                      <nav className="flex flex-col py-1" aria-label="Paramètres">
+                      <nav className="flex flex-col gap-0.5 p-1.5" aria-label="Paramètres">
                         {allowedAdminItems.map((item) => (
-                          <Link
+                          <AppMobileNavLink
                             key={item.url}
-                            href={item.url}
-                            className={cn(
-                              "flex items-center gap-3 px-3 py-2.5 text-sm text-popover-foreground outline-none transition-colors",
-                              "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                              "active:bg-sidebar-accent active:text-sidebar-accent-foreground",
-                              "focus-visible:bg-sidebar-accent focus-visible:text-sidebar-accent-foreground",
-                              pathname.startsWith(item.url) && "bg-accent/60 font-medium"
-                            )}
-                            onClick={() => {
+                            item={item}
+                            isActive={isNavItemActive(pathname, item.url)}
+                            onNavigate={() => {
                               setSettingsMenuOpen(false)
                               closeMobileNav()
                             }}
-                          >
-                            <item.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                            <span>{item.title}</span>
-                          </Link>
+                          />
                         ))}
                       </nav>
                     </div>
@@ -287,6 +227,7 @@ export const AppSidebar = memo(function AppSidebar() {
                       isActive={settingsSectionActive}
                       title="Paramètres"
                       className={cn(
+                        "h-9 gap-2.5 rounded-lg px-2.5",
                         "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                         "data-[state=open]:bg-[hsl(var(--sidebar-active))]",
                         "data-[state=open]:text-sidebar-accent-foreground",
@@ -294,14 +235,18 @@ export const AppSidebar = memo(function AppSidebar() {
                         "data-[state=open]:ring-primary/20"
                       )}
                     >
-                      <Cog className="h-4 w-4 shrink-0" />
-                      <span className="truncate">Paramètres</span>
+                      {settingsSectionActive ? (
+                        <span
+                          className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary"
+                          aria-hidden
+                        />
+                      ) : null}
+                      <NavIconBox icon={Cog} active={settingsSectionActive} />
+                      <span className="truncate font-medium">Paramètres</span>
                     </SidebarMenuButton>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
-                    className={cn(
-                      "z-[200] w-56 min-w-[14rem] rounded-xl border bg-popover py-1 text-popover-foreground shadow-lg",
-                    )}
+                    className={appDropdownContentClass}
                     side="top"
                     align="start"
                     sideOffset={10}
@@ -313,26 +258,18 @@ export const AppSidebar = memo(function AppSidebar() {
                           Paramètres
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Gestion système
+                          Administration système
                         </p>
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {allowedAdminItems.map((item) => (
-                      <DropdownMenuItem
+                      <AppDropdownNavItem
                         key={item.url}
-                        asChild
-                        className="cursor-pointer gap-2 px-3 py-2.5 focus:bg-sidebar-accent focus:text-sidebar-accent-foreground data-[highlighted]:bg-sidebar-accent data-[highlighted]:text-sidebar-accent-foreground"
-                      >
-                        <Link
-                          href={item.url}
-                          className="flex cursor-pointer items-center gap-2"
-                          onClick={closeMobileNav}
-                        >
-                          <item.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          <span>{item.title}</span>
-                        </Link>
-                      </DropdownMenuItem>
+                        item={item}
+                        isActive={isNavItemActive(pathname, item.url)}
+                        onNavigate={closeMobileNav}
+                      />
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>

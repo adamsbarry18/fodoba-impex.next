@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc, collection, getDocs, query, limit } from "firebase
 import { db, auth } from "@/lib/firebase/client";
 import { AuthService } from "@/services/auth.service";
 import { UserProfile } from "@/lib/types";
+import { UserService } from "@/services/user.service";
 import { toast } from "sonner";
 
 interface AuthContextType {
@@ -18,6 +19,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<any>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -93,6 +95,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  const refreshProfile = async () => {
+    if (!currentUser) return;
+    const profile = await UserService.getUser(currentUser.uid);
+    if (profile) setUserProfile(profile);
+  };
+
   const value = {
     currentUser,
     userProfile,
@@ -103,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login: AuthService.login.bind(AuthService),
     logout: AuthService.logout.bind(AuthService),
     resetPassword: AuthService.resetPassword.bind(AuthService),
+    refreshProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -93,7 +93,7 @@ export default function EditCategoryPage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nom de la catégorie</FormLabel>
+                    <FormLabel required>Nom de la catégorie</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>

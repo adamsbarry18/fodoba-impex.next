@@ -44,6 +44,16 @@ export const NotificationService = {
   },
 
   /**
+   * Marquer plusieurs notifications comme lues
+   */
+  async markAllAsRead(ids: string[]) {
+    if (ids.length === 0) return;
+    const batch = writeBatch(db);
+    ids.forEach((id) => batch.update(doc(db, COLLECTION_NAME, id), { read: true }));
+    await batch.commit();
+  },
+
+  /**
    * Supprimer une notification
    */
   async deleteNotification(id: string) {

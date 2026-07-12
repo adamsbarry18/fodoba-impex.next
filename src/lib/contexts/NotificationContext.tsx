@@ -11,6 +11,7 @@ interface NotificationContextType {
   notifications: AppNotification[];
   unreadCount: number;
   markAsRead: (id: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
   clearAll: () => Promise<void>;
 }
@@ -42,6 +43,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     await NotificationService.markAsRead(id);
   };
 
+  const markAllAsRead = async () => {
+    const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
+    await NotificationService.markAllAsRead(unreadIds);
+  };
+
   const deleteNotification = async (id: string) => {
     await NotificationService.deleteNotification(id);
   };
@@ -54,7 +60,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     <NotificationContext.Provider value={{ 
       notifications, 
       unreadCount, 
-      markAsRead, 
+      markAsRead,
+      markAllAsRead,
       deleteNotification, 
       clearAll 
     }}>

@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Store, Loader2, Mail, ArrowLeft } from "lucide-react";
+import { Loader2, Mail, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { AppLogo } from "@/components/layout/app-logo";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -34,9 +35,7 @@ export default function ForgotPasswordPage() {
         <CardContent className="p-8 md:p-12">
           {/* Logo Section */}
           <div className="flex items-center justify-center gap-3 mb-12">
-            <div className="bg-primary rounded-xl p-2.5 shadow-sm shadow-primary/20">
-              <Store className="w-7 h-7 text-white" />
-            </div>
+            <AppLogo size="md" />
             <span className="font-headline font-bold text-2xl tracking-tight text-[#111827]">FODOBA IMPEX</span>
           </div>
 
@@ -49,7 +48,7 @@ export default function ForgotPasswordPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2.5">
-              <Label htmlFor="email" className="text-[14px] font-semibold text-[#374151] ml-0.5">Email professionnel</Label>
+              <Label htmlFor="email" required className="text-[14px] font-semibold text-[#374151] ml-0.5">Email professionnel</Label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <Input 

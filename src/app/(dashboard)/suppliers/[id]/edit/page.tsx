@@ -80,7 +80,7 @@ export default function EditSupplierPage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Raison Sociale / Nom</FormLabel>
+                    <FormLabel required>Raison Sociale / Nom</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -95,7 +95,7 @@ export default function EditSupplierPage() {
                   name="country"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Pays</FormLabel>
+                      <FormLabel required>Pays</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>

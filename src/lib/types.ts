@@ -182,7 +182,7 @@ export const PurchaseSchema = z.object({
 
 export type Purchase = z.infer<typeof PurchaseSchema>;
 
-export type PaymentMethod = "CASH" | "ORANGE_MONEY" | "MOBILE_MONEY" | "CARD" | "TRANSFER";
+export type PaymentMethod = "CASH" | "ORANGE_MONEY" | "MOBILE_MONEY" | "CARD" | "TRANSFER" | "OTHER";
 
 export const SaleItemSchema = z.object({
   productId: z.string(),
@@ -279,4 +279,24 @@ export interface AppNotification {
   read: boolean;
   storeId?: string;
   userId?: string;
+}
+
+export type AuditAction =
+  | "CREATE_USER"
+  | "UPDATE_USER"
+  | "ACTIVATE_USER"
+  | "SUSPEND_USER"
+  | "UPDATE_EXCHANGE_RATE"
+  | (string & {});
+
+export type AuditCategory = "user" | "currency" | "system";
+
+export interface AuditLog {
+  id: string;
+  action: AuditAction;
+  details: string;
+  targetId?: string;
+  performedBy: string;
+  performedByName?: string;
+  timestamp: any;
 }

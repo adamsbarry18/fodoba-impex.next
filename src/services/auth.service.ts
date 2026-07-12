@@ -10,6 +10,7 @@ import {
   EmailAuthProvider
 } from "firebase/auth";
 import { auth } from "@/lib/firebase/client";
+import { mapAuthErrorCode, type AuthErrorContext } from "@/lib/auth-utils";
 
 /**
  * Service gérant les interactions directes avec Firebase Authentication.
@@ -23,7 +24,7 @@ export const AuthService = {
     try {
       return await signInWithEmailAndPassword(auth, email, pass);
     } catch (error: any) {
-      throw this.handleAuthError(error);
+      throw this.handleAuthError(error, "login");
     }
   },
 
@@ -47,7 +48,7 @@ export const AuthService = {
     try {
       await sendPasswordResetEmail(auth, email);
     } catch (error: any) {
-      throw this.handleAuthError(error);
+      throw this.handleAuthError(error, "reset");
     }
   },
 
@@ -64,7 +65,7 @@ export const AuthService = {
       await reauthenticateWithCredential(user, credential);
       await firebaseUpdatePassword(user, newPass);
     } catch (error: any) {
-      throw this.handleAuthError(error);
+      throw this.handleAuthError(error, "changePassword");
     }
   },
 
@@ -79,22 +80,7 @@ export const AuthService = {
   /**
    * Traduit les codes d'erreur Firebase en messages compréhensibles.
    */
-  handleAuthError(error: any): Error {
-    switch (error.code) {
-      case "auth/user-not-found":
-      case "auth/wrong-password":
-      case "auth/invalid-credential":
-        return new Error("Le mot de passe actuel est incorrect.");
-      case "auth/user-disabled":
-        return new Error("Ce compte a été désactivé.");
-      case "auth/too-many-requests":
-        return new Error("Trop de tentatives. Veuillez réessayer plus tard.");
-      case "auth/requires-recent-login":
-        return new Error("Cette action nécessite une connexion récente. Veuillez vous reconnecter.");
-      case "auth/weak-password":
-        return new Error("Le nouveau mot de passe est trop faible (6 caractères min).");
-      default:
-        return new Error("Une erreur de sécurité est survenue.");
-    }
+  handleAuthError(error: any, context: AuthErrorContext = "login"): Error {
+    return new Error(mapAuthErrorCode(error?.code, context));
   }
 };

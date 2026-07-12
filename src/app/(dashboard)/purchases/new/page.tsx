@@ -1,62 +1,139 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { ProductService } from "@/services/product.service"
 import { SupplierService } from "@/services/supplier.service"
 import { PurchaseService } from "@/services/purchase.service"
-import { Product, Supplier, PurchaseItem, PurchaseExpense } from "@/lib/types"
+import { Supplier, PurchaseItem, PurchaseExpense, CurrencyCode, Product } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { 
-  ArrowLeft, 
-  Plus, 
-  Trash2, 
-  Calculator, 
-  Loader2, 
-  Truck, 
-  Package, 
+import { StatusBadge } from "@/components/ui/status-badge"
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Loader2,
+  Truck,
+  Package,
   AlertTriangle,
   Save,
-  DollarSign
+  Receipt,
+  Info,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useStore } from "@/lib/contexts/StoreContext"
 import { useAuth } from "@/lib/contexts/AuthContext"
+import { useCurrency } from "@/hooks/use-currency"
+import { BarcodeScanField } from "@/components/barcode/barcode-scan-field"
+import { FieldWithAdd } from "@/components/forms/field-with-add"
+import { applyReturnSelection } from "@/hooks/use-return-selection"
+import { ENTITY_ROUTES } from "@/lib/navigation/return-to"
+import {
+  PURCHASE_CURRENCIES,
+  getPurchaseLineTotal,
+  getPurchaseSubtotal,
+  getExpensesTotal,
+} from "@/lib/purchase-utils"
 
-const CURRENCIES = ["FCFA", "GNF", "USD", "EUR"] as const;
+const EMPTY_ITEM = (): PurchaseItem => ({
+  productId: "",
+  name: "",
+  quantity: 1,
+  unitCost: 0,
+  currency: "FCFA",
+  exchangeRate: 1,
+})
+
+const EMPTY_EXPENSE = (): PurchaseExpense => ({
+  label: "",
+  amount: 0,
+  currency: "FCFA",
+  exchangeRate: 1,
+})
 
 export default function NewPurchasePage() {
   const router = useRouter()
   const { activeStore } = useStore()
   const { userProfile } = useAuth()
-  
+  const { rates } = useCurrency()
+
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [scanProcessing, setScanProcessing] = useState(false)
 
-  // Form State
   const [supplierId, setSupplierId] = useState("")
   const [items, setItems] = useState<PurchaseItem[]>([])
   const [expenses, setExpenses] = useState<PurchaseExpense[]>([])
   const [notes, setNotes] = useState("")
+
+  const getRateForCurrency = useCallback(
+    (currency: CurrencyCode) => (currency === "FCFA" ? 1 : rates[currency] ?? 1),
+    [rates]
+  )
 
   useEffect(() => {
     const init = async () => {
       try {
         const [suppResult, prodResult] = await Promise.all([
           SupplierService.listSuppliers(),
-          ProductService.listProducts({ active: true }, 200)
+          ProductService.listProducts({ active: true }, 200),
         ])
         setSuppliers(suppResult)
         setProducts(prodResult.products)
-      } catch (error) {
+
+        await applyReturnSelection(ENTITY_ROUTES.supplier.param, setSupplierId, {
+          successMessage: ENTITY_ROUTES.supplier.createdMessage,
+          reload: async () => {
+            const data = await SupplierService.listSuppliers()
+            setSuppliers(data)
+          },
+        })
+
+        await applyReturnSelection(
+          ENTITY_ROUTES.product.param,
+          async (id) => {
+            const product = await ProductService.getProduct(id)
+            if (!product) return
+            setItems((prev) => {
+              const existingIndex = prev.findIndex((i) => i.productId === product.id)
+              if (existingIndex >= 0) {
+                const next = [...prev]
+                next[existingIndex] = {
+                  ...next[existingIndex],
+                  quantity: next[existingIndex].quantity + 1,
+                }
+                return next
+              }
+              return [
+                ...prev,
+                {
+                  productId: product.id,
+                  name: product.name,
+                  quantity: 1,
+                  unitCost: product.purchasePriceRef,
+                  currency: "FCFA",
+                  exchangeRate: 1,
+                },
+              ]
+            })
+          },
+          {
+            successMessage: ENTITY_ROUTES.product.createdMessage,
+            reload: async () => {
+              const result = await ProductService.listProducts({ active: true }, 200)
+              setProducts(result.products)
+            },
+          }
+        )
+      } catch {
         toast.error("Erreur de chargement des données")
       } finally {
         setLoading(false)
@@ -65,57 +142,112 @@ export default function NewPurchasePage() {
     init()
   }, [])
 
-  const addItem = () => {
-    setItems([...items, {
-      productId: "",
-      name: "",
-      quantity: 1,
-      unitCost: 0,
-      currency: "FCFA",
-      exchangeRate: 1
-    }])
+  const updateItem = (index: number, field: keyof PurchaseItem, value: string | number) => {
+    setItems((prev) => {
+      const next = [...prev]
+      const item = { ...next[index]! }
+
+      if (field === "productId" && typeof value === "string") {
+        const prod = products.find((p) => p.id === value)
+        item.productId = value
+        item.name = prod?.name || ""
+        if (prod && item.unitCost === 0) item.unitCost = prod.purchasePriceRef
+      } else if (field === "currency" && typeof value === "string") {
+        const currency = value as CurrencyCode
+        item.currency = currency
+        item.exchangeRate = getRateForCurrency(currency)
+      } else {
+        ;(item as Record<string, unknown>)[field] = value
+      }
+
+      next[index] = item
+      return next
+    })
   }
 
-  const removeItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index))
+  const updateExpense = (
+    index: number,
+    field: keyof PurchaseExpense,
+    value: string | number
+  ) => {
+    setExpenses((prev) => {
+      const next = [...prev]
+      const exp = { ...next[index]! }
+
+      if (field === "currency" && typeof value === "string") {
+        const currency = value as CurrencyCode
+        exp.currency = currency
+        exp.exchangeRate = getRateForCurrency(currency)
+      } else {
+        ;(exp as Record<string, unknown>)[field] = value
+      }
+
+      next[index] = exp
+      return next
+    })
   }
 
-  const updateItem = (index: number, field: keyof PurchaseItem, value: any) => {
-    const newItems = [...items]
-    if (field === 'productId') {
-      const prod = products.find(p => p.id === value)
-      newItems[index].productId = value
-      newItems[index].name = prod?.name || ""
-    } else {
-      (newItems[index] as any)[field] = value
-    }
-    setItems(newItems)
-  }
+  const handleProductScan = useCallback(
+    async (code: string) => {
+      setScanProcessing(true)
+      try {
+        const product = await ProductService.findProductByCode(code)
+        if (!product) {
+          toast.error(`Produit introuvable : ${code}`)
+          return
+        }
 
-  const addExpense = () => {
-    setExpenses([...expenses, { label: "", amount: 0, currency: "FCFA", exchangeRate: 1 }])
-  }
+        setItems((prev) => {
+          const existingIndex = prev.findIndex((i) => i.productId === product.id)
+          if (existingIndex >= 0) {
+            const next = [...prev]
+            next[existingIndex] = {
+              ...next[existingIndex]!,
+              quantity: next[existingIndex]!.quantity + 1,
+            }
+            toast.success(`${product.name} - qté ${next[existingIndex]!.quantity}`)
+            return next
+          }
+          toast.success(`${product.name} ajouté`)
+          return [
+            ...prev,
+            {
+              productId: product.id,
+              name: product.name,
+              quantity: 1,
+              unitCost: product.purchasePriceRef,
+              currency: "FCFA" as const,
+              exchangeRate: 1,
+            },
+          ]
+        })
+      } catch {
+        toast.error("Erreur lors du scan")
+      } finally {
+        setScanProcessing(false)
+      }
+    },
+    []
+  )
 
-  const removeExpense = (index: number) => {
-    setExpenses(expenses.filter((_, i) => i !== index))
-  }
-
-  const subtotalFCFA = items.reduce((acc, item) => acc + (item.quantity * item.unitCost * item.exchangeRate), 0)
-  const expensesTotalFCFA = expenses.reduce((acc, exp) => acc + (exp.amount * exp.exchangeRate), 0)
+  const subtotalFCFA = useMemo(() => getPurchaseSubtotal(items), [items])
+  const expensesTotalFCFA = useMemo(() => getExpensesTotal(expenses), [expenses])
   const totalFCFA = subtotalFCFA + expensesTotalFCFA
+
+  const selectedSupplier = suppliers.find((s) => s.id === supplierId)
 
   const handleSubmit = async (status: "DRAFT" | "ORDERED") => {
     if (!activeStore || !userProfile) return
     if (!supplierId) return toast.error("Veuillez choisir un fournisseur")
     if (items.length === 0) return toast.error("Ajoutez au moins un article")
-    if (items.some(i => !i.productId || i.quantity <= 0)) return toast.error("Détails d'articles invalides")
+    if (items.some((i) => !i.productId || i.quantity <= 0))
+      return toast.error("Détails d'articles invalides")
 
     setSubmitting(true)
     try {
-      const supplier = suppliers.find(s => s.id === supplierId)
       await PurchaseService.createPurchase({
         supplierId,
-        supplierName: supplier?.name || "Inconnu",
+        supplierName: selectedSupplier?.name || "Inconnu",
         storeId: activeStore.id,
         storeName: activeStore.name,
         items,
@@ -126,218 +258,403 @@ export default function NewPurchasePage() {
         status,
         notes,
         performedBy: userProfile.uid,
-        performedByName: `${userProfile.prenom} ${userProfile.nom}`
+        performedByName: `${userProfile.prenom} ${userProfile.nom}`,
       })
       toast.success(status === "DRAFT" ? "Brouillon enregistré" : "Commande validée")
       router.push("/purchases")
-    } catch (error) {
+    } catch {
       toast.error("Erreur lors de l'enregistrement")
     } finally {
       setSubmitting(false)
     }
   }
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>
+  if (!activeStore) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+        <Truck className="h-10 w-10 opacity-30" />
+        <p>Sélectionnez une boutique pour créer un approvisionnement.</p>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center p-16">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/purchases">
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-          </Button>
-          <h1 className="text-3xl font-bold tracking-tight font-headline">Nouvel Approvisionnement</h1>
+    <div className="mx-auto max-w-6xl space-y-6 pb-8">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" asChild className="rounded-xl">
+          <Link href="/purchases">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <Truck className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight font-headline">
+              Nouvel approvisionnement
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Commande fournisseur pour{" "}
+              <strong className="text-foreground">{activeStore.name}</strong>
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Items & Expenses */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          {/* Articles */}
+          <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+            <CardHeader className="flex flex-col gap-4 border-b bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
               <div>
-                <CardTitle>Articles commandés</CardTitle>
-                <CardDescription>Liste des produits à réceptionner.</CardDescription>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Package className="h-4 w-4 text-primary" />
+                  Articles commandés
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Scannez ou sélectionnez les produits à réceptionner.
+                </CardDescription>
               </div>
-              <Button size="sm" variant="outline" onClick={addItem}>
-                <Plus className="w-4 h-4 mr-1" /> Ajouter un produit
-              </Button>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[280px]">
+                <BarcodeScanField
+                  placeholder="Scanner pour ajouter… (F2)"
+                  onScan={handleProductScan}
+                  processing={scanProcessing}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setItems((prev) => [...prev, EMPTY_ITEM()])}
+                  className="w-full rounded-xl"
+                >
+                  <Plus className="mr-1 h-4 w-4" />
+                  Ajouter manuellement
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {items.map((item, index) => (
-                <div key={index} className="grid grid-cols-12 gap-3 items-end border-b pb-4 last:border-0 last:pb-0">
-                  <div className="col-span-5 space-y-1.5">
-                    <Label className="text-xs">Produit</Label>
-                    <Select value={item.productId} onValueChange={(v) => updateItem(index, 'productId', v)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choisir" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map(p => (
-                          <SelectItem key={p.id} value={p.id}>{p.name} ({p.sku})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="col-span-2 space-y-1.5">
-                    <Label className="text-xs">Quantité</Label>
-                    <Input type="number" value={item.quantity} onChange={(e) => updateItem(index, 'quantity', Number(e.target.value))} />
-                  </div>
-                  <div className="col-span-2 space-y-1.5">
-                    <Label className="text-xs">Prix Unit.</Label>
-                    <Input type="number" value={item.unitCost} onChange={(e) => updateItem(index, 'unitCost', Number(e.target.value))} />
-                  </div>
-                  <div className="col-span-2 space-y-1.5">
-                    <Label className="text-xs">Devise / Taux</Label>
-                    <div className="flex gap-1">
-                       <Select value={item.currency} onValueChange={(v) => updateItem(index, 'currency', v)}>
-                        <SelectTrigger className="w-20 px-2 h-9 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <Input 
-                        className="h-9 text-xs px-2" 
-                        type="number" 
-                        step="0.001" 
-                        value={item.exchangeRate} 
-                        onChange={(e) => updateItem(index, 'exchangeRate', Number(e.target.value))} 
-                        disabled={item.currency === "FCFA"}
-                      />
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              {items.length === 0 ? (
+                <div className="rounded-xl border border-dashed py-12 text-center text-sm text-muted-foreground">
+                  Scannez un code-barres ou ajoutez un article manuellement.
+                </div>
+              ) : (
+                items.map((item, index) => (
+                  <div
+                    key={index}
+                    className="rounded-xl border bg-muted/10 p-4 space-y-3"
+                  >
+                    <div className="grid grid-cols-12 gap-3 items-end">
+                      <div className="col-span-12 sm:col-span-5 space-y-1.5">
+                        <Label required className="text-xs">
+                          Produit
+                        </Label>
+                        <FieldWithAdd entity="product" returnTo="/purchases/new">
+                          <Select
+                            value={item.productId}
+                            onValueChange={(v) => updateItem(index, "productId", v)}
+                          >
+                            <SelectTrigger className="h-10 rounded-xl">
+                              <SelectValue placeholder="Choisir un produit" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              {products.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.name} ({p.sku})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FieldWithAdd>
+                      </div>
+                      <div className="col-span-4 sm:col-span-2 space-y-1.5">
+                        <Label required className="text-xs">
+                          Qté
+                        </Label>
+                        <Input
+                          type="number"
+                          min="0.01"
+                          step="any"
+                          className="h-10 rounded-xl"
+                          value={item.quantity}
+                          onChange={(e) =>
+                            updateItem(index, "quantity", Number(e.target.value))
+                          }
+                        />
+                      </div>
+                      <div className="col-span-4 sm:col-span-2 space-y-1.5">
+                        <Label required className="text-xs">
+                          Prix unit.
+                        </Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="any"
+                          className="h-10 rounded-xl"
+                          value={item.unitCost}
+                          onChange={(e) =>
+                            updateItem(index, "unitCost", Number(e.target.value))
+                          }
+                        />
+                      </div>
+                      <div className="col-span-11 sm:col-span-2 space-y-1.5">
+                        <Label required className="text-xs">
+                          Devise / taux
+                        </Label>
+                        <div className="flex gap-1">
+                          <Select
+                            value={item.currency}
+                            onValueChange={(v) => updateItem(index, "currency", v)}
+                          >
+                            <SelectTrigger className="h-10 w-20 rounded-xl px-2 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              {PURCHASE_CURRENCIES.map((c) => (
+                                <SelectItem key={c} value={c}>
+                                  {c}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            className="h-10 rounded-xl px-2 text-xs"
+                            type="number"
+                            step="0.001"
+                            value={item.exchangeRate}
+                            onChange={(e) =>
+                              updateItem(index, "exchangeRate", Number(e.target.value))
+                            }
+                            disabled={item.currency === "FCFA"}
+                          />
+                        </div>
+                      </div>
+                      <div className="col-span-1 flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 text-destructive"
+                          onClick={() => setItems((prev) => prev.filter((_, i) => i !== index))}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
+                    <p className="text-right text-xs text-muted-foreground">
+                      Ligne :{" "}
+                      <span className="font-bold text-foreground">
+                        {getPurchaseLineTotal(item).toLocaleString("fr-FR")} FCFA
+                      </span>
+                    </p>
                   </div>
-                  <div className="col-span-1 text-right">
-                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeItem(index)}>
-                      <Trash2 className="h-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-              {items.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-                  Cliquez sur "Ajouter un produit" pour commencer.
-                </div>
+                ))
               )}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+          {/* Frais annexes */}
+          <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 p-4 sm:p-6">
               <div>
-                <CardTitle>Frais annexes (Logistique, Douane...)</CardTitle>
-                <CardDescription>Frais impactant le coût de revient.</CardDescription>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Receipt className="h-4 w-4 text-primary" />
+                  Frais annexes
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Transport, douane, logistique - impactent le coût de revient.
+                </CardDescription>
               </div>
-              <Button size="sm" variant="ghost" onClick={addExpense}>
-                <Plus className="w-4 h-4 mr-1" /> Ajouter un frais
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setExpenses((prev) => [...prev, EMPTY_EXPENSE()])}
+                className="rounded-xl"
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Ajouter
               </Button>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {expenses.map((exp, index) => (
-                <div key={index} className="flex gap-4 items-end">
-                  <div className="flex-1">
-                    <Input placeholder="Libellé (ex: Transport)" value={exp.label} onChange={(e) => {
-                      const newExp = [...expenses]; newExp[index].label = e.target.value; setExpenses(newExp);
-                    }} />
+            <CardContent className="space-y-3 p-4 sm:p-6">
+              {expenses.length === 0 ? (
+                <p className="text-center text-sm italic text-muted-foreground py-4">
+                  Aucun frais annexes (optionnel).
+                </p>
+              ) : (
+                expenses.map((exp, index) => (
+                  <div key={index} className="flex flex-wrap items-end gap-3 rounded-xl border p-3">
+                    <div className="min-w-[140px] flex-1">
+                      <Label className="text-xs">Libellé</Label>
+                      <Input
+                        placeholder="Ex. Transport"
+                        className="mt-1 h-10 rounded-xl"
+                        value={exp.label}
+                        onChange={(e) => updateExpense(index, "label", e.target.value)}
+                      />
+                    </div>
+                    <div className="w-28">
+                      <Label className="text-xs">Montant</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        className="mt-1 h-10 rounded-xl"
+                        value={exp.amount}
+                        onChange={(e) =>
+                          updateExpense(index, "amount", Number(e.target.value))
+                        }
+                      />
+                    </div>
+                    <div className="w-24">
+                      <Label className="text-xs">Devise</Label>
+                      <Select
+                        value={exp.currency}
+                        onValueChange={(v) => updateExpense(index, "currency", v)}
+                      >
+                        <SelectTrigger className="mt-1 h-10 rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {PURCHASE_CURRENCIES.map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 text-destructive"
+                      onClick={() =>
+                        setExpenses((prev) => prev.filter((_, i) => i !== index))
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <div className="w-32">
-                    <Input type="number" placeholder="Montant" value={exp.amount} onChange={(e) => {
-                      const newExp = [...expenses]; newExp[index].amount = Number(e.target.value); setExpenses(newExp);
-                    }} />
-                  </div>
-                  <div className="w-24">
-                     <Select value={exp.currency} onValueChange={(v: any) => {
-                        const newExp = [...expenses]; newExp[index].currency = v; setExpenses(newExp);
-                     }}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={() => removeExpense(index)}>
-                    <Trash2 className="h-4 h-4" />
-                  </Button>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Right Column: Totals & Summary */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Récapitulatif Financier</CardTitle>
+        {/* Récapitulatif */}
+        <div className="space-y-6 lg:sticky lg:top-4 lg:self-start">
+          <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+            <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
+              <CardTitle className="text-base">Récapitulatif</CardTitle>
+              <CardDescription className="text-xs">
+                {items.length} article{items.length !== 1 ? "s" : ""}
+                {expenses.length > 0 &&
+                  ` · ${expenses.length} frais`}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 p-4 sm:p-6">
               <div className="space-y-1.5">
-                <Label>Fournisseur</Label>
-                <Select value={supplierId} onValueChange={setSupplierId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner le partenaire" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map(s => (
-                      <SelectItem key={s.id} value={s.id}>{s.name} ({s.country})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label required>Fournisseur</Label>
+                <FieldWithAdd entity="supplier" returnTo="/purchases/new">
+                  <Select value={supplierId} onValueChange={setSupplierId}>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Sélectionner le partenaire" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {suppliers.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name} - {s.country}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FieldWithAdd>
+                {selectedSupplier && (
+                  <StatusBadge
+                    preset="supplierType"
+                    value={selectedSupplier.type}
+                    className="mt-2 text-[10px]"
+                  />
+                )}
               </div>
 
-              <div className="pt-4 border-t space-y-2">
+              <div className="space-y-2 border-t pt-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Sous-total Marchandises</span>
-                  <span className="font-medium">{subtotalFCFA.toLocaleString()} FCFA</span>
+                  <span className="text-muted-foreground">Sous-total marchandises</span>
+                  <span className="font-medium">
+                    {subtotalFCFA.toLocaleString("fr-FR")} FCFA
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total Frais Appro</span>
-                  <span className="font-medium text-destructive">+{expensesTotalFCFA.toLocaleString()} FCFA</span>
+                  <span className="text-muted-foreground">Frais annexes</span>
+                  <span className="font-medium text-destructive">
+                    +{expensesTotalFCFA.toLocaleString("fr-FR")} FCFA
+                  </span>
                 </div>
-                <div className="flex justify-between text-xl font-bold font-headline pt-2 border-t text-accent">
-                  <span>TOTAL ESTIMÉ</span>
-                  <span>{totalFCFA.toLocaleString()} FCFA</span>
+                <div className="flex justify-between border-t pt-2 text-lg font-bold font-headline text-primary">
+                  <span>Total estimé</span>
+                  <span>{totalFCFA.toLocaleString("fr-FR")} FCFA</span>
                 </div>
               </div>
 
-              <div className="space-y-1.5 pt-4">
+              <div className="space-y-1.5">
                 <Label>Notes internes</Label>
-                <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex: Livraison prévue lundi..." />
+                <Input
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Ex. Livraison prévue lundi…"
+                  className="h-10 rounded-xl"
+                />
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col gap-3">
-              <Button 
-                className="w-full h-12 text-lg font-bold" 
+            <CardFooter className="flex flex-col gap-3 border-t bg-muted/10 p-4 sm:p-6">
+              <Button
+                className="h-11 w-full rounded-xl font-semibold"
                 onClick={() => handleSubmit("ORDERED")}
                 disabled={submitting}
               >
-                {submitting ? <Loader2 className="animate-spin mr-2" /> : <Truck className="mr-2" />}
-                Valider la Commande
+                {submitting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Truck className="mr-2 h-4 w-4" />
+                )}
+                Valider la commande
               </Button>
-              <Button 
-                variant="outline" 
-                className="w-full" 
+              <Button
+                variant="outline"
+                className="w-full rounded-xl"
                 onClick={() => handleSubmit("DRAFT")}
                 disabled={submitting}
               >
-                <Save className="w-4 h-4 mr-2" /> Enregistrer Brouillon
+                <Save className="mr-2 h-4 w-4" />
+                Enregistrer brouillon
               </Button>
             </CardFooter>
           </Card>
 
-          <Card className="bg-amber-50 border-amber-200">
+          <Card className="rounded-2xl border border-dashed border-amber-200/60 bg-amber-50/50 shadow-sm dark:bg-amber-950/20">
             <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm flex items-center gap-2 text-amber-700">
-                <AlertTriangle className="w-4 h-4" /> Note Importante
+              <CardTitle className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4" />
+                À savoir
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0 text-xs text-amber-600 leading-relaxed">
-              La validation de la commande n'incrémente pas encore les stocks. Vous devrez "Valider la Réception" une fois les marchandises livrées pour mettre à jour les inventaires et recalculer les PMP.
+            <CardContent className="space-y-2 p-4 pt-0 text-xs leading-relaxed text-muted-foreground">
+              <p>
+                La validation de la commande <strong className="text-foreground">n&apos;incrémente pas encore le stock</strong>.
+              </p>
+              <p>
+                Une fois les marchandises livrées, validez la réception depuis le détail de la commande pour mettre à jour l&apos;inventaire et recalculer le PMP.
+              </p>
+              <p className="flex items-start gap-1.5">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                Les taux de change sont préremplis depuis la gestion des devises.
+              </p>
             </CardContent>
           </Card>
         </div>

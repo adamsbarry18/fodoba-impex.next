@@ -1,174 +1,425 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { DocumentSnapshot } from "firebase/firestore"
 import { InventoryService } from "@/services/inventory.service"
+import { PrintService } from "@/services/print.service"
 import { StockMovement } from "@/lib/types"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/ui/status-badge"
 import { Button } from "@/components/ui/button"
-import { 
-  History, 
-  Loader2, 
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  History,
+  Loader2,
   ArrowDownToLine,
-  ArrowUpRight,
-  ArrowDownLeft,
   RefreshCw,
+  PackageSearch,
   ArrowRightLeft,
-  ClipboardCheck,
-  PackageSearch
+  ArrowDownLeft,
+  ArrowUpRight,
+  TrendingUp,
+  Plus,
+  Search,
 } from "lucide-react"
 import { useStore } from "@/lib/contexts/StoreContext"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
+import { toast } from "sonner"
+import Link from "next/link"
+import {
+  filterMovements,
+  getMovementStats,
+  MOVEMENT_META,
+  MOVEMENT_TYPE_ORDER,
+  toMovementDate,
+  type MovementTypeFilter,
+} from "@/lib/stock-movement-utils"
+import { cn } from "@/lib/utils"
 
-const MOVEMENT_ICONS = {
-  PURCHASE: <ArrowDownLeft className="h-4 w-4 text-emerald-500" />,
-  SALE: <ArrowUpRight className="h-4 w-4 text-orange-500" />,
-  TRANSFER_IN: <ArrowRightLeft className="h-4 w-4 text-blue-500" />,
-  TRANSFER_OUT: <ArrowRightLeft className="h-4 w-4 text-blue-500" />,
-  RETURN: <RefreshCw className="h-4 w-4 text-purple-500" />,
-  CORRECTION: <ClipboardCheck className="h-4 w-4 text-slate-500" />
-}
-
-const MOVEMENT_LABELS = {
-  PURCHASE: "Achat / Entrée",
-  SALE: "Vente",
-  TRANSFER_IN: "Transfert (Entrée)",
-  TRANSFER_OUT: "Transfert (Sortie)",
-  RETURN: "Retour Client",
-  CORRECTION: "Correction Inventaire"
-}
+const PAGE_SIZE = 50
 
 export default function StockHistoryPage() {
   const { activeStore } = useStore()
   const [movements, setMovements] = useState<StockMovement[]>([])
   const [loading, setLoading] = useState(true)
-  const [lastDoc, setLastDoc] = useState<any>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | undefined>(undefined)
   const [hasMore, setHasMore] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [typeFilter, setTypeFilter] = useState<MovementTypeFilter>("all")
 
-  const loadMovements = async (loadMore = false) => {
+  const loadMovements = async (options?: { loadMore?: boolean; reset?: boolean }) => {
     if (!activeStore) return
-    setLoading(true)
+    const loadMore = options?.loadMore ?? false
+    if (loadMore) setLoadingMore(true)
+    else setLoading(true)
+
     try {
       const result = await InventoryService.listMovements(
-        { storeId: activeStore.id }, 
-        20, 
-        loadMore ? lastDoc : undefined
+        { storeId: activeStore.id },
+        PAGE_SIZE,
+        loadMore && !options?.reset ? lastDoc : undefined
       )
-      
+
       if (loadMore) {
-        setMovements(prev => [...prev, ...result.movements])
+        setMovements((prev) => [...prev, ...result.movements])
       } else {
         setMovements(result.movements)
       }
-      
+
       setLastDoc(result.lastVisible)
-      setHasMore(result.movements.length === 20)
-    } catch (error) {
-      console.error(error)
+      setHasMore(result.movements.length === PAGE_SIZE)
+    } catch {
+      toast.error("Erreur de chargement de l'historique")
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
   useEffect(() => {
-    loadMovements()
-  }, [activeStore])
+    if (!activeStore) {
+      setMovements([])
+      setLoading(false)
+      return
+    }
 
-  const formatDate = (ts: any) => {
-    if (!ts) return "-"
-    const date = ts.toDate ? ts.toDate() : new Date(ts)
-    return format(date, "dd MMM yyyy HH:mm", { locale: fr })
+    let cancelled = false
+
+    const fetchInitial = async () => {
+      setLoading(true)
+      try {
+        const result = await InventoryService.listMovements(
+          { storeId: activeStore.id },
+          PAGE_SIZE
+        )
+        if (cancelled) return
+        setMovements(result.movements)
+        setLastDoc(result.lastVisible)
+        setHasMore(result.movements.length === PAGE_SIZE)
+      } catch {
+        if (!cancelled) toast.error("Erreur de chargement de l'historique")
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    fetchInitial()
+    return () => {
+      cancelled = true
+    }
+  }, [activeStore?.id])
+
+  const filteredMovements = useMemo(
+    () => filterMovements(movements, { search: searchTerm, type: typeFilter }),
+    [movements, searchTerm, typeFilter]
+  )
+
+  const stats = useMemo(() => getMovementStats(movements), [movements])
+
+  const handleExportPdf = async () => {
+    if (!activeStore) return
+    setExporting(true)
+    try {
+      const result = await InventoryService.listMovements(
+        { storeId: activeStore.id },
+        500
+      )
+      if (result.movements.length === 0) {
+        toast.error("Aucun mouvement à exporter")
+        return
+      }
+      await PrintService.generateStockHistoryReport(result.movements, activeStore)
+      toast.success("Export PDF téléchargé")
+    } catch {
+      toast.error("Erreur lors de l'export PDF")
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  if (!activeStore) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+        <History className="h-10 w-10 opacity-30" />
+        <p>Sélectionnez une boutique pour consulter l&apos;historique des flux.</p>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Historique des Flux</h1>
-          <p className="text-muted-foreground">Traçabilité complète des mouvements de stock pour <strong>{activeStore?.name}</strong>.</p>
+    <div className="space-y-6 pb-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <History className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Historique des flux</h1>
+            <p className="text-sm text-muted-foreground">
+              Traçabilité des mouvements de stock pour{" "}
+              <strong className="text-foreground">{activeStore.name}</strong>
+            </p>
+          </div>
         </div>
-        <Button variant="outline">
-          <ArrowDownToLine className="w-4 h-4 mr-2" /> Export PDF
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            variant="outline"
+            className="rounded-xl font-semibold"
+            onClick={() => loadMovements({ reset: true })}
+            disabled={loading}
+          >
+            <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+            Actualiser
+          </Button>
+          <Button
+            variant="outline"
+            className="rounded-xl font-semibold"
+            onClick={handleExportPdf}
+            disabled={exporting || loading}
+          >
+            {exporting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <ArrowDownToLine className="mr-2 h-4 w-4" />
+            )}
+            Export PDF
+          </Button>
+          <Button asChild className="rounded-xl font-semibold">
+            <Link href="/inventory/transfers/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouveau transfert
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5 text-accent" />
-            Journal d'Audit Stock
-          </CardTitle>
-          <CardDescription>Tous les changements de quantités sont historisés ici.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date & Heure</TableHead>
-                <TableHead>Produit</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-center">Variation</TableHead>
-                <TableHead className="text-center">Stock Final</TableHead>
-                <TableHead>Auteur / Motif</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {movements.length === 0 && !loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                    <PackageSearch className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                    Aucun mouvement enregistré pour cette boutique.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                movements.map((move) => (
-                  <TableRow key={move.id}>
-                    <TableCell className="text-xs font-medium">
-                      {formatDate(move.timestamp)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-bold">{move.productName}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {MOVEMENT_ICONS[move.type]}
-                        <span className="text-xs">{MOVEMENT_LABELS[move.type]}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={move.delta > 0 ? "outline" : "secondary"} className={move.delta > 0 ? "border-emerald-500 text-emerald-600" : ""}>
-                        {move.delta > 0 ? `+${move.delta}` : move.delta}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center font-bold">
-                      {move.newStock}
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-xs font-medium">{move.performedByName}</div>
-                      <div className="text-[10px] text-muted-foreground truncate max-w-[150px]">{move.reason}</div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-
-          {hasMore && (
-            <div className="flex justify-center mt-6">
-              <Button variant="ghost" onClick={() => loadMovements(true)} disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Charger plus..."}
-              </Button>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-900/50">
+              <History className="h-5 w-5 text-slate-600 dark:text-slate-400" />
             </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Mouvements
+              </p>
+              <p className="text-2xl font-bold">{stats.total}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {stats.monthCount} ce mois
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
+              <ArrowDownLeft className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Entrées
+              </p>
+              <p className="text-2xl font-bold">{stats.entries}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-950/40">
+              <ArrowUpRight className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Sorties
+              </p>
+              <p className="text-2xl font-bold">{stats.exits}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-2 rounded-2xl border bg-card shadow-sm lg:col-span-1">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 dark:bg-cyan-950/40">
+              <TrendingUp className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Variation nette
+              </p>
+              <p
+                className={cn(
+                  "text-sm font-bold",
+                  stats.netDelta >= 0 ? "text-emerald-600" : "text-destructive"
+                )}
+              >
+                {stats.netDelta >= 0 ? "+" : ""}
+                {stats.netDelta}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {stats.transfers} transfert{stats.transfers > 1 ? "s" : ""}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="rounded-2xl border bg-card shadow-sm">
+        <CardContent className="grid grid-cols-1 gap-3 p-4 md:grid-cols-3">
+          <div className="relative md:col-span-2">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par produit, motif ou auteur…"
+              className="h-10 rounded-xl pl-9"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Select
+            value={typeFilter}
+            onValueChange={(v) => setTypeFilter(v as MovementTypeFilter)}
+          >
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue placeholder="Type de mouvement" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="all">Tous les types</SelectItem>
+              {MOVEMENT_TYPE_ORDER.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {MOVEMENT_META[type].label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex justify-center p-16">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : filteredMovements.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-4 p-16 text-center">
+              <PackageSearch className="h-12 w-12 text-muted-foreground/30" />
+              <div>
+                <p className="font-semibold">Aucun mouvement trouvé</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {movements.length === 0
+                    ? "Les opérations de stock apparaîtront ici (achats, ventes, transferts…)."
+                    : "Ajustez les filtres ou la recherche."}
+                </p>
+              </div>
+              {movements.length === 0 && (
+                <Button asChild className="rounded-xl font-semibold">
+                  <Link href="/inventory/transfers/new">
+                    <ArrowRightLeft className="mr-2 h-4 w-4" />
+                    Nouveau transfert
+                  </Link>
+                </Button>
+              )}
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Date & heure</TableHead>
+                    <TableHead>Produit</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-center">Variation</TableHead>
+                    <TableHead className="text-center">Stock final</TableHead>
+                    <TableHead>Auteur / Motif</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredMovements.map((move) => {
+                    const date = toMovementDate(move.timestamp)
+                    const meta = MOVEMENT_META[move.type]
+                    const Icon = meta.Icon
+                    return (
+                      <TableRow key={move.id} className="group">
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {date
+                            ? format(date, "dd/MM/yyyy HH:mm", { locale: fr })
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-semibold">{move.productName}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-muted-foreground" />
+                            <StatusBadge
+                              preset="stockMovement"
+                              value={move.type}
+                              className="text-[10px]"
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <StatusBadge
+                            preset="stockDelta"
+                            value={move.delta > 0 ? "positive" : "negative"}
+                            className="font-bold text-[10px]"
+                          >
+                            {move.delta > 0 ? `+${move.delta}` : move.delta}
+                          </StatusBadge>
+                        </TableCell>
+                        <TableCell className="text-center font-headline font-bold">
+                          {move.newStock}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-xs font-medium">{move.performedByName}</div>
+                          {move.reason && (
+                            <div className="mt-0.5 max-w-[200px] truncate text-[10px] text-muted-foreground">
+                              {move.reason}
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+
+              {hasMore && typeFilter === "all" && !searchTerm && (
+                <div className="flex justify-center border-t p-4">
+                  <Button
+                    variant="outline"
+                    className="rounded-xl font-semibold"
+                    onClick={() => loadMovements({ loadMore: true })}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    Charger plus
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

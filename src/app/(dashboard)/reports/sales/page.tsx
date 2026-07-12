@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/ui/status-badge"
 import { 
   ArrowLeft, 
   Download, 
@@ -193,13 +193,13 @@ export default function SalesReportPage() {
                       <TableCell className="text-right font-headline font-bold">{s.total.toLocaleString()}</TableCell>
                       <TableCell className="text-center">
                          {s.debtAmount > 0 ? (
-                           <Badge variant="outline" className="text-destructive border-destructive text-[9px]">PARTIEL</Badge>
+                           <StatusBadge preset="salePayment" value="partial" className="text-[9px] uppercase" />
                          ) : (
-                           <Badge variant="outline" className="text-emerald-600 border-emerald-200 text-[9px]">COMPLET</Badge>
+                           <StatusBadge preset="salePayment" value="complete" className="text-[9px] uppercase" />
                          )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="text-[9px]">{s.status}</Badge>
+                        <StatusBadge preset="saleStatus" value={s.status} className="text-[9px] uppercase" />
                       </TableCell>
                     </TableRow>
                   ))

@@ -6,7 +6,7 @@ import { ReportService } from "@/services/report.service"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/ui/status-badge"
 import { 
   ArrowLeft, 
   Download, 
@@ -122,10 +122,12 @@ export default function SupplierDebtReportPage() {
                   <TableRow key={s.id} className="hover:bg-gray-50/50 transition-colors">
                     <TableCell className="py-4 pl-8 font-bold text-gray-900">{s.name}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {s.type === 'import' && <Globe className="w-3 h-3 mr-1" />}
-                        {s.type}
-                      </Badge>
+                      <StatusBadge
+                        preset="supplierType"
+                        value={s.type}
+                        icon={s.type === "import" ? <Globe className="w-3 h-3" /> : undefined}
+                        className="text-[10px]"
+                      />
                     </TableCell>
                     <TableCell className="text-[13px] text-gray-500">{s.country}</TableCell>
                     <TableCell className="text-right pr-8 font-headline font-bold text-gray-900">

@@ -9,36 +9,56 @@ import {
 import { db } from "@/lib/firebase/client";
 import { ExchangeRate, CurrencyCode, UserProfile } from "@/lib/types";
 import { UserService } from "./user.service";
+import { CURRENCY_ORDER, DEFAULT_RATES, validateRate } from "@/lib/currency-utils";
 
 const COLLECTION_NAME = "currencies";
 
 export const CurrencyService = {
   async getRates(): Promise<Record<CurrencyCode, number>> {
-    const snap = await getDocs(collection(db, COLLECTION_NAME));
-    const rates: Record<string, number> = {
-      FCFA: 1.0,
-      GNF: 0.065,
-      USD: 600,
-      EUR: 655.957
-    };
+    const rates = await this.getExchangeRates();
+    return rates.reduce(
+      (acc, rate) => {
+        acc[rate.code] = rate.rateToRef;
+        return acc;
+      },
+      { ...DEFAULT_RATES } as Record<CurrencyCode, number>
+    );
+  },
 
-    snap.docs.forEach(doc => {
-      const data = doc.data() as ExchangeRate;
-      rates[data.code] = data.rateToRef;
+  async getExchangeRates(): Promise<ExchangeRate[]> {
+    const snap = await getDocs(collection(db, COLLECTION_NAME));
+    const stored = new Map<CurrencyCode, ExchangeRate>();
+
+    snap.docs.forEach((docSnap) => {
+      const data = docSnap.data() as ExchangeRate;
+      stored.set(data.code, data);
     });
 
-    return rates as Record<CurrencyCode, number>;
+    return CURRENCY_ORDER.map((code) => {
+      if (stored.has(code)) return stored.get(code)!;
+      return {
+        code,
+        rateToRef: DEFAULT_RATES[code],
+        lastUpdated: null,
+        updatedBy: code === "FCFA" ? "Système" : "-",
+      };
+    });
   },
 
   async updateRate(code: CurrencyCode, rate: number, user: UserProfile) {
-    if (code === "FCFA") throw new Error("La devise de référence ne peut pas être modifiée.");
+    if (code === "FCFA") {
+      throw new Error("La devise de référence ne peut pas être modifiée.");
+    }
+
+    const validationError = validateRate(rate);
+    if (validationError) throw new Error(validationError);
     
     const docRef = doc(db, COLLECTION_NAME, code);
     const data: ExchangeRate = {
       code,
       rateToRef: rate,
       lastUpdated: serverTimestamp(),
-      updatedBy: `${user.prenom} ${user.nom}`
+      updatedBy: `${user.prenom} ${user.nom}`,
     };
 
     await setDoc(docRef, data, { merge: true });
