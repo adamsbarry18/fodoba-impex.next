@@ -9,8 +9,30 @@ import { NotificationProvider } from "@/lib/contexts/NotificationContext";
 import { AuthLayoutWrapper } from "@/components/auth/auth-layout-wrapper";
 
 export const metadata: Metadata = {
-  title: 'FODOBA IMPEX',
+  title: 'Fodoba impex',
   description: 'Gestion Commerciale Multi-Boutiques',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: '48x48' },
+      { url: '/images/favicon-32x32.ico', sizes: '32x32', type: 'image/x-icon' },
+      { url: '/images/favicon-16x16.ico', sizes: '16x16', type: 'image/x-icon' },
+    ],
+    apple: '/images/apple-touch-icon-192x192.png',
+    other: [
+      {
+        rel: 'icon',
+        type: 'image/png',
+        url: '/images/android-chrome-192x192.png',
+        sizes: '192x192',
+      },
+      {
+        rel: 'icon',
+        type: 'image/png',
+        url: '/images/android-chrome-512x512.png',
+        sizes: '512x512',
+      },
+    ],
+  },
 };
 
 export default function RootLayout({

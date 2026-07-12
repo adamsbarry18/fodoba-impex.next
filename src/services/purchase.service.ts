@@ -4,8 +4,7 @@ import {
   doc, 
   getDoc, 
   getDocs, 
-  setDoc, 
-  updateDoc, 
+  setDoc,  
   query, 
   where, 
   orderBy, 
@@ -16,7 +15,7 @@ import {
   startAfter
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import { Purchase, UserProfile, Store, Product, Supplier, StockLevel } from "@/lib/types";
+import { Purchase, UserProfile, Product, Supplier, StockLevel } from "@/lib/types";
 
 const COLLECTION_NAME = "purchases";
 

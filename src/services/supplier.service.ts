@@ -10,7 +10,6 @@ import {
   orderBy, 
   serverTimestamp,
   deleteDoc,
-  where
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Supplier } from "@/lib/types";

@@ -9,12 +9,10 @@ import {
   query, 
   orderBy, 
   serverTimestamp,
-  deleteDoc,
   where,
   limit,
   startAfter,
-  DocumentSnapshot,
-  writeBatch
+  DocumentSnapshot
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Product, StockLevel } from "@/lib/types";

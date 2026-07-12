@@ -7,7 +7,6 @@ import {
   setDoc, 
   updateDoc, 
   query, 
-  where, 
   orderBy, 
   limit, 
   startAfter,

@@ -37,7 +37,7 @@ export default function LoginPage() {
           {/* Logo Section - Centered */}
           <div className="flex items-center justify-center gap-3 mb-8">
             <div className="bg-primary rounded-xl p-2 shadow-sm shadow-primary/20">
-              <Store className="w-6 h-6 text-white" />
+              <img src="/images/logo.png" alt="FODOBA IMPEX" className="w-6 h-6" />
             </div>
             <span className="font-headline font-bold text-xl tracking-tight text-[#111827]">FODOBA IMPEX</span>
           </div>
@@ -45,7 +45,7 @@ export default function LoginPage() {
           {/* Description Section - Left Aligned */}
           <div className="mb-6">
             <p className="text-[14px] text-gray-500 leading-relaxed">
-              Saisissez vos identifiants pour accéder à votre compte professionnel.
+              Saisissez vos identifiants pour accéder à votre espace commercial.
             </p>
           </div>
 

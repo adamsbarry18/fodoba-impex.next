@@ -2,22 +2,17 @@
 import { 
   collection, 
   doc, 
-  getDoc, 
   getDocs, 
   setDoc, 
-  updateDoc, 
   query, 
   where, 
-  orderBy, 
   limit, 
   serverTimestamp,
   runTransaction,
-  DocumentSnapshot,
-  startAfter,
   increment
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import { CashSession, CashMovement, UserProfile, Store, PaymentMethod } from "@/lib/types";
+import { CashSession, CashMovement, UserProfile } from "@/lib/types";
 
 const SESSIONS_COLLECTION = "cash_sessions";
 const MOVEMENTS_COLLECTION = "cash_movements";

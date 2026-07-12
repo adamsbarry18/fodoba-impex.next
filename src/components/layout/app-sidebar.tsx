@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/sidebar"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import Image from "next/image"
 import { usePermissions } from "@/hooks/use-permissions"
 import { Permission } from "@/lib/auth/permissions"
 import { cn } from "@/lib/utils"
@@ -170,7 +171,7 @@ export const AppSidebar = memo(function AppSidebar() {
               "ring-1 ring-inset ring-black/5"
             )}
           >
-            <StoreIcon className="w-5 h-5 text-white" />
+            <Image src="/images/logo.png" alt="FODOBA" width={20} height={20} />
           </div>
           <div className="min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-bold tracking-tight text-sidebar-foreground">
