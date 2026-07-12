@@ -1,17 +1,23 @@
-# Fodoba -Référence complète
+# Fodoba — Référence complète
 
 ## Structure `src/`
 
 | Dossier | Rôle |
 |---------|------|
-| `src/app/` | Routes (`login`, `(dashboard)/*`) |
-| `src/services/` | Couche métier Firestore (16 services) |
+| `src/app/` | Routes (`login`, `forgot-password`, `(dashboard)/*`) |
+| `src/services/` | Couche métier Firestore |
 | `src/lib/contexts/` | Auth, Store, Currency, Notifications |
 | `src/lib/types.ts` | Types + schémas Zod |
 | `src/lib/auth/permissions.ts` | Matrice RBAC |
+| `src/lib/navigation/` | `app-nav.ts` (menu), `return-to.ts` (retour création entité) |
+| `src/lib/*-utils.ts` | Helpers métier par domaine (voir liste ci-dessous) |
 | `src/lib/firebase/` | Config + client (`client.ts`) |
-| `src/components/` | Layout, auth, notifications, `ui/` shadcn |
-| `src/hooks/` | permissions, currency, mobile |
+| `src/components/` | layout, auth, pos, cash, notifications, `ui/` shadcn |
+| `src/hooks/` | permissions, currency, barcode, create-return |
+
+### Utils métier (`src/lib/`)
+
+`auth-utils` · `audit-utils` · `cash-session-utils` · `category-utils` · `client-utils` · `currency-utils` · `dashboard-utils` · `expense-utils` · `landed-cost-utils` · `notification-utils` · `pos-utils` · `product-utils` · `purchase-utils` · `report-utils` · `stock-movement-utils` · `store-utils` · `supplier-utils` · `user-utils` · `badge-tones.ts`
 
 ## Providers (ordre fixe)
 
@@ -21,13 +27,13 @@ Fichier : `src/app/layout.tsx`
 
 ## Conventions
 
-- Routes : anglais kebab-case (`/inventory/transfers/new`, `/landed-cost`)
+- Routes : anglais kebab-case (`/inventory/transfers/new`, `/reconciliation`)
 - Rôles Firestore : `"admin"`, `"manager"`, `"seller"` (lowercase)
-- Permissions : `"action:ressource"` -`permissions.ts`
+- Permissions : `"action:ressource"` — `permissions.ts`
 - Services : `{Domain}Service` dans `{domain}.service.ts`
 - Champs mixtes : `nom`/`prenom`/`boutiqueIds` (profil) vs `storeId`/`activeStore` (contexte)
 - localStorage boutique : clé `activeStoreId`
-- Devise référence comptable : **FCFA** ; aussi GNF, USD, EUR
+- Devise référence comptable : **FCFA** ; aussi GNF, USD, EUR via `currencies`
 
 ## Firebase
 
@@ -37,7 +43,7 @@ Fichier : `src/app/layout.tsx`
 import { app, auth, db } from '@/lib/firebase/client';
 ```
 
-Config : `NEXT_PUBLIC_FIREBASE_*` -`.env.example`
+Config : `NEXT_PUBLIC_FIREBASE_*` — `.env.example` → `.env.local`
 
 ### Pattern données
 
@@ -45,6 +51,22 @@ Config : `NEXT_PUBLIC_FIREBASE_*` -`.env.example`
 - Scoping : champ `storeId` + `useStore().activeStore`
 - Stock composite : doc ID `{storeId}_{productId}`
 - Chargement : `useEffect` + appels `XxxService`, pas de hooks `useCollection`
+
+### Règles de sécurité (`firestore.rules`)
+
+À publier dans Firebase Console (remplacer la règle temporaire `/{document=**}`).
+
+| Helper | Rôle |
+|--------|------|
+| `isSignedIn()` | Utilisateur authentifié |
+| `isActif()` | Profil `users/{uid}` avec `actif == true` |
+| `isAdmin()` / `isManager()` | Rôle dans le profil |
+| `isStoreAuthorized(storeId)` | Admin ou `storeId in boutiqueIds` |
+| `isSelfProfileUpdate(userId)` | Auto-édition : `prenom`, `nom`, `phone`, `photoURL` |
+
+**Impact requêtes client** : si une règle lit `resource.data.storeId`, la requête Firestore **doit** filtrer par `storeId` (sinon `permission-denied`). Exemple corrigé : `CashService.getMovements(sessionId, storeId)`.
+
+Collections couvertes : `users`, `stores`, `products`, `categories`, `stocks`, `inventory_movements`, `sales`, `expenses`, `cash_sessions`, `cash_movements`, `purchases`, `clients`, `client_payments`, `suppliers`, `currencies`, `audit_logs`, `notifications`.
 
 ### Collections
 
@@ -61,12 +83,12 @@ Config : `NEXT_PUBLIC_FIREBASE_*` -`.env.example`
 | `expenses` | `expense.service.ts` | Dépenses boutique |
 | `cash_sessions`, `cash_movements` | `cash.service.ts` | Caisse |
 | `currencies` | `currency.service.ts` | Taux de change |
-| `notifications` | `notification.service.ts` | Alertes (**Firestore**) |
-| `audit_logs` | `user.service.ts` | Journal audit |
+| `notifications` | `notification.service.ts` | Alertes in-app |
+| `audit_logs` | `user.service.ts`, `audit.service.ts` | Journal audit |
 
 ### Services (`src/services/`)
 
-`auth`, `user`, `store`, `category`, `product`, `inventory`, `client`, `supplier`, `purchase`, `sale`, `cash`, `expense`, `currency`, `notification`, `report`, `print`
+`auth`, `user`, `store`, `category`, `product`, `inventory`, `client`, `supplier`, `purchase`, `sale`, `cash`, `expense`, `currency`, `notification`, `report`, `print`, `audit`
 
 Pattern :
 
@@ -86,19 +108,20 @@ export const ProductService = {
 
 ### Auth
 
-- Erreurs FR : `AuthService.handleAuthError()` -`auth.service.ts`
-- Bootstrap : premier user → admin auto si `users` vide -`AuthContext.tsx`
-- Création collaborateur : app Firebase secondaire -`UserService.createCollaborator`
+- Erreurs FR : `mapAuthErrorCode()` — `auth-utils.ts` / `AuthService.handleAuthError()`
+- Bootstrap : premier user → admin auto si `users` vide — `AuthContext.tsx`
+- Création collaborateur : app Firebase secondaire — `UserService.createCollaborator`
+- Profil personnel : `UserService.updateOwnProfile()` (champs limités, règle Firestore)
 
 ### Index Firestore
 
-Éviter `where` + `orderBy` composites -tri/filtre en mémoire (commentaires dans `product.service.ts`, `notification.service.ts`).
+Éviter `where` + `orderBy` composites quand possible — tri/filtre en mémoire. Préférer filtre `storeId` seul + filtre client si besoin.
 
 ## Contextes & hooks
 
 | Hook | Usage |
 |------|-------|
-| `useAuth()` | user, rôle, login/logout |
+| `useAuth()` | user, rôle, login/logout, `refreshProfile` |
 | `useStore()` | `activeStore`, `availableStores`, `setActiveStoreById` |
 | `useCurrency()` | taux, `formatAmount`, conversion FCFA |
 | `useNotifications()` | abonnement Firestore `onSnapshot` |
@@ -116,24 +139,36 @@ Rôles et permissions dans `src/lib/auth/permissions.ts`.
 | `manager` | `manage:catalog`, `manage:purchases`, `manage:transfers`, `view:reports:cash` |
 | `seller` | `create:sale`, `view:stock`, `reconcile:cash`, `manage:expenses` |
 
-Garde UI : `RoleGuard` -`src/components/auth/role-guard.tsx`
-Nav sidebar filtrée par `usePermissions()` -`app-sidebar.tsx`
+Garde UI : `RoleGuard` — `src/components/auth/role-guard.tsx`  
+Nav : `APP_NAVIGATION` — `src/lib/navigation/app-nav.ts`, filtrée par `usePermissions()`
 
 ## UI
 
 ### Layout dashboard
 
-Route group `(dashboard)/layout.tsx` :
+Route group `(dashboard)/layout.tsx` :  
 `SidebarProvider` → `AppSidebar` + `AppHeader` + carte scrollable `max-w-[1600px]`
 
-Pas de wrapper `<AppLayout>` -layout intégré au route group.
 Auth guard : `auth-layout-wrapper.tsx` (redirect `/login`).
+
+### Composants transverses
+
+| Composant | Fichier |
+|-----------|---------|
+| `StatusBadge` | `components/ui/status-badge.tsx` + `badge-tones.ts` |
+| `UserAvatar` | `components/ui/user-avatar.tsx` |
+| `LoadingScreen` | `components/ui/loading-screen.tsx` |
+| `AuthPageShell` | `components/auth/auth-page-shell.tsx` |
+| `NotificationPanel` | `components/notifications/notification-panel.tsx` |
+| `PaymentDialog` | `components/pos/payment-dialog.tsx` |
+| Menu sidebar/header | `nav-menu-items.tsx`, `app-sidebar.tsx`, `app-header.tsx` |
 
 ### Style
 
-- `lang="fr"`, accent vert `#1DD97C`
-- Fonts : Inter (body), Space Grotesk (headline)
-- Titres : `text-2xl sm:text-3xl font-bold font-headline`
+- `lang="fr"`, accent vert `#1DD97C` (`--primary`)
+- Fonts : Inter (body), Space Grotesk (`font-headline`)
+- Cartes : `rounded-2xl border bg-card shadow-sm`
+- Montants : `formatAmount(x, "FCFA")`
 
 ### Toasts
 
@@ -145,55 +180,38 @@ toast.error("Erreur lors de l'enregistrement");
 
 ### Formulaires
 
-**CRUD** (fournisseurs, clients, admin…) :
-
-```tsx
-const form = useForm<z.infer<typeof Schema>>({
-  resolver: zodResolver(Schema),
-});
-```
-
-**Flux transactionnels** (POS, achats) : `useState` manuel.
+**CRUD** : `useForm` + `zodResolver` + schéma Zod  
+**Flux transactionnels** (POS, paiement) : `useState` manuel acceptable
 
 ### Listes
 
-`useState` + pagination `lastVisible`/`hasMore` via services (`ProductService.listProducts()`).
+`useState` + pagination `lastVisible`/`hasMore` via services.
 
 ## Domaines métier
 
 ### POS / Ventes
 
-- Page : `src/app/(dashboard)/pos/page.tsx`
+- Page : `pos/page.tsx` · utils : `pos-utils.ts`
 - Service : `SaleService.processSale()`
-- Prérequis : session caisse ouverte (`CashService.getActiveSession`)
-- Transaction : décrémente stock, crée vente, mouvements, paiements client si crédit
-
-### Achats / Import
-
-- `purchases/new/page.tsx`, `purchase.service.ts`
-- Coût de revient : `src/lib/calculations.ts`, page `landed-cost`
-
-### Stock / Inventaire
-
-- Transferts inter-boutiques : `inventory/transfers/new`
-- Ajustements : `inventory.service.ts`
-- Historique : `inventory/history`
+- Prérequis : session caisse ouverte
+- Paiement : `PaymentDialog` + `payment-methods.ts`
 
 ### Caisse
 
-- `cash.service.ts` -sessions ouvertes/fermées, rapprochement
-- Page : `reconciliation/page.tsx`
+- `cash.service.ts` — sessions, mouvements, clôture
+- Page : `reconciliation/page.tsx` · utils : `cash-session-utils.ts`
+- **Requête mouvements** : filtre `storeId` obligatoire (règles Firestore)
 
-### Rapports
+### Achats / Stock / Rapports
 
-- `report.service.ts` + pages `reports/*` (sales, cash, clients, suppliers, finance, inventory)
-- PDF : `print.service.ts`
+- Achats : `purchases/`, `purchase.service.ts`, `landed-cost/`
+- Stock : `inventory/`, `inventory.service.ts`, transferts `inventory/transfers/new`
+- Rapports : `report.service.ts`, `reports/*`, PDF `print.service.ts`
 
-### Notifications
+### Notifications & audit
 
-Firestore collection `notifications` -`NotificationService.createNotification()`
-Contexte : `NotificationContext` avec `onSnapshot`
-Panel : `notification-panel.tsx`
+- Panel : `notification-panel.tsx` · utils : `notification-utils.ts`
+- Audit admin : `admin/audit/page.tsx` · `audit.service.ts`, `audit-utils.ts`
 
 ## Routes principales
 
@@ -201,30 +219,34 @@ Panel : `notification-panel.tsx`
 |-------|--------|
 | `/dashboard` | Tableau de bord |
 | `/pos` | Point de vente |
-| `/inventory` | Stock |
-| `/purchases` | Achats fournisseurs |
+| `/inventory`, `/inventory/history` | Stock & flux |
+| `/purchases`, `/landed-cost` | Achats & coût revient |
 | `/clients`, `/suppliers` | Tiers |
 | `/expenses` | Dépenses |
 | `/reconciliation` | Caisse |
-| `/landed-cost` | Coût de revient |
 | `/reports/*` | Rapports |
-| `/admin/*` | Boutiques, users, catégories, devises, audit |
+| `/admin/*` | Paramètres système |
+| `/profile` | Profil utilisateur |
 
 ## CI/CD
 
-- Push/PR `main`/`dev` → job `validate` (lint + typecheck + build)
-- Déploiement Vercel : `workflow_dispatch` uniquement -`.github/workflows/ci-cd.yml`
+- Push/PR `main`/`dev` → `validate` (lint + typecheck + build)
+- Déploiement Vercel : `workflow_dispatch` — `.github/workflows/ci-cd.yml`
 
 ## Documentation projet
 
 | Fichier | Rôle |
 |---------|------|
-| `README.md` | Setup, stack, modules |
-| `docs/cahier_de_charges.md` | CDC v1.0 -**source métier** |
-| `docs/blueprint.md` | Spec produit (partiellement EN/aspirational) |
+| `README.md` | Setup, architecture, déploiement |
+| `.env.example` | Variables Firebase |
+| `firestore.rules` | Règles sécurité Firestore |
+| `docs/cahier_de_charges.md` | CDC v1.0 — source métier |
+| `docs/blueprint.md` | Spec produit |
+| `.cursor/skills/fodoba/` | Conventions agents IA |
+| `.cursor/rules/` | Règles Cursor (code + documentation) |
 
-Le **code fait foi** techniquement ; le **CDC** pour les règles métier.
-README offline/IndexedDB : aspirational, non implémenté dans `src/`.
+Le **code fait foi** techniquement ; le **CDC** pour les règles métier.  
+Offline/IndexedDB : aspirational, non implémenté dans `src/`.
 
 ## Différences vs Hoolo / Cashflow
 
@@ -232,8 +254,8 @@ README offline/IndexedDB : aspirational, non implémenté dans `src/`.
 |---|--------|-------|----------|
 | Import Firebase | `@/lib/firebase/client` | `@/firebase` | `@/firebase` |
 | Data scope | `storeId` + collections plates | `boutiques/{id}/` | collections plates |
-| Services | 16 services obligatoires | `firebase/services/` | inline pages |
-| Realtime | notifs only | `useCollection` partout | `useCollection`/`useDoc` |
+| Services | couche `src/services/` | `firebase/services/` | inline pages |
+| Realtime | notifications only | `useCollection` partout | `useCollection` |
 | Notifications | Firestore | localStorage | N/A |
 | Devise ref | FCFA | GNF | EUR+GNF |
 | Formulaires | RHF+zod (CRUD) | useState | useState |

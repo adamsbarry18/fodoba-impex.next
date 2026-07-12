@@ -1,163 +1,132 @@
 # FODOBA IMPEX
 
-Logiciel de gestion commerciale multi-boutiques pour le commerce de gros et détail de produits alimentaires.
+Application web de gestion commerciale **multi-boutiques** (gros et détail) — ventes, stocks, caisse, achats, clients et rapports.
 
-## 📋 Description
+**Stack** : Next.js 15 · React 19 · TypeScript · Firebase (Auth + Firestore) · shadcn/ui · Tailwind
 
-FODOBA IMPEX est une application web moderne de gestion commerciale permettant de gérer plusieurs points de vente avec une interface unifiée. Elle supporte les transactions multi-devises (GNF, FCFA, USD, EUR) et accepte cinq modes de paiement différents.
-
-### Fonctionnalités principales
-
-- **Gestion multi-boutiques** : Création illimitée de boutiques avec stocks et caisses indépendants
-- **Catalogue produits global** : Gestion centralisée des produits avec codes-barres/QR codes
-- **Gestion des stocks** : Suivi en temps réel, alertes de rupture, transferts inter-boutiques
-- **Ventes multi-devises** : Paiement comptant, partiel ou crédit avec remises
-- **Caisse et trésorerie** : 5 modes de paiement, clôture quotidienne, rapports
-- **Achats et fournisseurs** : Commandes, réception, calcul coût de revient multi-devises
-- **Gestion des clients** : Base globale, crédit/dettes, remboursements
-- **Dépenses** : Suivi des charges opérationnelles par boutique
-- **Rapports et dashboard** : Tableaux de bord consolidés, exports Excel/PDF
-
-### Rôles utilisateurs
-
-| Rôle | Responsabilités |
-|------|-----------------|
-| **Admin** | Gestion globale, création boutiques, taux de change, supervision |
-| **Gérant** | Gestion achats, transferts, dépenses, rapports de ses boutiques |
-| **Vendeur/Caissier** | Ventes, encaissements, remboursements |
-
-## 🛠 Stack Technique
-
-| Composant | Technologie |
-|-----------|-------------|
-| **Frontend** | Next.js 15.5.9, React 19.2.1, TypeScript |
-| **Styling** | Tailwind CSS, Radix UI, Lucide Icons |
-| **Base de données** | Firebase Firestore |
-| **Authentification** | Firebase Authentication |
-| **Offline** | IndexedDB |
-| **Formulaires** | React Hook Form, Zod |
-| **Graphiques** | Recharts |
-| **PDF** | jsPDF, jsPDF-autotable |
-| **QR Codes** | qrcode, qrcode.react |
-| **CSV/Excel** | PapaParse |
-
-## 📦 Installation
-
-### Prérequis
-
-- Node.js 20+
-- npm ou yarn
-- Compte Firebase
-
-### Étapes d'installation
-
-1. **Cloner le repository**
-   ```bash
-   git clone https://github.com/adamsbarry18/fodoba-impex.next.git
-   cd fodoba-impex.next
-   ```
-
-2. **Installer les dépendances**
-   ```bash
-   npm install
-   ```
-
-3. **Configurer Firebase**
-   
-   Créer un fichier `.env.local` à la racine du projet :
-   ```env
-   NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-   NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-   ```
-
-4. **Lancer le serveur de développement**
-   ```bash
-   npm run dev
-   ```
-   
-   L'application sera accessible sur `http://localhost:9002`
-
-## 🚀 Scripts disponibles
-
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Lance le serveur de développement (port 9002) |
-| `npm run build` | Build pour production |
-| `npm start` | Lance le serveur de production |
-| `npm run lint` | Exécute ESLint |
-| `npm run typecheck` | Vérifie les types TypeScript |
-
-## 🌐 Déploiement
-
-L'application est conçue pour être déployée sur **Vercel** :
+## Démarrage rapide
 
 ```bash
-npm install -g vercel
-vercel
+git clone https://github.com/adamsbarry18/fodoba-impex.next.git
+cd fodoba-impex.next
+npm install
+cp .env.example .env.local   # renseigner les clés Firebase
+npm run dev                  # http://localhost:9002
 ```
 
-## 📱 Caractéristiques
+**Premier compte** : au premier login Firebase, si la collection `users` est vide, le profil est créé automatiquement en **admin** (`AuthContext`).
 
-- **Interface responsive** : Compatible desktop, tablette et mobile
-- **Multi-langue** : Français (prévu portugais et anglais)
-- **Offline** : Support partiel hors ligne avec IndexedDB
-- **Sécurité** : Authentification, RBAC, HTTPS, journal d'audit
-- **Performance** : Temps de chargement < 3 secondes
+## Scripts
 
-## 📄 Modules détaillés
+| Commande | Description |
+|----------|-------------|
+| `npm run dev` | Dev server (port **9002**) |
+| `npm run typecheck` | Vérification TypeScript (**obligatoire** avant PR) |
+| `npm run lint` | ESLint |
+| `npm run build` | Build production |
 
-### Gestion des stocks
-- Catalogue produits avec codes-barres/QR codes
-- Stock indépendant par boutique
-- Mouvements : entrées, sorties, transferts, corrections
-- Alertes de rupture de stock
-- Inventaires physiques
+## Configuration
 
-### Gestion des ventes
-- Processus de vente en 8 étapes
-- 5 modes de paiement : Espèces, Orange Money, Mobile Money, Carte bancaire, Virement
-- Paiement comptant, partiel ou crédit
-- Remises par article ou globale
-- Retours et avoirs
+### Variables d'environnement
 
-### Gestion de la caisse
-- Ouverture/Clôture quotidienne
-- Solde temps réel
-- Rapprochement par mode de paiement
-- Rapport journalier
+Copier [`.env.example`](.env.example) vers `.env.local` et remplir les clés `NEXT_PUBLIC_FIREBASE_*` depuis la console Firebase.
 
-### Gestion des achats
-- Base fournisseurs (local/import)
-- Commandes multi-devises
-- Calcul coût de revient avec frais annexes
-- Suivi des encours fournisseurs
+### Règles Firestore
 
-### Rapports
-- Dashboard Gérant : CA du jour, solde caisse, créances, alertes
-- Dashboard Admin : Vue consolidée multi-boutiques
-- Exports Excel/PDF pour tous les rapports
+Le fichier [`firestore.rules`](firestore.rules) à la racine définit le RBAC côté base. **À publier** dans Firebase Console → Firestore → Règles (remplacement complet de la règle temporaire `/{document=**}`).
 
-## 🔒 Sécurité
+Points clés des règles :
 
-- Authentification obligatoire avec Firebase Auth
-- Gestion des rôles et permissions (RBAC)
-- Sessions avec expiration automatique
-- Journal d'audit des actions sensibles
-- Données chiffrées en transit et au repos
+- Accès scoping par `storeId` + `boutiqueIds` du profil utilisateur
+- Auto-édition profil : `prenom`, `nom`, `phone`, `photoURL` uniquement
+- Admin : gestion complète des `users`, `stores`, `currencies`, etc.
 
-## 📞 Support
+### Rôles
 
-Pour toute question ou problème, contacter l'équipe de développement.
+| Rôle | Code Firestore | Périmètre |
+|------|----------------|-----------|
+| Administrateur | `admin` | Réseau complet, paramètres système |
+| Gérant | `manager` | Boutiques assignées, catalogue, achats |
+| Vendeur | `seller` | POS, caisse, stock (boutiques autorisées) |
 
-## 📝 Licence
+Permissions détaillées : [`src/lib/auth/permissions.ts`](src/lib/auth/permissions.ts).
 
-Propriétaire - FODOBA IMPEX
+## Architecture
 
----
+```
+src/
+├── app/
+│   ├── login/                 # Auth
+│   └── (dashboard)/           # App authentifiée (sidebar + header)
+├── components/                # UI, layout, pos, auth…
+├── services/*.service.ts      # Couche métier Firestore (obligatoire)
+├── lib/
+│   ├── contexts/              # Auth, Store, Currency, Notifications
+│   ├── navigation/app-nav.ts  # Menu sidebar
+│   ├── types.ts               # Types + schémas Zod
+│   └── *-utils.ts             # Helpers métier par domaine
+└── hooks/                     # permissions, currency, barcode…
+```
 
-**Version** : 1.0  
-**Date** : Mai 2026  
+**Providers** (`src/app/layout.tsx`) :  
+`AuthProvider` → `CurrencyProvider` → `StoreProvider` → `NotificationProvider` → `AuthLayoutWrapper`
+
+**Conventions** :
+
+- Collections Firestore **plates** + champ `storeId` (pas de sous-collections par boutique)
+- Stock : document ID `{storeId}_{productId}`
+- Devise comptable de référence : **FCFA**
+- UI et toasts en **français** ; notifications via Firestore (`notifications`)
+- Requêtes Firestore : filtrer par `storeId` quand les règles l'exigent (ex. `cash_movements`)
+
+## Modules principaux
+
+| Route | Module |
+|-------|--------|
+| `/dashboard` | Tableau de bord |
+| `/pos` | Point de vente |
+| `/inventory` | Catalogue & stocks |
+| `/inventory/history` | Historique des flux |
+| `/purchases` | Achats fournisseurs |
+| `/clients`, `/suppliers` | Tiers |
+| `/expenses` | Dépenses |
+| `/reconciliation` | Caisse & trésorerie |
+| `/landed-cost` | Coût de revient |
+| `/reports` | Rapports & BI |
+| `/admin/*` | Boutiques, users, catégories, devises, audit |
+| `/profile` | Profil utilisateur |
+
+## Déploiement
+
+### Vercel (recommandé)
+
+1. Lier le dépôt GitHub à Vercel
+2. Ajouter les variables `NEXT_PUBLIC_FIREBASE_*` (Settings → Environment Variables)
+3. Publier `firestore.rules` dans Firebase Console
+
+### CI/CD GitHub
+
+- Push/PR sur `main` ou `dev` → **validate** (lint + typecheck + build)
+- Déploiement production → déclenchement manuel `workflow_dispatch` (`.github/workflows/ci-cd.yml`)
+
+## Documentation
+
+| Ressource | Contenu |
+|-----------|---------|
+| [`docs/cahier_de_charges.md`](docs/cahier_de_charges.md) | CDC v1.0 — règles métier |
+| [`docs/blueprint.md`](docs/blueprint.md) | Spec produit |
+| [`.cursor/skills/fodoba/`](.cursor/skills/fodoba/) | Conventions code pour Cursor / agents IA |
+| [`.cursor/rules/`](.cursor/rules/) | Règles persistantes documentation & code |
+
+> **Note** : le mode hors-ligne (IndexedDB) est mentionné dans le CDC mais **non implémenté** dans le code actuel.
+
+## Sécurité
+
+- Firebase Authentication (email/mot de passe)
+- RBAC applicatif (`usePermissions`) + règles Firestore
+- Journal d'audit (`audit_logs`)
+- Création collaborateurs via app Firebase secondaire (`UserService.createCollaborator`)
+
+## Licence
+
+Propriétaire — FODOBA IMPEX
