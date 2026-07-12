@@ -5,7 +5,7 @@ import { Eye, EyeOff } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
-interface PasswordFieldProps extends React.ComponentProps<typeof Input> {}
+type PasswordFieldProps = React.ComponentProps<typeof Input>
 
 export function PasswordField({ className, ...props }: PasswordFieldProps) {
   const [visible, setVisible] = useState(false)

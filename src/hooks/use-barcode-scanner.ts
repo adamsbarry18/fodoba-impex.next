@@ -38,7 +38,10 @@ export function useGlobalBarcodeListener(
   const bufferRef = useRef("")
   const lastKeyTimeRef = useRef(0)
   const onScanRef = useRef(onScan)
-  onScanRef.current = onScan
+
+  useEffect(() => {
+    onScanRef.current = onScan
+  }, [onScan])
 
   useEffect(() => {
     if (options?.enabled === false) return

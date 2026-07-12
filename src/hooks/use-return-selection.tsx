@@ -44,10 +44,11 @@ function ReturnSelectionEffect({
   const onSelectedRef = useRef(onSelected)
   const reloadRef = useRef(options?.reload)
   const processedRef = useRef<string | null>(null)
-  onSelectedRef.current = onSelected
-  reloadRef.current = options?.reload
 
   useEffect(() => {
+    onSelectedRef.current = onSelected
+    reloadRef.current = options?.reload
+
     if (!selectedId || processedRef.current === selectedId) return
     processedRef.current = selectedId
 
@@ -72,7 +73,7 @@ function ReturnSelectionEffect({
     return () => {
       cancelled = true
     }
-  }, [selectedId, paramName, options?.successMessage])
+  }, [selectedId, paramName, options?.successMessage, onSelected, options?.reload])
 
   return null
 }
