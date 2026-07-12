@@ -59,6 +59,13 @@ import {
   type ClientTypeFilter,
 } from "@/lib/client-utils"
 import { cn } from "@/lib/utils"
+import { useClientPagination } from "@/hooks/use-client-pagination"
+import { TablePagination } from "@/components/ui/table-pagination"
+import { useTableColumns } from "@/hooks/use-table-columns"
+import { TableColumnToggle } from "@/components/ui/table-column-toggle"
+import { VisibleTableColumn } from "@/components/ui/visible-table-column"
+import { TableListToolbar } from "@/components/ui/table-list-toolbar"
+import { CLIENT_TABLE_COLUMNS } from "@/lib/table-column-presets"
 
 const PAGE_SIZE = 50
 
@@ -70,14 +77,12 @@ export default function ClientsPage() {
   const [typeFilter, setTypeFilter] = useState<ClientTypeFilter>("all")
   const [statusFilter, setStatusFilter] = useState<ClientStatusFilter>("all")
   const [debtFilter, setDebtFilter] = useState<ClientDebtFilter>("all")
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
   const loadClients = async () => {
     setLoading(true)
     try {
       const data = await ClientService.listClients()
       setClients(data)
-      setVisibleCount(PAGE_SIZE)
     } catch {
       toast.error("Erreur de chargement des clients")
     } finally {
@@ -94,7 +99,6 @@ export default function ClientsPage() {
         const data = await ClientService.listClients()
         if (!cancelled) {
           setClients(data)
-          setVisibleCount(PAGE_SIZE)
         }
       } catch {
         if (!cancelled) toast.error("Erreur de chargement des clients")
@@ -120,8 +124,19 @@ export default function ClientsPage() {
     [clients, searchTerm, typeFilter, statusFilter, debtFilter]
   )
 
-  const visibleClients = filteredClients.slice(0, visibleCount)
-  const hasMore = visibleCount < filteredClients.length
+  const filterKey = `${searchTerm}|${typeFilter}|${statusFilter}|${debtFilter}`
+  const {
+    paginatedItems: visibleClients,
+    page,
+    setPage,
+    totalPages,
+    totalItems: filteredTotal,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(filteredClients, { pageSize: PAGE_SIZE, resetKey: filterKey })
+
+  const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
+    useTableColumns("clients", CLIENT_TABLE_COLUMNS)
 
   const stats = useMemo(
     () => ({
@@ -232,18 +247,12 @@ export default function ClientsPage() {
               placeholder="Rechercher par nom, téléphone ou adresse…"
               className="h-10 rounded-xl pl-9"
               value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value)
-                setVisibleCount(PAGE_SIZE)
-              }}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <Select
             value={typeFilter}
-            onValueChange={(v) => {
-              setTypeFilter(v as ClientTypeFilter)
-              setVisibleCount(PAGE_SIZE)
-            }}
+            onValueChange={(v) => setTypeFilter(v as ClientTypeFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
               <SelectValue placeholder="Type" />
@@ -256,10 +265,7 @@ export default function ClientsPage() {
           </Select>
           <Select
             value={statusFilter}
-            onValueChange={(v) => {
-              setStatusFilter(v as ClientStatusFilter)
-              setVisibleCount(PAGE_SIZE)
-            }}
+            onValueChange={(v) => setStatusFilter(v as ClientStatusFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
               <SelectValue placeholder="Statut" />
@@ -273,10 +279,7 @@ export default function ClientsPage() {
           </Select>
           <Select
             value={debtFilter}
-            onValueChange={(v) => {
-              setDebtFilter(v as ClientDebtFilter)
-              setVisibleCount(PAGE_SIZE)
-            }}
+            onValueChange={(v) => setDebtFilter(v as ClientDebtFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl md:col-span-1">
               <SelectValue placeholder="Dette" />
@@ -293,6 +296,21 @@ export default function ClientsPage() {
 
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <CardContent className="p-0">
+          <TableListToolbar
+            summary={
+              !loading && filteredClients.length > 0
+                ? `${filteredClients.length} client${filteredClients.length !== 1 ? "s" : ""}`
+                : undefined
+            }
+            actions={
+              <TableColumnToggle
+                columns={tableColumns}
+                isVisible={isVisible}
+                onToggle={toggleColumn}
+                onReset={resetColumns}
+              />
+            }
+          />
           {loading ? (
             <div className="flex justify-center p-16">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -322,12 +340,24 @@ export default function ClientsPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Client</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Dette actuelle</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <VisibleTableColumn id="client" isVisible={isVisible}>
+                      <TableHead>Client</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="contact" isVisible={isVisible}>
+                      <TableHead>Contact</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="type" isVisible={isVisible}>
+                      <TableHead>Type</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="debt" isVisible={isVisible}>
+                      <TableHead className="text-right">Dette actuelle</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="status" isVisible={isVisible}>
+                      <TableHead>Statut</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="actions" isVisible={isVisible}>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -335,68 +365,79 @@ export default function ClientsPage() {
                     const overLimit = isOverCreditLimit(client)
                     return (
                       <TableRow key={client.id} className="group">
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
-                              {getClientInitials(client.name)}
-                            </div>
-                            <div>
-                              <div className="font-semibold">{client.name}</div>
-                              <div className="flex items-center text-[10px] text-muted-foreground">
-                                <MapPin className="mr-1 h-2.5 w-2.5" />
-                                {client.address || "Adresse non renseignée"}
+                        <VisibleTableColumn id="client" isVisible={isVisible}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
+                                {getClientInitials(client.name)}
+                              </div>
+                              <div>
+                                <div className="font-semibold">{client.name}</div>
+                                <div className="flex items-center text-[10px] text-muted-foreground">
+                                  <MapPin className="mr-1 h-2.5 w-2.5" />
+                                  {client.address || "Adresse non renseignée"}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center text-sm">
-                            <Phone className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                            {client.phone}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge
-                            preset="clientType"
-                            value={client.type}
-                            className="text-[10px]"
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex flex-col items-end">
-                            <span
-                              className={cn(
-                                "font-headline font-bold",
-                                client.currentDebt > 0
-                                  ? "text-destructive"
-                                  : "text-emerald-600"
-                              )}
-                            >
-                              {formatAmount(client.currentDebt, "FCFA")}
-                            </span>
-                            {client.creditCeiling > 0 && (
-                              <span className="text-[10px] text-muted-foreground">
-                                Plafond : {formatAmount(client.creditCeiling, "FCFA")}
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="contact" isVisible={isVisible}>
+                          <TableCell>
+                            <div className="flex items-center text-sm">
+                              <Phone className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                              {client.phone}
+                            </div>
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="type" isVisible={isVisible}>
+                          <TableCell>
                             <StatusBadge
-                              preset="clientStatus"
-                              value={client.status}
+                              preset="clientType"
+                              value={client.type}
                               className="text-[10px]"
                             />
-                            {overLimit && (
-                              <AlertTriangle
-                                className="h-4 w-4 text-destructive"
-                                aria-label="Plafond dépassé"
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="debt" isVisible={isVisible}>
+                          <TableCell className="text-right">
+                            <div className="flex flex-col items-end">
+                              <span
+                                className={cn(
+                                  "font-headline font-bold",
+                                  client.currentDebt > 0
+                                    ? "text-destructive"
+                                    : "text-emerald-600"
+                                )}
+                              >
+                                {formatAmount(client.currentDebt, "FCFA")}
+                              </span>
+                              {client.creditCeiling > 0 && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  Plafond : {formatAmount(client.creditCeiling, "FCFA")}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="status" isVisible={isVisible}>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <StatusBadge
+                                preset="clientStatus"
+                                value={client.status}
+                                className="text-[10px]"
                               />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
+                              {overLimit && (
+                                <AlertTriangle
+                                  className="h-4 w-4 text-destructive"
+                                  aria-label="Plafond dépassé"
+                                />
+                              )}
+                            </div>
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="actions" isVisible={isVisible}>
+                          <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button
                               variant="ghost"
@@ -441,23 +482,21 @@ export default function ClientsPage() {
                             </DropdownMenu>
                           </div>
                         </TableCell>
+                        </VisibleTableColumn>
                       </TableRow>
                     )
                   })}
                 </TableBody>
               </Table>
 
-              {hasMore && (
-                <div className="flex justify-center border-t p-4">
-                  <Button
-                    variant="outline"
-                    className="rounded-xl font-semibold"
-                    onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                  >
-                    Charger plus ({filteredClients.length - visibleCount} restants)
-                  </Button>
-                </div>
-              )}
+              <TablePagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={filteredTotal}
+                rangeStart={rangeStart}
+                rangeEnd={rangeEnd}
+                onPageChange={setPage}
+              />
             </>
           )}
         </CardContent>

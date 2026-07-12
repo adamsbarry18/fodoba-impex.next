@@ -28,6 +28,15 @@ import { format, startOfMonth, endOfMonth } from "date-fns"
 import { fr } from "date-fns/locale"
 import { toast } from "sonner"
 import { useCurrency } from "@/hooks/use-currency"
+import { useClientPagination } from "@/hooks/use-client-pagination"
+import { TablePagination } from "@/components/ui/table-pagination"
+import { useTableColumns } from "@/hooks/use-table-columns"
+import { TableColumnToggle } from "@/components/ui/table-column-toggle"
+import { VisibleTableColumn } from "@/components/ui/visible-table-column"
+import { TableListToolbar } from "@/components/ui/table-list-toolbar"
+import { SALES_REPORT_TABLE_COLUMNS } from "@/lib/table-column-presets"
+
+const PAGE_SIZE = 50
 
 export default function SalesReportPage() {
   const { formatAmount } = useCurrency()
@@ -40,6 +49,25 @@ export default function SalesReportPage() {
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"))
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"))
   const [storeId, setStoreId] = useState("all")
+
+  const salesResetKey = `${startDate}|${endDate}|${storeId}|${sales.length}`
+  const {
+    paginatedItems: paginatedSales,
+    page,
+    setPage,
+    totalPages,
+    totalItems: salesTotal,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(sales, { pageSize: PAGE_SIZE, resetKey: salesResetKey })
+
+  const {
+    isVisible,
+    toggleColumn,
+    resetColumns,
+    columns: tableColumns,
+    visibleColumnCount,
+  } = useTableColumns("sales-report", SALES_REPORT_TABLE_COLUMNS)
 
   const loadData = async () => {
     setLoading(true)
@@ -158,54 +186,107 @@ export default function SalesReportPage() {
           {loading ? (
             <div className="flex justify-center p-12"><Loader2 className="animate-spin text-accent" /></div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date & Ref</TableHead>
-                  <TableHead>Client / Vendeur</TableHead>
-                  <TableHead>Boutique</TableHead>
-                  <TableHead className="text-right">Total (FCFA)</TableHead>
-                  <TableHead className="text-center">Encaissement</TableHead>
-                  <TableHead>Statut</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sales.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Aucune vente pour cette période.</TableCell></TableRow>
-                ) : (
-                  sales.map(s => (
+            <>
+              <TableListToolbar
+                summary={
+                  sales.length > 0
+                    ? `${sales.length} vente${sales.length !== 1 ? "s" : ""}`
+                    : undefined
+                }
+                actions={
+                  <TableColumnToggle
+                    columns={tableColumns}
+                    isVisible={isVisible}
+                    onToggle={toggleColumn}
+                    onReset={resetColumns}
+                  />
+                }
+              />
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <VisibleTableColumn id="date" isVisible={isVisible}>
+                      <TableHead>Date & Ref</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="client" isVisible={isVisible}>
+                      <TableHead>Client / Vendeur</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="store" isVisible={isVisible}>
+                      <TableHead>Boutique</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="total" isVisible={isVisible}>
+                      <TableHead className="text-right">Total (FCFA)</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="payment" isVisible={isVisible}>
+                      <TableHead className="text-center">Encaissement</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="status" isVisible={isVisible}>
+                      <TableHead>Statut</TableHead>
+                    </VisibleTableColumn>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sales.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={visibleColumnCount} className="text-center py-12 text-muted-foreground">
+                        Aucune vente pour cette période.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedSales.map(s => (
                     <TableRow key={s.id}>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-bold text-xs">#{s.id.slice(-6).toUpperCase()}</span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {s.timestamp?.toDate ? format(s.timestamp.toDate(), "dd/MM/yy HH:mm") : "-"}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-medium">{s.clientName || "Client de passage"}</span>
-                          <span className="text-[9px] text-muted-foreground italic">Par: {s.sellerName}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs">{stores.find(st => st.id === s.storeId)?.code || "N/A"}</TableCell>
-                      <TableCell className="text-right font-headline font-bold">{s.total.toLocaleString()}</TableCell>
-                      <TableCell className="text-center">
-                         {s.debtAmount > 0 ? (
-                           <StatusBadge preset="salePayment" value="partial" className="text-[9px] uppercase" />
-                         ) : (
-                           <StatusBadge preset="salePayment" value="complete" className="text-[9px] uppercase" />
-                         )}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge preset="saleStatus" value={s.status} className="text-[9px] uppercase" />
-                      </TableCell>
+                      <VisibleTableColumn id="date" isVisible={isVisible}>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-xs">#{s.id.slice(-6).toUpperCase()}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {s.timestamp?.toDate ? format(s.timestamp.toDate(), "dd/MM/yy HH:mm") : "-"}
+                            </span>
+                          </div>
+                        </TableCell>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="client" isVisible={isVisible}>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-medium">{s.clientName || "Client de passage"}</span>
+                            <span className="text-[9px] text-muted-foreground italic">Par: {s.sellerName}</span>
+                          </div>
+                        </TableCell>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="store" isVisible={isVisible}>
+                        <TableCell className="text-xs">{stores.find(st => st.id === s.storeId)?.code || "N/A"}</TableCell>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="total" isVisible={isVisible}>
+                        <TableCell className="text-right font-headline font-bold">{s.total.toLocaleString()}</TableCell>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="payment" isVisible={isVisible}>
+                        <TableCell className="text-center">
+                           {s.debtAmount > 0 ? (
+                             <StatusBadge preset="salePayment" value="partial" className="text-[9px] uppercase" />
+                           ) : (
+                             <StatusBadge preset="salePayment" value="complete" className="text-[9px] uppercase" />
+                           )}
+                        </TableCell>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="status" isVisible={isVisible}>
+                        <TableCell>
+                          <StatusBadge preset="saleStatus" value={s.status} className="text-[9px] uppercase" />
+                        </TableCell>
+                      </VisibleTableColumn>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
+            <TablePagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={salesTotal}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              onPageChange={setPage}
+            />
+            </>
           )}
         </CardContent>
       </Card>

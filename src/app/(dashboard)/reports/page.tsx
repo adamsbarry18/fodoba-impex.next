@@ -53,7 +53,7 @@ export default function ReportsPage() {
             <BarChart3 className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Centre de reporting & BI</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Centre de reporting et BI</h1>
             <p className="text-sm text-muted-foreground">
               Analyses consolidées et exports de conformité FODOBA IMPEX.
             </p>

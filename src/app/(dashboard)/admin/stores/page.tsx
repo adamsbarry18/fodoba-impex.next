@@ -56,6 +56,10 @@ import { formatStoreCreatedAt, getStoreInitials } from "@/lib/store-utils"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
+import { useTableColumns } from "@/hooks/use-table-columns"
+import { TableColumnToggle } from "@/components/ui/table-column-toggle"
+import { VisibleTableColumn } from "@/components/ui/visible-table-column"
+import { STORE_TABLE_COLUMNS } from "@/lib/table-column-presets"
 
 const PAGE_SIZE = 50
 
@@ -153,6 +157,9 @@ export default function StoresAdminPage() {
     }),
     [stores]
   )
+
+  const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
+    useTableColumns("stores", STORE_TABLE_COLUMNS)
 
   const handleRefresh = async () => {
     setLastDoc(undefined)
@@ -293,13 +300,21 @@ export default function StoresAdminPage() {
 
       {/* Liste */}
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-          <CardTitle className="text-base">Liste des points de vente</CardTitle>
-          <CardDescription className="text-xs">
-            {filteredStores.length} boutique{filteredStores.length !== 1 ? "s" : ""}
-            {searchTerm || statusFilter !== "all" ? " (filtrées)" : ""} sur{" "}
-            {stores.length} chargée{stores.length !== 1 ? "s" : ""}
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 p-4 sm:p-6">
+          <div>
+            <CardTitle className="text-base">Liste des points de vente</CardTitle>
+            <CardDescription className="text-xs">
+              {filteredStores.length} boutique{filteredStores.length !== 1 ? "s" : ""}
+              {searchTerm || statusFilter !== "all" ? " (filtrées)" : ""} sur{" "}
+              {stores.length} chargée{stores.length !== 1 ? "s" : ""}
+            </CardDescription>
+          </div>
+          <TableColumnToggle
+            columns={tableColumns}
+            isVisible={isVisible}
+            onToggle={toggleColumn}
+            onReset={resetColumns}
+          />
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
@@ -329,11 +344,21 @@ export default function StoresAdminPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="pl-4 sm:pl-6">Boutique</TableHead>
-                    <TableHead className="hidden sm:table-cell">Contact</TableHead>
-                    <TableHead className="hidden md:table-cell">Création</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
+                    <VisibleTableColumn id="store" isVisible={isVisible}>
+                      <TableHead className="pl-4 sm:pl-6">Boutique</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="contact" isVisible={isVisible}>
+                      <TableHead>Contact</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="created" isVisible={isVisible}>
+                      <TableHead>Création</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="status" isVisible={isVisible}>
+                      <TableHead>Statut</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="actions" isVisible={isVisible}>
+                      <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
+                    </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -345,89 +370,99 @@ export default function StoresAdminPage() {
                         key={store.id}
                         className="transition-colors hover:bg-muted/20"
                       >
-                        <TableCell className="pl-4 sm:pl-6">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-[10px] font-bold text-primary">
-                              {getStoreInitials(store)}
+                        <VisibleTableColumn id="store" isVisible={isVisible}>
+                          <TableCell className="pl-4 sm:pl-6">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-[10px] font-bold text-primary">
+                                {getStoreInitials(store)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold">{store.name}</p>
+                                <StatusBadge hashFromLabel className="mt-1 font-mono text-[10px]">
+                                  {store.code}
+                                </StatusBadge>
+                                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground sm:hidden">
+                                  <MapPin className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{store.address}</span>
+                                </p>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold">{store.name}</p>
-                              <StatusBadge hashFromLabel className="mt-1 font-mono text-[10px]">
-                                {store.code}
-                              </StatusBadge>
-                              <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground sm:hidden">
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="contact" isVisible={isVisible}>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                 <MapPin className="h-3 w-3 shrink-0" />
-                                <span className="truncate">{store.address}</span>
+                                <span className="line-clamp-1">{store.address}</span>
+                              </p>
+                              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <Phone className="h-3 w-3 shrink-0" />
+                                {store.phone}
                               </p>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <div className="space-y-1">
-                            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <MapPin className="h-3 w-3 shrink-0" />
-                              <span className="line-clamp-1">{store.address}</span>
-                            </p>
-                            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <Phone className="h-3 w-3 shrink-0" />
-                              {store.phone}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
-                          {createdAt
-                            ? format(createdAt, "dd MMM yyyy", { locale: fr })
-                            : "-"}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge
-                            preset="activeState"
-                            value={store.active ? "active" : "inactive"}
-                            className="text-[10px]"
-                          >
-                            {store.active ? "Active" : "Suspendue"}
-                          </StatusBadge>
-                        </TableCell>
-                        <TableCell className="pr-4 text-right sm:pr-6">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              asChild
-                              className="h-8 w-8 rounded-lg"
-                              title="Modifier"
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="created" isVisible={isVisible}>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {createdAt
+                              ? format(createdAt, "dd MMM yyyy", { locale: fr })
+                              : "-"}
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="status" isVisible={isVisible}>
+                          <TableCell>
+                            <StatusBadge
+                              preset="activeState"
+                              value={store.active ? "active" : "inactive"}
+                              className="text-[10px]"
                             >
-                              <Link href={`/admin/stores/${store.id}/edit`}>
-                                <Edit className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn(
-                                "h-8 w-8 rounded-lg",
-                                store.active
-                                  ? "text-destructive hover:text-destructive"
-                                  : "text-primary hover:text-primary"
-                              )}
-                              onClick={() =>
-                                setToggleTarget({
-                                  id: store.id,
-                                  name: store.name,
-                                  code: store.code,
-                                  active: store.active,
-                                })
-                              }
-                              title={store.active ? "Suspendre" : "Réactiver"}
-                            >
-                              {store.active ? (
-                                <PowerOff className="h-4 w-4" />
-                              ) : (
-                                <Power className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
-                        </TableCell>
+                              {store.active ? "Active" : "Suspendue"}
+                            </StatusBadge>
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="actions" isVisible={isVisible}>
+                          <TableCell className="pr-4 text-right sm:pr-6">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                asChild
+                                className="h-8 w-8 rounded-lg"
+                                title="Modifier"
+                              >
+                                <Link href={`/admin/stores/${store.id}/edit`}>
+                                  <Edit className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn(
+                                  "h-8 w-8 rounded-lg",
+                                  store.active
+                                    ? "text-destructive hover:text-destructive"
+                                    : "text-primary hover:text-primary"
+                                )}
+                                onClick={() =>
+                                  setToggleTarget({
+                                    id: store.id,
+                                    name: store.name,
+                                    code: store.code,
+                                    active: store.active,
+                                  })
+                                }
+                                title={store.active ? "Suspendre" : "Réactiver"}
+                              >
+                                {store.active ? (
+                                  <PowerOff className="h-4 w-4" />
+                                ) : (
+                                  <Power className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </VisibleTableColumn>
                       </TableRow>
                     )
                   })}

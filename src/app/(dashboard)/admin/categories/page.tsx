@@ -52,6 +52,10 @@ import {
   type CategoryStatusFilter,
 } from "@/lib/category-utils"
 import { cn } from "@/lib/utils"
+import { useClientPagination } from "@/hooks/use-client-pagination"
+import { TablePagination } from "@/components/ui/table-pagination"
+
+const PAGE_SIZE = 20
 
 function CategoryItem({
   node,
@@ -67,7 +71,7 @@ function CategoryItem({
   onDelete: (id: string, name: string) => void
 }) {
   const hasChildren = node.children.length > 0
-  const isExpanded = expanded[node.id] ?? level === 0
+  const isExpanded = expanded[node.id] === true
 
   return (
     <div className="space-y-1">
@@ -198,6 +202,17 @@ export default function CategoriesPage() {
     [filteredCategories]
   )
 
+  const treeResetKey = `${searchTerm}|${statusFilter}|${filteredCategories.length}`
+  const {
+    paginatedItems: paginatedRoots,
+    page,
+    setPage,
+    totalPages,
+    totalItems: totalRoots,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(tree, { pageSize: PAGE_SIZE, resetKey: treeResetKey })
+
   const stats = useMemo(
     () => ({
       total: categories.length,
@@ -208,8 +223,20 @@ export default function CategoriesPage() {
     [categories]
   )
 
+  useEffect(() => {
+    if (filteredCategories.length === 0) return
+    setExpanded((prev) => {
+      if (Object.keys(prev).length > 0) return prev
+      const roots: Record<string, boolean> = {}
+      for (const cat of filteredCategories.filter((c) => !c.parentId)) {
+        roots[cat.id] = true
+      }
+      return roots
+    })
+  }, [filteredCategories])
+
   const toggleExpand = useCallback((id: string) => {
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
+    setExpanded((prev) => ({ ...prev, [id]: prev[id] !== true }))
   }, [])
 
   const handleDelete = async () => {
@@ -233,7 +260,11 @@ export default function CategoriesPage() {
     setExpanded(all)
   }
 
-  const collapseAll = () => setExpanded({})
+  const collapseAll = () => {
+    const all: Record<string, boolean> = {}
+    for (const cat of filteredCategories) all[cat.id] = false
+    setExpanded(all)
+  }
 
   return (
     <div className="space-y-6 pb-8">
@@ -412,18 +443,28 @@ export default function CategoriesPage() {
               <p>Aucune catégorie ne correspond aux filtres.</p>
             </div>
           ) : (
-            <div className="space-y-1">
-              {tree.map((node) => (
-                <CategoryItem
-                  key={node.id}
-                  node={node}
-                  level={0}
-                  expanded={expanded}
-                  onToggle={toggleExpand}
-                  onDelete={(id, name) => setDeleteTarget({ id, name })}
-                />
-              ))}
-            </div>
+            <>
+              <div className="space-y-1">
+                {paginatedRoots.map((node) => (
+                  <CategoryItem
+                    key={node.id}
+                    node={node}
+                    level={0}
+                    expanded={expanded}
+                    onToggle={toggleExpand}
+                    onDelete={(id, name) => setDeleteTarget({ id, name })}
+                  />
+                ))}
+              </div>
+              <TablePagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={totalRoots}
+                rangeStart={rangeStart}
+                rangeEnd={rangeEnd}
+                onPageChange={setPage}
+              />
+            </>
           )}
         </CardContent>
       </Card>

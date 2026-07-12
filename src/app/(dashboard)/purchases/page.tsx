@@ -49,6 +49,10 @@ import {
   toPurchaseDate,
 } from "@/lib/purchase-utils"
 import { cn } from "@/lib/utils"
+import { useTableColumns } from "@/hooks/use-table-columns"
+import { TableColumnToggle } from "@/components/ui/table-column-toggle"
+import { VisibleTableColumn } from "@/components/ui/visible-table-column"
+import { PURCHASE_TABLE_COLUMNS } from "@/lib/table-column-presets"
 
 const PAGE_SIZE = 50
 
@@ -137,6 +141,9 @@ export default function PurchasesPage() {
       return matchesSearch && matchesStatus
     })
   }, [purchases, searchTerm, statusFilter])
+
+  const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
+    useTableColumns("purchases", PURCHASE_TABLE_COLUMNS)
 
   const stats = useMemo(
     () => ({
@@ -288,12 +295,20 @@ export default function PurchasesPage() {
       </Card>
 
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-          <CardTitle className="text-base">Historique des commandes</CardTitle>
-          <CardDescription className="text-xs">
-            {filteredPurchases.length} commande{filteredPurchases.length !== 1 ? "s" : ""}
-            {searchTerm || statusFilter !== "all" ? " (filtrées)" : ""}
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 p-4 sm:p-6">
+          <div>
+            <CardTitle className="text-base">Historique des commandes</CardTitle>
+            <CardDescription className="text-xs">
+              {filteredPurchases.length} commande{filteredPurchases.length !== 1 ? "s" : ""}
+              {searchTerm || statusFilter !== "all" ? " (filtrées)" : ""}
+            </CardDescription>
+          </div>
+          <TableColumnToggle
+            columns={tableColumns}
+            isVisible={isVisible}
+            onToggle={toggleColumn}
+            onReset={resetColumns}
+          />
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
@@ -323,12 +338,24 @@ export default function PurchasesPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="pl-4 sm:pl-6">Référence / Date</TableHead>
-                    <TableHead>Fournisseur</TableHead>
-                    <TableHead>Articles</TableHead>
-                    <TableHead className="text-right">Total (FCFA)</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
+                    <VisibleTableColumn id="ref" isVisible={isVisible}>
+                      <TableHead className="pl-4 sm:pl-6">Référence / Date</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="supplier" isVisible={isVisible}>
+                      <TableHead>Fournisseur</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="items" isVisible={isVisible}>
+                      <TableHead>Articles</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="total" isVisible={isVisible}>
+                      <TableHead className="text-right">Total (FCFA)</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="status" isVisible={isVisible}>
+                      <TableHead>Statut</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="actions" isVisible={isVisible}>
+                      <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
+                    </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -338,52 +365,64 @@ export default function PurchasesPage() {
 
                     return (
                       <TableRow key={p.id} className="transition-colors hover:bg-muted/20">
-                        <TableCell className="pl-4 sm:pl-6">
-                          <p className="font-mono text-sm font-bold">
-                            {formatPurchaseRef(p.id)}
-                          </p>
-                          {date && (
-                            <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              {format(date, "dd MMM yyyy", { locale: fr })}
+                        <VisibleTableColumn id="ref" isVisible={isVisible}>
+                          <TableCell className="pl-4 sm:pl-6">
+                            <p className="font-mono text-sm font-bold">
+                              {formatPurchaseRef(p.id)}
                             </p>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <p className="text-sm font-semibold">{p.supplierName}</p>
-                          <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <User className="h-3 w-3" />
-                            {p.performedByName}
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge tone="slate" className="text-[10px]">
-                            {p.items.length} produit{p.items.length !== 1 ? "s" : ""}
-                          </StatusBadge>
-                        </TableCell>
-                        <TableCell className="text-right font-headline font-bold">
-                          {p.totalFCFA.toLocaleString("fr-FR")}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge
-                            preset="purchaseStatus"
-                            value={p.status}
-                            icon={<StatusIcon className="h-3 w-3" />}
-                            className="text-[10px]"
-                          />
-                        </TableCell>
-                        <TableCell className="pr-4 text-right sm:pr-6">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            asChild
-                            className="h-8 w-8 rounded-lg"
-                          >
-                            <Link href={`/purchases/${p.id}`}>
-                              <ChevronRight className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                        </TableCell>
+                            {date && (
+                              <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                {format(date, "dd MMM yyyy", { locale: fr })}
+                              </p>
+                            )}
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="supplier" isVisible={isVisible}>
+                          <TableCell>
+                            <p className="text-sm font-semibold">{p.supplierName}</p>
+                            <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <User className="h-3 w-3" />
+                              {p.performedByName}
+                            </p>
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="items" isVisible={isVisible}>
+                          <TableCell>
+                            <StatusBadge tone="slate" className="text-[10px]">
+                              {p.items.length} produit{p.items.length !== 1 ? "s" : ""}
+                            </StatusBadge>
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="total" isVisible={isVisible}>
+                          <TableCell className="text-right font-headline font-bold">
+                            {p.totalFCFA.toLocaleString("fr-FR")}
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="status" isVisible={isVisible}>
+                          <TableCell>
+                            <StatusBadge
+                              preset="purchaseStatus"
+                              value={p.status}
+                              icon={<StatusIcon className="h-3 w-3" />}
+                              className="text-[10px]"
+                            />
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="actions" isVisible={isVisible}>
+                          <TableCell className="pr-4 text-right sm:pr-6">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              asChild
+                              className="h-8 w-8 rounded-lg"
+                            >
+                              <Link href={`/purchases/${p.id}`}>
+                                <ChevronRight className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          </TableCell>
+                        </VisibleTableColumn>
                       </TableRow>
                     )
                   })}
