@@ -1,4 +1,4 @@
-# Fodoba — Référence complète
+# Fodoba - Référence complète
 
 ## Structure `src/`
 
@@ -29,7 +29,7 @@ Fichier : `src/app/layout.tsx`
 
 - Routes : anglais kebab-case (`/inventory/transfers/new`, `/reconciliation`)
 - Rôles Firestore : `"admin"`, `"manager"`, `"seller"` (lowercase)
-- Permissions : `"action:ressource"` — `permissions.ts`
+- Permissions : `"action:ressource"` - `permissions.ts`
 - Services : `{Domain}Service` dans `{domain}.service.ts`
 - Champs mixtes : `nom`/`prenom`/`boutiqueIds` (profil) vs `storeId`/`activeStore` (contexte)
 - localStorage boutique : clé `activeStoreId`
@@ -43,7 +43,7 @@ Fichier : `src/app/layout.tsx`
 import { app, auth, db } from '@/lib/firebase/client';
 ```
 
-Config : `NEXT_PUBLIC_FIREBASE_*` — `.env.example` → `.env.local`
+Config : `NEXT_PUBLIC_FIREBASE_*` - `.env.example` → `.env.local`
 
 ### Pattern données
 
@@ -108,14 +108,14 @@ export const ProductService = {
 
 ### Auth
 
-- Erreurs FR : `mapAuthErrorCode()` — `auth-utils.ts` / `AuthService.handleAuthError()`
-- Bootstrap : premier user → admin auto si `users` vide — `AuthContext.tsx`
-- Création collaborateur : app Firebase secondaire — `UserService.createCollaborator`
+- Erreurs FR : `mapAuthErrorCode()` - `auth-utils.ts` / `AuthService.handleAuthError()`
+- Bootstrap : premier user → admin auto si `users` vide - `AuthContext.tsx`
+- Création collaborateur : app Firebase secondaire - `UserService.createCollaborator`
 - Profil personnel : `UserService.updateOwnProfile()` (champs limités, règle Firestore)
 
 ### Index Firestore
 
-Éviter `where` + `orderBy` composites quand possible — tri/filtre en mémoire. Préférer filtre `storeId` seul + filtre client si besoin.
+Éviter `where` + `orderBy` composites quand possible - tri/filtre en mémoire. Préférer filtre `storeId` seul + filtre client si besoin.
 
 ## Contextes & hooks
 
@@ -139,8 +139,8 @@ Rôles et permissions dans `src/lib/auth/permissions.ts`.
 | `manager` | `manage:catalog`, `manage:purchases`, `manage:transfers`, `view:reports:cash` |
 | `seller` | `create:sale`, `view:stock`, `reconcile:cash`, `manage:expenses` |
 
-Garde UI : `RoleGuard` — `src/components/auth/role-guard.tsx`  
-Nav : `APP_NAVIGATION` — `src/lib/navigation/app-nav.ts`, filtrée par `usePermissions()`
+Garde UI : `RoleGuard` - `src/components/auth/role-guard.tsx`  
+Nav : `APP_NAVIGATION` - `src/lib/navigation/app-nav.ts`, filtrée par `usePermissions()`
 
 ## UI
 
@@ -198,7 +198,7 @@ toast.error("Erreur lors de l'enregistrement");
 
 ### Caisse
 
-- `cash.service.ts` — sessions, mouvements, clôture
+- `cash.service.ts` - sessions, mouvements, clôture
 - Page : `reconciliation/page.tsx` · utils : `cash-session-utils.ts`
 - **Requête mouvements** : filtre `storeId` obligatoire (règles Firestore)
 
@@ -231,7 +231,7 @@ toast.error("Erreur lors de l'enregistrement");
 ## CI/CD
 
 - Push/PR `main`/`dev` → `validate` (lint + typecheck + build)
-- Déploiement Vercel : `workflow_dispatch` — `.github/workflows/ci-cd.yml`
+- Déploiement Vercel : `workflow_dispatch` - `.github/workflows/ci-cd.yml`
 
 ## Documentation projet
 
@@ -240,7 +240,7 @@ toast.error("Erreur lors de l'enregistrement");
 | `README.md` | Setup, architecture, déploiement |
 | `.env.example` | Variables Firebase |
 | `firestore.rules` | Règles sécurité Firestore |
-| `docs/cahier_de_charges.md` | CDC v1.0 — source métier |
+| `docs/cahier_de_charges.md` | CDC v1.0 - source métier |
 | `docs/blueprint.md` | Spec produit |
 | `.cursor/skills/fodoba/` | Conventions agents IA |
 | `.cursor/rules/` | Règles Cursor (code + documentation) |

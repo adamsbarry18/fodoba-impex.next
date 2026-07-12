@@ -50,7 +50,7 @@ export function AuthPageShell({
               Pilotez vos boutiques depuis un seul espace
             </h2>
             <p className="max-w-md text-sm leading-relaxed text-primary-foreground/80">
-              Ventes, stocks, achats et trésorerie — tout est centralisé pour vos équipes terrain.
+              Ventes, stocks, achats et trésorerie - tout est centralisé pour vos équipes terrain.
             </p>
           </div>
 

@@ -1,6 +1,6 @@
 # FODOBA IMPEX
 
-Application web de gestion commerciale **multi-boutiques** (gros et détail) — ventes, stocks, caisse, achats, clients et rapports.
+Application web de gestion commerciale **multi-boutiques** (gros et détail) - ventes, stocks, caisse, achats, clients et rapports.
 
 **Stack** : Next.js 15 · React 19 · TypeScript · Firebase (Auth + Firestore) · shadcn/ui · Tailwind
 
@@ -113,7 +113,7 @@ src/
 
 | Ressource | Contenu |
 |-----------|---------|
-| [`docs/cahier_de_charges.md`](docs/cahier_de_charges.md) | CDC v1.0 — règles métier |
+| [`docs/cahier_de_charges.md`](docs/cahier_de_charges.md) | CDC v1.0 - règles métier |
 | [`docs/blueprint.md`](docs/blueprint.md) | Spec produit |
 | [`.cursor/skills/fodoba/`](.cursor/skills/fodoba/) | Conventions code pour Cursor / agents IA |
 | [`.cursor/rules/`](.cursor/rules/) | Règles persistantes documentation & code |
@@ -129,4 +129,4 @@ src/
 
 ## Licence
 
-Propriétaire — FODOBA IMPEX
+Propriétaire - FODOBA IMPEX

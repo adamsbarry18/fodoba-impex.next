@@ -62,7 +62,7 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
           )}
         />
-        {availableStores.length > 0 ? (
+        {availableStores.length > 1 ? (
           <div className="flex min-w-0 shrink-0 items-center gap-1 sm:gap-1.5">
             <Select value={activeStore?.id} onValueChange={setActiveStoreById}>
               <SelectTrigger
@@ -94,6 +94,18 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        ) : availableStores.length === 1 && activeStore ? (
+          <div
+            className={cn(
+              "flex h-8 min-h-8 max-w-[min(calc(100vw-9.5rem),240px)] shrink-0 items-center gap-1.5",
+              "rounded-lg border border-sidebar-border/40 px-2.5 text-[13px] font-semibold text-sidebar-foreground",
+              "sm:h-9 sm:min-h-9"
+            )}
+            title={`Boutique : ${activeStore.name}`}
+          >
+            <StoreIcon className="size-3.5 shrink-0 opacity-80" aria-hidden />
+            <span className="min-w-0 truncate">{activeStore.name}</span>
           </div>
         ) : (
           <div className="text-[12px] font-medium italic text-muted-foreground group-data-[collapsible=icon]:hidden">
