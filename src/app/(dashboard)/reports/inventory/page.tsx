@@ -22,6 +22,10 @@ import {
 import Link from "next/link"
 import { toast } from "sonner"
 import { useCurrency } from "@/hooks/use-currency"
+import { useClientPagination } from "@/hooks/use-client-pagination"
+import { TablePagination } from "@/components/ui/table-pagination"
+
+const PAGE_SIZE = 50
 
 export default function InventoryReportPage() {
   const { formatAmount } = useCurrency()
@@ -30,6 +34,17 @@ export default function InventoryReportPage() {
   const [stores, setStores] = useState<Store[]>([])
   const [storeId, setStoreId] = useState("all")
   const [totalValuation, setTotalValuation] = useState(0)
+
+  const itemsResetKey = `${storeId}|${items.length}`
+  const {
+    paginatedItems: paginatedItems,
+    page,
+    setPage,
+    totalPages,
+    totalItems: itemsTotal,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(items, { pageSize: PAGE_SIZE, resetKey: itemsResetKey })
 
   const loadData = async () => {
     setLoading(true)
@@ -109,37 +124,47 @@ export default function InventoryReportPage() {
           {loading ? (
             <div className="flex justify-center p-12"><Loader2 className="animate-spin text-accent" /></div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Désignation</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead className="text-center">Quantité</TableHead>
-                  <TableHead className="text-right">Coût Unit. (PMP)</TableHead>
-                  <TableHead className="text-right">Valeur Stock</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground">Aucun produit trouvé.</TableCell></TableRow>
-                ) : (
-                  items.map(item => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-bold">{item.name}</TableCell>
-                      <TableCell className="text-xs font-mono text-muted-foreground">{item.sku}</TableCell>
-                      <TableCell className="text-center font-bold">
-                        {item.stock} <span className="text-[10px] font-normal text-muted-foreground">{item.unit}</span>
-                        {item.stock <= 0 && <span title="Rupture"><AlertTriangle className="w-3 h-3 text-destructive inline ml-1" /></span>}
-                      </TableCell>
-                      <TableCell className="text-right">{item.unitCost.toLocaleString()} FCFA</TableCell>
-                      <TableCell className="text-right font-headline font-bold text-accent">
-                        {item.valuation.toLocaleString()}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Désignation</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead className="text-center">Quantité</TableHead>
+                    <TableHead className="text-right">Coût Unit. (PMP)</TableHead>
+                    <TableHead className="text-right">Valeur Stock</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground">Aucun produit trouvé.</TableCell></TableRow>
+                  ) : (
+                    paginatedItems.map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-bold">{item.name}</TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">{item.sku}</TableCell>
+                        <TableCell className="text-center font-bold">
+                          {item.stock} <span className="text-[10px] font-normal text-muted-foreground">{item.unit}</span>
+                          {item.stock <= 0 && <span title="Rupture"><AlertTriangle className="w-3 h-3 text-destructive inline ml-1" /></span>}
+                        </TableCell>
+                        <TableCell className="text-right">{item.unitCost.toLocaleString()} FCFA</TableCell>
+                        <TableCell className="text-right font-headline font-bold text-accent">
+                          {item.valuation.toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              <TablePagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={itemsTotal}
+                rangeStart={rangeStart}
+                rangeEnd={rangeEnd}
+                onPageChange={setPage}
+              />
+            </>
           )}
         </CardContent>
       </Card>

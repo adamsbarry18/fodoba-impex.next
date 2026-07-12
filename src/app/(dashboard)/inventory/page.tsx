@@ -60,6 +60,10 @@ import {
   type StockFilter,
 } from "@/lib/product-utils"
 import { cn } from "@/lib/utils"
+import { useTableColumns } from "@/hooks/use-table-columns"
+import { TableColumnToggle } from "@/components/ui/table-column-toggle"
+import { VisibleTableColumn } from "@/components/ui/visible-table-column"
+import { INVENTORY_TABLE_COLUMNS } from "@/lib/table-column-presets"
 
 const PAGE_SIZE = 25
 
@@ -81,6 +85,9 @@ export default function InventoryPage() {
   const [scanProcessing, setScanProcessing] = useState(false)
 
   const canManage = can("manage:catalog")
+
+  const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
+    useTableColumns("inventory", INVENTORY_TABLE_COLUMNS)
 
   const loadData = useCallback(
     async (options?: { loadMore?: boolean; reset?: boolean }) => {
@@ -386,12 +393,20 @@ export default function InventoryPage() {
       </Card>
 
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-          <CardTitle className="text-base">Liste des produits</CardTitle>
-          <CardDescription className="text-xs">
-            {filteredProducts.length} produit{filteredProducts.length !== 1 ? "s" : ""}
-            {(searchTerm || stockFilter !== "all") && " (filtrés)"}
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 p-4 sm:p-6">
+          <div>
+            <CardTitle className="text-base">Liste des produits</CardTitle>
+            <CardDescription className="text-xs">
+              {filteredProducts.length} produit{filteredProducts.length !== 1 ? "s" : ""}
+              {(searchTerm || stockFilter !== "all") && " (filtrés)"}
+            </CardDescription>
+          </div>
+          <TableColumnToggle
+            columns={tableColumns}
+            isVisible={isVisible}
+            onToggle={toggleColumn}
+            onReset={resetColumns}
+          />
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
@@ -422,12 +437,24 @@ export default function InventoryPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="pl-4 sm:pl-6">Produit</TableHead>
-                      <TableHead>SKU / Code-barres</TableHead>
-                      <TableHead>Catégorie</TableHead>
-                      <TableHead className="text-right">Prix (FCFA)</TableHead>
-                      <TableHead className="text-center">Stock</TableHead>
-                      <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
+                      <VisibleTableColumn id="product" isVisible={isVisible}>
+                        <TableHead className="pl-4 sm:pl-6">Produit</TableHead>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="sku" isVisible={isVisible}>
+                        <TableHead>SKU / Code-barres</TableHead>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="category" isVisible={isVisible}>
+                        <TableHead>Catégorie</TableHead>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="price" isVisible={isVisible}>
+                        <TableHead className="text-right">Prix (FCFA)</TableHead>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="stock" isVisible={isVisible}>
+                        <TableHead className="text-center">Stock</TableHead>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="actions" isVisible={isVisible}>
+                        <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
+                      </VisibleTableColumn>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -441,53 +468,64 @@ export default function InventoryPage() {
                           key={p.id}
                           className="transition-colors hover:bg-muted/20"
                         >
-                          <TableCell className="pl-4 sm:pl-6">
-                            <p className="text-sm font-semibold">{p.name}</p>
-                            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              {p.unit}
-                            </p>
-                          </TableCell>
-                          <TableCell>
-                            <p className="font-mono text-xs">{p.sku}</p>
-                            {p.barcode && (
-                              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                                {p.barcode}
+                          <VisibleTableColumn id="product" isVisible={isVisible}>
+                            <TableCell className="pl-4 sm:pl-6">
+                              <p className="text-sm font-semibold">{p.name}</p>
+                              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                {p.unit}
                               </p>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge hashFromLabel className="text-[10px]">
-                              {category || "N/A"}
-                            </StatusBadge>
-                          </TableCell>
-                          <TableCell className="text-right font-headline font-bold">
-                            {p.sellingPriceFCFA.toLocaleString("fr-FR")}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex flex-col items-center gap-1">
-                              <span
-                                className={cn(
-                                  "text-base font-bold font-headline",
-                                  status === "out" && "text-destructive",
-                                  status === "low" && "text-amber-600",
-                                  status === "ok" && "text-foreground"
+                            </TableCell>
+                          </VisibleTableColumn>
+                          <VisibleTableColumn id="sku" isVisible={isVisible}>
+                            <TableCell>
+                              <p className="font-mono text-xs">{p.sku}</p>
+                              {p.barcode && (
+                                <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                                  {p.barcode}
+                                </p>
+                              )}
+                            </TableCell>
+                          </VisibleTableColumn>
+                          <VisibleTableColumn id="category" isVisible={isVisible}>
+                            <TableCell>
+                              <StatusBadge hashFromLabel className="text-[10px]">
+                                {category || "N/A"}
+                              </StatusBadge>
+                            </TableCell>
+                          </VisibleTableColumn>
+                          <VisibleTableColumn id="price" isVisible={isVisible}>
+                            <TableCell className="text-right font-headline font-bold">
+                              {p.sellingPriceFCFA.toLocaleString("fr-FR")}
+                            </TableCell>
+                          </VisibleTableColumn>
+                          <VisibleTableColumn id="stock" isVisible={isVisible}>
+                            <TableCell className="text-center">
+                              <div className="flex flex-col items-center gap-1">
+                                <span
+                                  className={cn(
+                                    "text-base font-bold font-headline",
+                                    status === "out" && "text-destructive",
+                                    status === "low" && "text-amber-600",
+                                    status === "ok" && "text-foreground"
+                                  )}
+                                >
+                                  {stock}
+                                </span>
+                                {status === "low" && (
+                                  <StatusBadge tone="warning" className="text-[8px]">
+                                    Alerte
+                                  </StatusBadge>
                                 )}
-                              >
-                                {stock}
-                              </span>
-                              {status === "low" && (
-                                <StatusBadge tone="warning" className="text-[8px]">
-                                  Alerte
-                                </StatusBadge>
-                              )}
-                              {status === "out" && (
-                                <StatusBadge tone="destructive" className="text-[8px]">
-                                  Rupture
-                                </StatusBadge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="pr-4 text-right sm:pr-6">
+                                {status === "out" && (
+                                  <StatusBadge tone="destructive" className="text-[8px]">
+                                    Rupture
+                                  </StatusBadge>
+                                )}
+                              </div>
+                            </TableCell>
+                          </VisibleTableColumn>
+                          <VisibleTableColumn id="actions" isVisible={isVisible}>
+                            <TableCell className="pr-4 text-right sm:pr-6">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
@@ -525,6 +563,7 @@ export default function InventoryPage() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
+                          </VisibleTableColumn>
                         </TableRow>
                       )
                     })}

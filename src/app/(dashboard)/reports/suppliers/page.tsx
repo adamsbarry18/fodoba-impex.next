@@ -20,6 +20,10 @@ import {
 import Link from "next/link"
 import { toast } from "sonner"
 import { useCurrency } from "@/hooks/use-currency"
+import { useClientPagination } from "@/hooks/use-client-pagination"
+import { TablePagination } from "@/components/ui/table-pagination"
+
+const PAGE_SIZE = 50
 
 export default function SupplierDebtReportPage() {
   const { formatAmount } = useCurrency()
@@ -41,6 +45,24 @@ export default function SupplierDebtReportPage() {
   useEffect(() => {
     loadData()
   }, [])
+
+  const suppliers = (data?.suppliers ?? []) as Array<{
+    id: string
+    name: string
+    type: string
+    country: string
+    currentDebt: number
+  }>
+
+  const {
+    paginatedItems: paginatedSuppliers,
+    page,
+    setPage,
+    totalPages,
+    totalItems: suppliersTotal,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(suppliers, { pageSize: PAGE_SIZE })
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-primary" /></div>
   if (!data) return null
@@ -111,14 +133,14 @@ export default function SupplierDebtReportPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.suppliers.length === 0 ? (
+              {suppliers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-20 text-gray-400 italic">
                     Aucun encours fournisseur enregistré.
                   </TableCell>
                 </TableRow>
               ) : (
-                data.suppliers.map((s: any) => (
+                paginatedSuppliers.map((s) => (
                   <TableRow key={s.id} className="hover:bg-gray-50/50 transition-colors">
                     <TableCell className="py-4 pl-8 font-bold text-gray-900">{s.name}</TableCell>
                     <TableCell>
@@ -138,6 +160,14 @@ export default function SupplierDebtReportPage() {
               )}
             </TableBody>
           </Table>
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={suppliersTotal}
+            rangeStart={rangeStart}
+            rangeEnd={rangeEnd}
+            onPageChange={setPage}
+          />
         </CardContent>
       </Card>
     </div>

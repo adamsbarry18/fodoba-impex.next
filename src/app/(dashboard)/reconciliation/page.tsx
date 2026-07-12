@@ -51,6 +51,11 @@ import {
   type CashFundFormValues,
 } from "@/components/cash/cash-fund-dialog"
 import { useCurrency } from "@/hooks/use-currency"
+import { useClientPagination } from "@/hooks/use-client-pagination"
+import { TablePagination } from "@/components/ui/table-pagination"
+
+const MOVEMENTS_PAGE_SIZE = 25
+const HISTORY_PAGE_SIZE = 25
 
 function formatTimestamp(ts: { toDate?: () => Date } | undefined) {
   if (!ts?.toDate) return "-"
@@ -117,6 +122,32 @@ export default function ReconciliationPage() {
   }, [loadData])
 
   const movementStats = useMemo(() => getMovementStats(movements), [movements])
+
+  const {
+    paginatedItems: paginatedMovements,
+    page: movementsPage,
+    setPage: setMovementsPage,
+    totalPages: movementsTotalPages,
+    totalItems: movementsTotal,
+    rangeStart: movementsRangeStart,
+    rangeEnd: movementsRangeEnd,
+  } = useClientPagination(movements, {
+    pageSize: MOVEMENTS_PAGE_SIZE,
+    resetKey: movements.length,
+  })
+
+  const {
+    paginatedItems: paginatedHistory,
+    page: historyPage,
+    setPage: setHistoryPage,
+    totalPages: historyTotalPages,
+    totalItems: historyTotal,
+    rangeStart: historyRangeStart,
+    rangeEnd: historyRangeEnd,
+  } = useClientPagination(history, {
+    pageSize: HISTORY_PAGE_SIZE,
+    resetKey: history.length,
+  })
 
   const sessionTotalExpected = useMemo(() => {
     if (!activeSession) return 0
@@ -492,7 +523,7 @@ export default function ReconciliationPage() {
                             </TableCell>
                           </TableRow>
                         ) : (
-                          movements.map((m) => (
+                          paginatedMovements.map((m) => (
                             <TableRow key={m.id} className="group">
                               <TableCell className="pl-4 font-mono text-xs text-muted-foreground sm:pl-6">
                                 {m.timestamp?.toDate
@@ -534,6 +565,14 @@ export default function ReconciliationPage() {
                       </TableBody>
                     </Table>
                   </ScrollArea>
+                  <TablePagination
+                    page={movementsPage}
+                    totalPages={movementsTotalPages}
+                    totalItems={movementsTotal}
+                    rangeStart={movementsRangeStart}
+                    rangeEnd={movementsRangeEnd}
+                    onPageChange={setMovementsPage}
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -718,7 +757,7 @@ export default function ReconciliationPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                history.map((session) => {
+                paginatedHistory.map((session) => {
                   const { totalExpected, totalActual, totalVar } = getSessionTotals(session)
                   const openedAt = session.openedAt?.toDate?.() ?? new Date()
 
@@ -770,6 +809,14 @@ export default function ReconciliationPage() {
               )}
             </TableBody>
           </Table>
+          <TablePagination
+            page={historyPage}
+            totalPages={historyTotalPages}
+            totalItems={historyTotal}
+            rangeStart={historyRangeStart}
+            rangeEnd={historyRangeEnd}
+            onPageChange={setHistoryPage}
+          />
         </CardContent>
       </Card>
     </div>

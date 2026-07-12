@@ -37,6 +37,10 @@ import {
   getAuditActionConfig,
 } from "@/lib/audit-utils"
 import { cn } from "@/lib/utils"
+import { useTableColumns } from "@/hooks/use-table-columns"
+import { TableColumnToggle } from "@/components/ui/table-column-toggle"
+import { VisibleTableColumn } from "@/components/ui/visible-table-column"
+import { AUDIT_TABLE_COLUMNS } from "@/lib/table-column-presets"
 
 const PAGE_SIZE = 50
 
@@ -133,6 +137,14 @@ export default function AuditLogsPage() {
       currencyActions: byCategory.currency ?? 0,
     }
   }, [logs])
+
+  const {
+    isVisible,
+    toggleColumn,
+    resetColumns,
+    columns: tableColumns,
+    visibleColumnCount,
+  } = useTableColumns("audit", AUDIT_TABLE_COLUMNS)
 
   const handleExportCsv = () => {
     if (filteredLogs.length === 0) {
@@ -320,12 +332,20 @@ export default function AuditLogsPage() {
 
       {/* Tableau */}
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-          <CardTitle className="text-base">Historique des événements</CardTitle>
-          <CardDescription className="text-xs">
-            {filteredLogs.length} entrée{filteredLogs.length !== 1 ? "s" : ""}
-            {searchTerm || categoryFilter !== "all" ? " (filtrées)" : ""} sur {logs.length} chargée{logs.length !== 1 ? "s" : ""}
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 p-4 sm:p-6">
+          <div>
+            <CardTitle className="text-base">Historique des événements</CardTitle>
+            <CardDescription className="text-xs">
+              {filteredLogs.length} entrée{filteredLogs.length !== 1 ? "s" : ""}
+              {searchTerm || categoryFilter !== "all" ? " (filtrées)" : ""} sur {logs.length} chargée{logs.length !== 1 ? "s" : ""}
+            </CardDescription>
+          </div>
+          <TableColumnToggle
+            columns={tableColumns}
+            isVisible={isVisible}
+            onToggle={toggleColumn}
+            onReset={resetColumns}
+          />
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
@@ -347,10 +367,21 @@ export default function AuditLogsPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="pl-4 sm:pl-6">Date & heure</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Utilisateur</TableHead>
-                    <TableHead className="pr-4 sm:pr-6">Détails</TableHead>
+                    <VisibleTableColumn id="date" isVisible={isVisible}>
+                      <TableHead className="pl-4 sm:pl-6">Date & heure</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="action" isVisible={isVisible}>
+                      <TableHead>Action</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="user" isVisible={isVisible}>
+                      <TableHead>Utilisateur</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="details" isVisible={isVisible}>
+                      <TableHead>Détails</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="target" isVisible={isVisible}>
+                      <TableHead className="pr-4 sm:pr-6">Cible</TableHead>
+                    </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -370,7 +401,7 @@ export default function AuditLogsPage() {
                         {showDateHeader && date && (
                           <TableRow className="bg-muted/30 hover:bg-muted/30">
                             <TableCell
-                              colSpan={4}
+                              colSpan={visibleColumnCount}
                               className="py-2 pl-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:pl-6"
                             >
                               {isToday(date)
@@ -380,58 +411,72 @@ export default function AuditLogsPage() {
                           </TableRow>
                         )}
                         <TableRow className="group transition-colors hover:bg-muted/20">
-                          <TableCell className="whitespace-nowrap pl-4 sm:pl-6">
-                            {date ? (
-                              <div>
-                                <p className="text-xs font-semibold">
-                                  {format(date, "dd MMM yyyy", { locale: fr })}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  {format(date, "HH:mm:ss")}
-                                </p>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge
-                              preset="auditAction"
-                              value={log.action}
-                              tone={config.tone}
-                              icon={<ActionIcon className="h-3 w-3" />}
-                              className="text-[10px]"
-                            >
-                              {config.label}
-                            </StatusBadge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold uppercase text-muted-foreground">
-                                {performer === "Système" ? (
-                                  <ShieldCheck className="h-3.5 w-3.5" />
-                                ) : (
-                                  performer.charAt(0)
-                                )}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="truncate text-xs font-medium">{performer}</p>
-                                {log.performedBy !== "system" && log.performedByName && (
-                                  <p className="truncate font-mono text-[9px] text-muted-foreground">
-                                    {log.performedBy.slice(0, 8)}…
+                          <VisibleTableColumn id="date" isVisible={isVisible}>
+                            <TableCell className="whitespace-nowrap pl-4 sm:pl-6">
+                              {date ? (
+                                <div>
+                                  <p className="text-xs font-semibold">
+                                    {format(date, "dd MMM yyyy", { locale: fr })}
                                   </p>
-                                )}
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {format(date, "HH:mm:ss")}
+                                  </p>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                          </VisibleTableColumn>
+                          <VisibleTableColumn id="action" isVisible={isVisible}>
+                            <TableCell>
+                              <StatusBadge
+                                preset="auditAction"
+                                value={log.action}
+                                tone={config.tone}
+                                icon={<ActionIcon className="h-3 w-3" />}
+                                className="text-[10px]"
+                              >
+                                {config.label}
+                              </StatusBadge>
+                            </TableCell>
+                          </VisibleTableColumn>
+                          <VisibleTableColumn id="user" isVisible={isVisible}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold uppercase text-muted-foreground">
+                                  {performer === "Système" ? (
+                                    <ShieldCheck className="h-3.5 w-3.5" />
+                                  ) : (
+                                    performer.charAt(0)
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-medium">{performer}</p>
+                                  {log.performedBy !== "system" && log.performedByName && (
+                                    <p className="truncate font-mono text-[9px] text-muted-foreground">
+                                      {log.performedBy.slice(0, 8)}…
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="pr-4 sm:pr-6">
-                            <p className="max-w-md text-xs leading-relaxed">{log.details}</p>
-                            {log.targetId && (
-                              <p className="mt-1 font-mono text-[10px] text-muted-foreground">
-                                Cible : {log.targetId}
-                              </p>
-                            )}
-                          </TableCell>
+                            </TableCell>
+                          </VisibleTableColumn>
+                          <VisibleTableColumn id="details" isVisible={isVisible}>
+                            <TableCell>
+                              <p className="max-w-md text-xs leading-relaxed">{log.details}</p>
+                            </TableCell>
+                          </VisibleTableColumn>
+                          <VisibleTableColumn id="target" isVisible={isVisible}>
+                            <TableCell className="pr-4 sm:pr-6">
+                              {log.targetId ? (
+                                <p className="font-mono text-[10px] text-muted-foreground">
+                                  {log.targetId}
+                                </p>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                          </VisibleTableColumn>
                         </TableRow>
                       </Fragment>
                     )

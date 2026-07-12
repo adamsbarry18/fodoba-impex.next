@@ -48,6 +48,13 @@ import {
 } from "@/lib/expense-utils"
 import { ExpenseFormDialog } from "@/components/expenses/expense-form-dialog"
 import { cn } from "@/lib/utils"
+import { useClientPagination } from "@/hooks/use-client-pagination"
+import { TablePagination } from "@/components/ui/table-pagination"
+import { useTableColumns } from "@/hooks/use-table-columns"
+import { TableColumnToggle } from "@/components/ui/table-column-toggle"
+import { VisibleTableColumn } from "@/components/ui/visible-table-column"
+import { TableListToolbar } from "@/components/ui/table-list-toolbar"
+import { EXPENSE_TABLE_COLUMNS } from "@/lib/table-column-presets"
 
 const PAGE_SIZE = 50
 
@@ -62,7 +69,6 @@ export default function ExpensesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategoryFilter>("all")
   const [methodFilter, setMethodFilter] = useState<ExpenseMethodFilter>("all")
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
   const loadExpenses = async () => {
     if (!activeStore) return
@@ -70,7 +76,6 @@ export default function ExpensesPage() {
     try {
       const data = await ExpenseService.listExpenses(activeStore.id)
       setExpenses(data)
-      setVisibleCount(PAGE_SIZE)
     } catch {
       toast.error("Erreur de chargement")
     } finally {
@@ -93,7 +98,6 @@ export default function ExpensesPage() {
         const data = await ExpenseService.listExpenses(activeStore.id)
         if (!cancelled) {
           setExpenses(data)
-          setVisibleCount(PAGE_SIZE)
         }
       } catch {
         if (!cancelled) toast.error("Erreur de chargement")
@@ -118,8 +122,19 @@ export default function ExpensesPage() {
     [expenses, searchTerm, categoryFilter, methodFilter]
   )
 
-  const visibleExpenses = filteredExpenses.slice(0, visibleCount)
-  const hasMore = visibleCount < filteredExpenses.length
+  const filterKey = `${searchTerm}|${categoryFilter}|${methodFilter}`
+  const {
+    paginatedItems: visibleExpenses,
+    page,
+    setPage,
+    totalPages,
+    totalItems: filteredTotal,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(filteredExpenses, { pageSize: PAGE_SIZE, resetKey: filterKey })
+
+  const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
+    useTableColumns("expenses", EXPENSE_TABLE_COLUMNS)
 
   const stats = useMemo(() => getExpenseStats(expenses), [expenses])
 
@@ -295,18 +310,12 @@ export default function ExpensesPage() {
               placeholder="Rechercher par motif, catégorie ou auteur…"
               className="h-10 rounded-xl pl-9"
               value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value)
-                setVisibleCount(PAGE_SIZE)
-              }}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <Select
             value={categoryFilter}
-            onValueChange={(v) => {
-              setCategoryFilter(v as ExpenseCategoryFilter)
-              setVisibleCount(PAGE_SIZE)
-            }}
+            onValueChange={(v) => setCategoryFilter(v as ExpenseCategoryFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
               <SelectValue placeholder="Catégorie" />
@@ -322,10 +331,7 @@ export default function ExpensesPage() {
           </Select>
           <Select
             value={methodFilter}
-            onValueChange={(v) => {
-              setMethodFilter(v as ExpenseMethodFilter)
-              setVisibleCount(PAGE_SIZE)
-            }}
+            onValueChange={(v) => setMethodFilter(v as ExpenseMethodFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
               <SelectValue placeholder="Mode" />
@@ -344,6 +350,21 @@ export default function ExpensesPage() {
 
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <CardContent className="p-0">
+          <TableListToolbar
+            summary={
+              !loading && filteredExpenses.length > 0
+                ? `${filteredExpenses.length} dépense${filteredExpenses.length !== 1 ? "s" : ""}`
+                : undefined
+            }
+            actions={
+              <TableColumnToggle
+                columns={tableColumns}
+                isVisible={isVisible}
+                onToggle={toggleColumn}
+                onReset={resetColumns}
+              />
+            }
+          />
           {loading ? (
             <div className="flex justify-center p-16">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -374,11 +395,21 @@ export default function ExpensesPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Date & heure</TableHead>
-                    <TableHead>Catégorie / Motif</TableHead>
-                    <TableHead>Mode</TableHead>
-                    <TableHead>Auteur</TableHead>
-                    <TableHead className="text-right">Montant</TableHead>
+                    <VisibleTableColumn id="date" isVisible={isVisible}>
+                      <TableHead>Date & heure</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="category" isVisible={isVisible}>
+                      <TableHead>Catégorie / Motif</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="method" isVisible={isVisible}>
+                      <TableHead>Mode</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="author" isVisible={isVisible}>
+                      <TableHead>Auteur</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="amount" isVisible={isVisible}>
+                      <TableHead className="text-right">Montant</TableHead>
+                    </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -386,56 +417,63 @@ export default function ExpensesPage() {
                     const date = toExpenseDate(e.timestamp)
                     return (
                       <TableRow key={e.id} className="group">
-                        <TableCell className="font-mono text-xs text-muted-foreground">
-                          {date
-                            ? format(date, "dd/MM/yyyy HH:mm", { locale: fr })
-                            : "-"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-0.5">
-                            <span className="flex items-center gap-1.5 text-sm font-semibold">
-                              <Tag className="h-3.5 w-3.5 text-primary" />
-                              {e.category}
-                            </span>
-                            <span className="text-xs text-muted-foreground">{e.label}</span>
-                            {e.notes && (
-                              <StatusBadge tone="slate" className="mt-1 w-fit text-[10px]">
-                                Réf : {e.notes}
-                              </StatusBadge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge preset="paymentMethod" value={e.method} className="text-[10px]">
-                            {getPaymentMethodLabel(e.method)}
-                          </StatusBadge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <User className="h-3.5 w-3.5" />
-                            {e.performedByName}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-headline text-base font-bold text-destructive">
-                          −{formatAmount(e.amount, "FCFA")}
-                        </TableCell>
+                        <VisibleTableColumn id="date" isVisible={isVisible}>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {date
+                              ? format(date, "dd/MM/yyyy HH:mm", { locale: fr })
+                              : "-"}
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="category" isVisible={isVisible}>
+                          <TableCell>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="flex items-center gap-1.5 text-sm font-semibold">
+                                <Tag className="h-3.5 w-3.5 text-primary" />
+                                {e.category}
+                              </span>
+                              <span className="text-xs text-muted-foreground">{e.label}</span>
+                              {e.notes && (
+                                <StatusBadge tone="slate" className="mt-1 w-fit text-[10px]">
+                                  Réf : {e.notes}
+                                </StatusBadge>
+                              )}
+                            </div>
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="method" isVisible={isVisible}>
+                          <TableCell>
+                            <StatusBadge preset="paymentMethod" value={e.method} className="text-[10px]">
+                              {getPaymentMethodLabel(e.method)}
+                            </StatusBadge>
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="author" isVisible={isVisible}>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <User className="h-3.5 w-3.5" />
+                              {e.performedByName}
+                            </div>
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="amount" isVisible={isVisible}>
+                          <TableCell className="text-right font-headline text-base font-bold text-destructive">
+                            −{formatAmount(e.amount, "FCFA")}
+                          </TableCell>
+                        </VisibleTableColumn>
                       </TableRow>
                     )
                   })}
                 </TableBody>
               </Table>
 
-              {hasMore && (
-                <div className="flex justify-center border-t p-4">
-                  <Button
-                    variant="outline"
-                    className="rounded-xl font-semibold"
-                    onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                  >
-                    Charger plus ({filteredExpenses.length - visibleCount} restantes)
-                  </Button>
-                </div>
-              )}
+              <TablePagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={filteredTotal}
+                rangeStart={rangeStart}
+                rangeEnd={rangeEnd}
+                onPageChange={setPage}
+              />
             </>
           )}
         </CardContent>

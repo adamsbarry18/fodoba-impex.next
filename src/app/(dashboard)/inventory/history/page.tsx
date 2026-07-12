@@ -52,6 +52,11 @@ import {
   type MovementTypeFilter,
 } from "@/lib/stock-movement-utils"
 import { cn } from "@/lib/utils"
+import { useTableColumns } from "@/hooks/use-table-columns"
+import { TableColumnToggle } from "@/components/ui/table-column-toggle"
+import { VisibleTableColumn } from "@/components/ui/visible-table-column"
+import { TableListToolbar } from "@/components/ui/table-list-toolbar"
+import { STOCK_HISTORY_TABLE_COLUMNS } from "@/lib/table-column-presets"
 
 const PAGE_SIZE = 50
 
@@ -134,6 +139,9 @@ export default function StockHistoryPage() {
   )
 
   const stats = useMemo(() => getMovementStats(movements), [movements])
+
+  const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
+    useTableColumns("stock-history", STOCK_HISTORY_TABLE_COLUMNS)
 
   const handleExportPdf = async () => {
     if (!activeStore) return
@@ -342,15 +350,42 @@ export default function StockHistoryPage() {
             </div>
           ) : (
             <>
+              <TableListToolbar
+                summary={
+                  !loading && filteredMovements.length > 0
+                    ? `${filteredMovements.length} mouvement${filteredMovements.length !== 1 ? "s" : ""}`
+                    : undefined
+                }
+                actions={
+                  <TableColumnToggle
+                    columns={tableColumns}
+                    isVisible={isVisible}
+                    onToggle={toggleColumn}
+                    onReset={resetColumns}
+                  />
+                }
+              />
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Date & heure</TableHead>
-                    <TableHead>Produit</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-center">Variation</TableHead>
-                    <TableHead className="text-center">Stock final</TableHead>
-                    <TableHead>Auteur / Motif</TableHead>
+                    <VisibleTableColumn id="date" isVisible={isVisible}>
+                      <TableHead>Date & heure</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="product" isVisible={isVisible}>
+                      <TableHead>Produit</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="type" isVisible={isVisible}>
+                      <TableHead>Type</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="variation" isVisible={isVisible}>
+                      <TableHead className="text-center">Variation</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="finalStock" isVisible={isVisible}>
+                      <TableHead className="text-center">Stock final</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="author" isVisible={isVisible}>
+                      <TableHead>Auteur / Motif</TableHead>
+                    </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -360,44 +395,56 @@ export default function StockHistoryPage() {
                     const Icon = meta.Icon
                     return (
                       <TableRow key={move.id} className="group">
-                        <TableCell className="font-mono text-xs text-muted-foreground">
-                          {date
-                            ? format(date, "dd/MM/yyyy HH:mm", { locale: fr })
-                            : "-"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-semibold">{move.productName}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4 text-muted-foreground" />
-                            <StatusBadge
-                              preset="stockMovement"
-                              value={move.type}
-                              className="text-[10px]"
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <StatusBadge
-                            preset="stockDelta"
-                            value={move.delta > 0 ? "positive" : "negative"}
-                            className="font-bold text-[10px]"
-                          >
-                            {move.delta > 0 ? `+${move.delta}` : move.delta}
-                          </StatusBadge>
-                        </TableCell>
-                        <TableCell className="text-center font-headline font-bold">
-                          {move.newStock}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-xs font-medium">{move.performedByName}</div>
-                          {move.reason && (
-                            <div className="mt-0.5 max-w-[200px] truncate text-[10px] text-muted-foreground">
-                              {move.reason}
+                        <VisibleTableColumn id="date" isVisible={isVisible}>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {date
+                              ? format(date, "dd/MM/yyyy HH:mm", { locale: fr })
+                              : "-"}
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="product" isVisible={isVisible}>
+                          <TableCell>
+                            <div className="font-semibold">{move.productName}</div>
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="type" isVisible={isVisible}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Icon className="h-4 w-4 text-muted-foreground" />
+                              <StatusBadge
+                                preset="stockMovement"
+                                value={move.type}
+                                className="text-[10px]"
+                              />
                             </div>
-                          )}
-                        </TableCell>
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="variation" isVisible={isVisible}>
+                          <TableCell className="text-center">
+                            <StatusBadge
+                              preset="stockDelta"
+                              value={move.delta > 0 ? "positive" : "negative"}
+                              className="font-bold text-[10px]"
+                            >
+                              {move.delta > 0 ? `+${move.delta}` : move.delta}
+                            </StatusBadge>
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="finalStock" isVisible={isVisible}>
+                          <TableCell className="text-center font-headline font-bold">
+                            {move.newStock}
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="author" isVisible={isVisible}>
+                          <TableCell>
+                            <div className="text-xs font-medium">{move.performedByName}</div>
+                            {move.reason && (
+                              <div className="mt-0.5 max-w-[200px] truncate text-[10px] text-muted-foreground">
+                                {move.reason}
+                              </div>
+                            )}
+                          </TableCell>
+                        </VisibleTableColumn>
                       </TableRow>
                     )
                   })}

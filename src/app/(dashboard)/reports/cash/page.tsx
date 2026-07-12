@@ -26,6 +26,10 @@ import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { useStore } from "@/lib/contexts/StoreContext"
 import { getCashAuditSummary, getSessionTotals } from "@/lib/cash-session-utils"
+import { useClientPagination } from "@/hooks/use-client-pagination"
+import { TablePagination } from "@/components/ui/table-pagination"
+
+const PAGE_SIZE = 25
 
 export default function CashReportPage() {
   const { activeStore } = useStore()
@@ -54,6 +58,16 @@ export default function CashReportPage() {
   }, [activeStore])
 
   const summary = useMemo(() => getCashAuditSummary(sessions), [sessions])
+
+  const {
+    paginatedItems: paginatedSessions,
+    page,
+    setPage,
+    totalPages,
+    totalItems: sessionsTotal,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(sessions, { pageSize: PAGE_SIZE })
 
   const handleExportPdf = async () => {
     if (!activeStore) return
@@ -209,7 +223,7 @@ export default function CashReportPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                sessions.map((s) => {
+                paginatedSessions.map((s) => {
                   const { totalExpected, totalActual, totalVar } = getSessionTotals(s)
                   const openedAt = s.openedAt?.toDate ? s.openedAt.toDate() : new Date()
 
@@ -267,6 +281,14 @@ export default function CashReportPage() {
               )}
             </TableBody>
           </Table>
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={sessionsTotal}
+            rangeStart={rangeStart}
+            rangeEnd={rangeEnd}
+            onPageChange={setPage}
+          />
         </CardContent>
       </Card>
     </div>

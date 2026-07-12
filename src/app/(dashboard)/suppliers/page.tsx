@@ -57,6 +57,13 @@ import {
   type SupplierTypeFilter,
 } from "@/lib/supplier-utils"
 import { cn } from "@/lib/utils"
+import { useClientPagination } from "@/hooks/use-client-pagination"
+import { TablePagination } from "@/components/ui/table-pagination"
+import { useTableColumns } from "@/hooks/use-table-columns"
+import { TableColumnToggle } from "@/components/ui/table-column-toggle"
+import { VisibleTableColumn } from "@/components/ui/visible-table-column"
+import { TableListToolbar } from "@/components/ui/table-list-toolbar"
+import { SUPPLIER_TABLE_COLUMNS } from "@/lib/table-column-presets"
 
 const PAGE_SIZE = 50
 
@@ -68,14 +75,12 @@ export default function SuppliersPage() {
   const [typeFilter, setTypeFilter] = useState<SupplierTypeFilter>("all")
   const [currencyFilter, setCurrencyFilter] = useState<CurrencyCode | "all">("all")
   const [debtFilter, setDebtFilter] = useState<SupplierDebtFilter>("all")
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
   const loadSuppliers = async () => {
     setLoading(true)
     try {
       const data = await SupplierService.listSuppliers()
       setSuppliers(data)
-      setVisibleCount(PAGE_SIZE)
     } catch {
       toast.error("Erreur de chargement des fournisseurs")
     } finally {
@@ -92,7 +97,6 @@ export default function SuppliersPage() {
         const data = await SupplierService.listSuppliers()
         if (!cancelled) {
           setSuppliers(data)
-          setVisibleCount(PAGE_SIZE)
         }
       } catch {
         if (!cancelled) toast.error("Erreur de chargement des fournisseurs")
@@ -118,8 +122,19 @@ export default function SuppliersPage() {
     [suppliers, searchTerm, typeFilter, currencyFilter, debtFilter]
   )
 
-  const visibleSuppliers = filteredSuppliers.slice(0, visibleCount)
-  const hasMore = visibleCount < filteredSuppliers.length
+  const filterKey = `${searchTerm}|${typeFilter}|${currencyFilter}|${debtFilter}`
+  const {
+    paginatedItems: visibleSuppliers,
+    page,
+    setPage,
+    totalPages,
+    totalItems: filteredTotal,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(filteredSuppliers, { pageSize: PAGE_SIZE, resetKey: filterKey })
+
+  const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
+    useTableColumns("suppliers", SUPPLIER_TABLE_COLUMNS)
 
   const stats = useMemo(
     () => ({
@@ -230,18 +245,12 @@ export default function SuppliersPage() {
               placeholder="Rechercher par nom, pays ou ville…"
               className="h-10 rounded-xl pl-9"
               value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value)
-                setVisibleCount(PAGE_SIZE)
-              }}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <Select
             value={typeFilter}
-            onValueChange={(v) => {
-              setTypeFilter(v as SupplierTypeFilter)
-              setVisibleCount(PAGE_SIZE)
-            }}
+            onValueChange={(v) => setTypeFilter(v as SupplierTypeFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
               <SelectValue placeholder="Type" />
@@ -254,10 +263,7 @@ export default function SuppliersPage() {
           </Select>
           <Select
             value={currencyFilter}
-            onValueChange={(v) => {
-              setCurrencyFilter(v as CurrencyCode | "all")
-              setVisibleCount(PAGE_SIZE)
-            }}
+            onValueChange={(v) => setCurrencyFilter(v as CurrencyCode | "all")}
           >
             <SelectTrigger className="h-10 rounded-xl">
               <SelectValue placeholder="Devise" />
@@ -273,10 +279,7 @@ export default function SuppliersPage() {
           </Select>
           <Select
             value={debtFilter}
-            onValueChange={(v) => {
-              setDebtFilter(v as SupplierDebtFilter)
-              setVisibleCount(PAGE_SIZE)
-            }}
+            onValueChange={(v) => setDebtFilter(v as SupplierDebtFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
               <SelectValue placeholder="Encours" />
@@ -292,6 +295,21 @@ export default function SuppliersPage() {
 
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <CardContent className="p-0">
+          <TableListToolbar
+            summary={
+              !loading && filteredSuppliers.length > 0
+                ? `${filteredSuppliers.length} fournisseur${filteredSuppliers.length !== 1 ? "s" : ""}`
+                : undefined
+            }
+            actions={
+              <TableColumnToggle
+                columns={tableColumns}
+                isVisible={isVisible}
+                onToggle={toggleColumn}
+                onReset={resetColumns}
+              />
+            }
+          />
           {loading ? (
             <div className="flex justify-center p-16">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -321,79 +339,102 @@ export default function SuppliersPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Fournisseur</TableHead>
-                    <TableHead>Localisation</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Devise</TableHead>
-                    <TableHead className="text-right">Dette (encours)</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <VisibleTableColumn id="supplier" isVisible={isVisible}>
+                      <TableHead>Fournisseur</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="location" isVisible={isVisible}>
+                      <TableHead>Localisation</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="type" isVisible={isVisible}>
+                      <TableHead>Type</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="currency" isVisible={isVisible}>
+                      <TableHead>Devise</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="debt" isVisible={isVisible}>
+                      <TableHead className="text-right">Dette (encours)</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="actions" isVisible={isVisible}>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {visibleSuppliers.map((supplier) => (
                     <TableRow key={supplier.id} className="group">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={cn(
-                              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-                              supplier.type === "import"
-                                ? "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-400"
-                                : "bg-slate-100 text-slate-600 dark:bg-slate-900/50 dark:text-slate-400"
-                            )}
-                          >
-                            {supplier.type === "import" ? (
-                              <Globe className="h-4 w-4" />
-                            ) : (
-                              <Truck className="h-4 w-4" />
-                            )}
-                          </div>
-                          <div>
-                            <div className="font-semibold">{supplier.name}</div>
-                            <div className="flex items-center text-[10px] text-muted-foreground">
-                              <Banknote className="mr-1 h-2.5 w-2.5" />
-                              {supplier.paymentTerms || "Paiement comptant"}
+                      <VisibleTableColumn id="supplier" isVisible={isVisible}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={cn(
+                                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                                supplier.type === "import"
+                                  ? "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-400"
+                                  : "bg-slate-100 text-slate-600 dark:bg-slate-900/50 dark:text-slate-400"
+                              )}
+                            >
+                              {supplier.type === "import" ? (
+                                <Globe className="h-4 w-4" />
+                              ) : (
+                                <Truck className="h-4 w-4" />
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-semibold">{supplier.name}</div>
+                              <div className="flex items-center text-[10px] text-muted-foreground">
+                                <Banknote className="mr-1 h-2.5 w-2.5" />
+                                {supplier.paymentTerms || "Paiement comptant"}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center text-sm">
-                          <MapPin className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                          {supplier.city && `${supplier.city}, `}
-                          {supplier.country}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge
-                          preset="supplierType"
-                          value={supplier.type}
-                          icon={
-                            supplier.type === "import" ? (
-                              <Globe className="h-3 w-3" />
-                            ) : undefined
-                          }
-                          className="text-[10px]"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge hashFromLabel className="font-mono text-[10px]">
-                          {supplier.defaultCurrency}
-                        </StatusBadge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span
-                          className={cn(
-                            "font-headline font-bold",
-                            supplier.currentDebt > 0
-                              ? "text-destructive"
-                              : "text-emerald-600"
-                          )}
-                        >
-                          {formatAmount(supplier.currentDebt, "FCFA")}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
+                        </TableCell>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="location" isVisible={isVisible}>
+                        <TableCell>
+                          <div className="flex items-center text-sm">
+                            <MapPin className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                            {supplier.city && `${supplier.city}, `}
+                            {supplier.country}
+                          </div>
+                        </TableCell>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="type" isVisible={isVisible}>
+                        <TableCell>
+                          <StatusBadge
+                            preset="supplierType"
+                            value={supplier.type}
+                            icon={
+                              supplier.type === "import" ? (
+                                <Globe className="h-3 w-3" />
+                              ) : undefined
+                            }
+                            className="text-[10px]"
+                          />
+                        </TableCell>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="currency" isVisible={isVisible}>
+                        <TableCell>
+                          <StatusBadge hashFromLabel className="font-mono text-[10px]">
+                            {supplier.defaultCurrency}
+                          </StatusBadge>
+                        </TableCell>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="debt" isVisible={isVisible}>
+                        <TableCell className="text-right">
+                          <span
+                            className={cn(
+                              "font-headline font-bold",
+                              supplier.currentDebt > 0
+                                ? "text-destructive"
+                                : "text-emerald-600"
+                            )}
+                          >
+                            {formatAmount(supplier.currentDebt, "FCFA")}
+                          </span>
+                        </TableCell>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="actions" isVisible={isVisible}>
+                        <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="ghost"
@@ -438,22 +479,20 @@ export default function SuppliersPage() {
                           </DropdownMenu>
                         </div>
                       </TableCell>
+                      </VisibleTableColumn>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
 
-              {hasMore && (
-                <div className="flex justify-center border-t p-4">
-                  <Button
-                    variant="outline"
-                    className="rounded-xl font-semibold"
-                    onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                  >
-                    Charger plus ({filteredSuppliers.length - visibleCount} restants)
-                  </Button>
-                </div>
-              )}
+              <TablePagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={filteredTotal}
+                rangeStart={rangeStart}
+                rangeEnd={rangeEnd}
+                onPageChange={setPage}
+              />
             </>
           )}
         </CardContent>

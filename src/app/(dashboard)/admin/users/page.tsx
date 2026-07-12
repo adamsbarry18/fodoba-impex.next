@@ -59,6 +59,10 @@ import {
   ROLE_ORDER,
 } from "@/lib/user-utils"
 import { cn } from "@/lib/utils"
+import { useTableColumns } from "@/hooks/use-table-columns"
+import { TableColumnToggle } from "@/components/ui/table-column-toggle"
+import { VisibleTableColumn } from "@/components/ui/visible-table-column"
+import { USER_TABLE_COLUMNS } from "@/lib/table-column-presets"
 
 const PAGE_SIZE = 50
 
@@ -171,6 +175,9 @@ export default function UsersAdminPage() {
     }),
     [users]
   )
+
+  const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
+    useTableColumns("users", USER_TABLE_COLUMNS)
 
   const handleRefresh = async () => {
     setLastDoc(undefined)
@@ -344,15 +351,23 @@ export default function UsersAdminPage() {
 
       {/* Liste */}
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-          <CardTitle className="text-base">Liste des collaborateurs</CardTitle>
-          <CardDescription className="text-xs">
-            {filteredUsers.length} collaborateur{filteredUsers.length !== 1 ? "s" : ""}
-            {searchTerm || roleFilter !== "all" || statusFilter !== "all"
-              ? " (filtrés)"
-              : ""}{" "}
-            sur {users.length} chargé{users.length !== 1 ? "s" : ""}
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 p-4 sm:p-6">
+          <div>
+            <CardTitle className="text-base">Liste des collaborateurs</CardTitle>
+            <CardDescription className="text-xs">
+              {filteredUsers.length} collaborateur{filteredUsers.length !== 1 ? "s" : ""}
+              {searchTerm || roleFilter !== "all" || statusFilter !== "all"
+                ? " (filtrés)"
+                : ""}{" "}
+              sur {users.length} chargé{users.length !== 1 ? "s" : ""}
+            </CardDescription>
+          </div>
+          <TableColumnToggle
+            columns={tableColumns}
+            isVisible={isVisible}
+            onToggle={toggleColumn}
+            onReset={resetColumns}
+          />
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
@@ -382,11 +397,21 @@ export default function UsersAdminPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="pl-4 sm:pl-6">Collaborateur</TableHead>
-                    <TableHead>Rôle</TableHead>
-                    <TableHead className="hidden md:table-cell">Boutiques</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
+                    <VisibleTableColumn id="user" isVisible={isVisible}>
+                      <TableHead className="pl-4 sm:pl-6">Collaborateur</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="role" isVisible={isVisible}>
+                      <TableHead>Rôle</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="stores" isVisible={isVisible}>
+                      <TableHead>Boutiques</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="status" isVisible={isVisible}>
+                      <TableHead>Statut</TableHead>
+                    </VisibleTableColumn>
+                    <VisibleTableColumn id="actions" isVisible={isVisible}>
+                      <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
+                    </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -401,115 +426,125 @@ export default function UsersAdminPage() {
                         key={user.uid}
                         className="transition-colors hover:bg-muted/20"
                       >
-                        <TableCell className="pl-4 sm:pl-6">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                              {getUserInitials(user)}
+                        <VisibleTableColumn id="user" isVisible={isVisible}>
+                          <TableCell className="pl-4 sm:pl-6">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                                {getUserInitials(user)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold">
+                                  {getUserDisplayName(user)}
+                                  {isSelf && (
+                                    <span className="ml-2 text-[10px] font-normal text-muted-foreground">
+                                      (vous)
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                                  <Mail className="h-3 w-3 shrink-0" />
+                                  {user.email}
+                                </p>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold">
-                                {getUserDisplayName(user)}
-                                {isSelf && (
-                                  <span className="ml-2 text-[10px] font-normal text-muted-foreground">
-                                    (vous)
-                                  </span>
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="role" isVisible={isVisible}>
+                          <TableCell>
+                            <StatusBadge
+                              preset="userRole"
+                              value={user.role}
+                              icon={(() => {
+                                const Icon = getRoleMeta(user.role).icon
+                                return <Icon className="h-3 w-3" />
+                              })()}
+                              className="text-[10px]"
+                            />
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="stores" isVisible={isVisible}>
+                          <TableCell>
+                            {user.role === "admin" ? (
+                              <StatusBadge tone="slate" className="text-[10px]">
+                                Toutes les boutiques
+                              </StatusBadge>
+                            ) : assignedStores.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {assignedStores.slice(0, 2).map((store) => (
+                                  <StatusBadge
+                                    key={store.id}
+                                    hashFromLabel
+                                    className="text-[9px]"
+                                  >
+                                    {store.code}
+                                  </StatusBadge>
+                                ))}
+                                {assignedStores.length > 2 && (
+                                  <StatusBadge tone="slate" className="text-[9px]">
+                                    +{assignedStores.length - 2}
+                                  </StatusBadge>
                                 )}
-                              </p>
-                              <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                                <Mail className="h-3 w-3 shrink-0" />
-                                {user.email}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge
-                            preset="userRole"
-                            value={user.role}
-                            icon={(() => {
-                              const Icon = getRoleMeta(user.role).icon
-                              return <Icon className="h-3 w-3" />
-                            })()}
-                            className="text-[10px]"
-                          />
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          {user.role === "admin" ? (
-                            <StatusBadge tone="slate" className="text-[10px]">
-                              Toutes les boutiques
+                              </div>
+                            ) : (
+                              <span className="text-xs italic text-muted-foreground">
+                                Aucune boutique
+                              </span>
+                            )}
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="status" isVisible={isVisible}>
+                          <TableCell>
+                            <StatusBadge
+                              preset="activeState"
+                              value={user.actif ? "active" : "inactive"}
+                              className="text-[10px]"
+                            >
+                              {user.actif ? "Actif" : "Suspendu"}
                             </StatusBadge>
-                          ) : assignedStores.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {assignedStores.slice(0, 2).map((store) => (
-                                <StatusBadge
-                                  key={store.id}
-                                  hashFromLabel
-                                  className="text-[9px]"
-                                >
-                                  {store.code}
-                                </StatusBadge>
-                              ))}
-                              {assignedStores.length > 2 && (
-                                <StatusBadge tone="slate" className="text-[9px]">
-                                  +{assignedStores.length - 2}
-                                </StatusBadge>
-                              )}
+                          </TableCell>
+                        </VisibleTableColumn>
+                        <VisibleTableColumn id="actions" isVisible={isVisible}>
+                          <TableCell className="pr-4 text-right sm:pr-6">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                asChild
+                                className="h-8 w-8 rounded-lg"
+                                title="Modifier"
+                              >
+                                <Link href={`/admin/users/${user.uid}/edit`}>
+                                  <Edit className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn(
+                                  "h-8 w-8 rounded-lg",
+                                  user.actif
+                                    ? "text-destructive hover:text-destructive"
+                                    : "text-primary hover:text-primary"
+                                )}
+                                onClick={() =>
+                                  setToggleTarget({
+                                    uid: user.uid,
+                                    name: getUserDisplayName(user),
+                                    actif: user.actif,
+                                  })
+                                }
+                                title={user.actif ? "Suspendre" : "Réactiver"}
+                                disabled={isSelf}
+                              >
+                                {user.actif ? (
+                                  <UserX className="h-4 w-4" />
+                                ) : (
+                                  <UserCheck className="h-4 w-4" />
+                                )}
+                              </Button>
                             </div>
-                          ) : (
-                            <span className="text-xs italic text-muted-foreground">
-                              Aucune boutique
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge
-                            preset="activeState"
-                            value={user.actif ? "active" : "inactive"}
-                            className="text-[10px]"
-                          >
-                            {user.actif ? "Actif" : "Suspendu"}
-                          </StatusBadge>
-                        </TableCell>
-                        <TableCell className="pr-4 text-right sm:pr-6">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              asChild
-                              className="h-8 w-8 rounded-lg"
-                              title="Modifier"
-                            >
-                              <Link href={`/admin/users/${user.uid}/edit`}>
-                                <Edit className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn(
-                                "h-8 w-8 rounded-lg",
-                                user.actif
-                                  ? "text-destructive hover:text-destructive"
-                                  : "text-primary hover:text-primary"
-                              )}
-                              onClick={() =>
-                                setToggleTarget({
-                                  uid: user.uid,
-                                  name: getUserDisplayName(user),
-                                  actif: user.actif,
-                                })
-                              }
-                              title={user.actif ? "Suspendre" : "Réactiver"}
-                              disabled={isSelf}
-                            >
-                              {user.actif ? (
-                                <UserX className="h-4 w-4" />
-                              ) : (
-                                <UserCheck className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
-                        </TableCell>
+                          </TableCell>
+                        </VisibleTableColumn>
                       </TableRow>
                     )
                   })}
