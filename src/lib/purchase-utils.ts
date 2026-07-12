@@ -36,6 +36,19 @@ export function getExpensesTotal(expenses: PurchaseExpense[]): number {
   return expenses.reduce((acc, exp) => acc + exp.amount * exp.exchangeRate, 0)
 }
 
+export function getLandedCostUnit(
+  item: PurchaseItem,
+  purchase: Pick<Purchase, "subtotalFCFA" | "expensesTotalFCFA">
+): number {
+  if (item.quantity <= 0) return 0
+  const itemTotalFCFA = getPurchaseLineTotal(item)
+  const expenseShare =
+    purchase.subtotalFCFA > 0
+      ? purchase.expensesTotalFCFA * (itemTotalFCFA / purchase.subtotalFCFA)
+      : 0
+  return (itemTotalFCFA + expenseShare) / item.quantity
+}
+
 export function toPurchaseDate(ts: Purchase["timestamp"]): Date | null {
   if (!ts) return null
   return ts.toDate ? ts.toDate() : new Date(ts)

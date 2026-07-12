@@ -63,7 +63,7 @@ export default function ReportsPage() {
           <Button variant="outline" asChild className="rounded-xl font-semibold">
             <Link href="/reconciliation">
               <Wallet className="mr-2 h-4 w-4" />
-              Trésorerie & caisse
+              Trésorerie et caisse
             </Link>
           </Button>
         )}

@@ -144,7 +144,7 @@ export default function SuppliersPage() {
             <Truck className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Gestion Fournisseurs</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Gestion des fournisseurs</h1>
             <p className="text-sm text-muted-foreground">
               Base globale des partenaires d&apos;approvisionnement FODOBA IMPEX.
             </p>

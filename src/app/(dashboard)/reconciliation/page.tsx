@@ -297,7 +297,7 @@ export default function ReconciliationPage() {
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight">Trésorerie & caisse</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Trésorerie et caisse</h1>
               <StatusBadge
                 preset="cashSessionStatus"
                 value={activeSession ? "OPEN" : "CLOSED"}

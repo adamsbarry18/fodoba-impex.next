@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Purchase, UserProfile, Product, Supplier, StockLevel } from "@/lib/types";
+import { getLandedCostUnit } from "@/lib/purchase-utils";
 
 const COLLECTION_NAME = "purchases";
 
@@ -78,40 +79,69 @@ export const PurchaseService = {
       const purchaseRef = doc(db, COLLECTION_NAME, purchaseId);
       const purchaseSnap = await transaction.get(purchaseRef);
       if (!purchaseSnap.exists()) throw new Error("Commande introuvable");
-      
+
       const purchase = purchaseSnap.data() as Purchase;
-      if (purchase.status === "RECEIVED") throw new Error("Cette commande a déjà été réceptionnée");
+      if (purchase.status === "RECEIVED") {
+        throw new Error("Cette commande a déjà été réceptionnée");
+      }
+      if (purchase.status !== "ORDERED") {
+        throw new Error("Seules les commandes validées peuvent être réceptionnées");
+      }
+      if (purchase.items.length === 0) {
+        throw new Error("Cette commande ne contient aucun article");
+      }
 
       const supplierRef = doc(db, "suppliers", purchase.supplierId);
       const supplierSnap = await transaction.get(supplierRef);
       if (!supplierSnap.exists()) throw new Error("Fournisseur introuvable");
       const supplier = supplierSnap.data() as Supplier;
 
+      // Phase 1 — toutes les lectures avant toute écriture (contrainte Firestore)
+      const itemContexts: Array<{
+        item: Purchase["items"][number];
+        productRef: ReturnType<typeof doc>;
+        productSnap: Awaited<ReturnType<typeof transaction.get>>;
+        stockRef: ReturnType<typeof doc>;
+        stockSnap: Awaited<ReturnType<typeof transaction.get>>;
+      }> = [];
+
       for (const item of purchase.items) {
         const productRef = doc(db, "products", item.productId);
         const productSnap = await transaction.get(productRef);
-        if (!productSnap.exists()) continue;
-        const product = productSnap.data() as Product;
 
-        const itemTotalFCFA = item.quantity * item.unitCost * item.exchangeRate;
-        const landedCostUnit = (itemTotalFCFA + (purchase.expensesTotalFCFA * (itemTotalFCFA / purchase.subtotalFCFA))) / item.quantity;
+        const stockId = `${purchase.storeId}_${item.productId}`;
+        const stockRef = doc(db, "stocks", stockId);
+        const stockSnap = await transaction.get(stockRef);
+
+        itemContexts.push({ item, productRef, productSnap, stockRef, stockSnap });
+      }
+
+      // Phase 2 — toutes les écritures
+      for (const { item, productRef, productSnap, stockRef, stockSnap } of itemContexts) {
+        if (!productSnap.exists() || item.quantity <= 0) continue;
+
+        const product = productSnap.data() as Product;
+        const landedCostUnit = getLandedCostUnit(item, purchase);
 
         const oldPMP = product.purchasePriceRef || landedCostUnit;
         const newPMP = (oldPMP + landedCostUnit) / 2;
 
         transaction.update(productRef, { purchasePriceRef: newPMP });
 
-        const stockId = `${purchase.storeId}_${item.productId}`;
-        const stockRef = doc(db, "stocks", stockId);
-        const stockSnap = await transaction.get(stockRef);
-        const currentQty = stockSnap.exists() ? (stockSnap.data() as StockLevel).quantity : 0;
-        
-        transaction.set(stockRef, {
-          productId: item.productId,
-          storeId: purchase.storeId,
-          quantity: currentQty + item.quantity,
-          lastUpdated: serverTimestamp()
-        }, { merge: true });
+        const currentQty = stockSnap.exists()
+          ? (stockSnap.data() as StockLevel).quantity
+          : 0;
+
+        transaction.set(
+          stockRef,
+          {
+            productId: item.productId,
+            storeId: purchase.storeId,
+            quantity: currentQty + item.quantity,
+            lastUpdated: serverTimestamp(),
+          },
+          { merge: true }
+        );
 
         const moveRef = doc(collection(db, "inventory_movements"));
         transaction.set(moveRef, {
@@ -128,19 +158,19 @@ export const PurchaseService = {
           performedBy: user.uid,
           performedByName: `${user.prenom} ${user.nom}`,
           timestamp: serverTimestamp(),
-          relatedDocId: purchase.id
+          relatedDocId: purchase.id,
         });
       }
 
       transaction.update(supplierRef, {
-        currentDebt: supplier.currentDebt + purchase.totalFCFA
+        currentDebt: supplier.currentDebt + purchase.totalFCFA,
       });
 
-      transaction.update(purchaseRef, { 
+      transaction.update(purchaseRef, {
         status: "RECEIVED",
         receivedAt: serverTimestamp(),
-        receivedBy: user.uid 
+        receivedBy: user.uid,
       });
     });
-  }
+  },
 };

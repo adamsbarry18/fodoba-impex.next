@@ -26,6 +26,7 @@ import { toast } from "sonner"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { useAuth } from "@/lib/contexts/AuthContext"
+import { getLandedCostUnit } from "@/lib/purchase-utils"
 
 export default function PurchaseDetailsPage() {
   const params = useParams()
@@ -75,6 +76,7 @@ export default function PurchaseDetailsPage() {
   if (!purchase) return null
 
   const isReceived = purchase.status === "RECEIVED"
+  const canReceive = purchase.status === "ORDERED"
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -94,10 +96,10 @@ export default function PurchaseDetailsPage() {
           <Button variant="outline">
             <Printer className="w-4 h-4 mr-2" /> Bon de commande
           </Button>
-          {!isReceived && (
+          {!isReceived && canReceive && (
             <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleReception} disabled={processing}>
               {processing ? <Loader2 className="animate-spin mr-2" /> : <Package className="mr-2" />}
-              Valider la Réception
+              Valider la réception
             </Button>
           )}
         </div>
@@ -112,7 +114,7 @@ export default function PurchaseDetailsPage() {
           <CardContent>
              <div className="space-y-4">
                 {purchase.items.map((item, idx) => {
-                  const landedCostUnit = (item.quantity * item.unitCost * item.exchangeRate + (purchase.expensesTotalFCFA * ((item.quantity * item.unitCost * item.exchangeRate) / purchase.subtotalFCFA))) / item.quantity;
+                  const landedCostUnit = getLandedCostUnit(item, purchase);
                   
                   return (
                     <div key={idx} className="flex items-center justify-between p-4 border rounded-lg bg-muted/5">
@@ -141,7 +143,7 @@ export default function PurchaseDetailsPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Statut & Info</CardTitle>
+              <CardTitle>Statut et informations</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center">
