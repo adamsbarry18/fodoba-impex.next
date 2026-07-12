@@ -157,7 +157,7 @@ export default function ClientDetailsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Montant versé</Label>
+                  <Label required>Montant versé</Label>
                   <Input 
                     type="number" 
                     placeholder="0" 
@@ -166,7 +166,7 @@ export default function ClientDetailsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Mode de paiement</Label>
+                  <Label required>Mode de paiement</Label>
                   <Select onValueChange={(v: any) => setMethod(v)} value={method}>
                     <SelectTrigger>
                       <SelectValue />

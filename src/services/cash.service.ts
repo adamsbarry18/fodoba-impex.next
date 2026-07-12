@@ -139,13 +139,15 @@ export const CashService = {
     return sessions;
   },
 
-  async getMovements(sessionId: string) {
+  async getMovements(sessionId: string, storeId: string) {
     const q = query(
       collection(db, MOVEMENTS_COLLECTION),
-      where("sessionId", "==", sessionId)
+      where("storeId", "==", storeId)
     );
     const snap = await getDocs(q);
-    let movements = snap.docs.map(doc => doc.data() as CashMovement);
+    let movements = snap.docs
+      .map((doc) => doc.data() as CashMovement)
+      .filter((movement) => movement.sessionId === sessionId);
     movements.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
     return movements;
   }

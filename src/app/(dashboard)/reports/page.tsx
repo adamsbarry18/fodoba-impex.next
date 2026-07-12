@@ -1,270 +1,248 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { useState, useMemo } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   BarChart3,
-  Package,
   ArrowRight,
-  History,
-  ShoppingCart,
-  Users,
-  Truck,
   Search,
-  Sparkles,
   ShieldCheck,
-  FileSpreadsheet,
-  TrendingUp
+  Wallet,
+  PieChart,
+  Layers,
+  Users,
 } from "lucide-react"
 import Link from "next/link"
 import { usePermissions } from "@/hooks/use-permissions"
-import { Permission } from "@/lib/auth/permissions"
+import {
+  REPORT_CARDS,
+  REPORT_CATEGORIES,
+  REPORT_CATEGORY_LABELS,
+  countReportsByCategory,
+  filterReports,
+  type ReportCategory,
+} from "@/lib/report-utils"
 import { cn } from "@/lib/utils"
-
-const REPORT_CARDS = [
-  {
-    title: "Journal des Ventes",
-    description: "Analyse détaillée du CA, des marges et des remises par boutique.",
-    icon: ShoppingCart,
-    href: "/reports/sales",
-    color: "text-blue-600",
-    borderColor: "hover:border-blue-500/25 hover:shadow-blue-500/[0.03]",
-    bg: "bg-blue-50",
-    hoverBg: "group-hover:bg-blue-100",
-    permission: "view:reports:store" as Permission,
-    category: "finance"
-  },
-  {
-    title: "État du Stock",
-    description: "Niveaux d'inventaire, valorisation du PMP et alertes rupture.",
-    icon: Package,
-    href: "/reports/inventory",
-    color: "text-emerald-600",
-    borderColor: "hover:border-emerald-500/25 hover:shadow-emerald-500/[0.03]",
-    bg: "bg-emerald-50",
-    hoverBg: "group-hover:bg-emerald-100",
-    permission: "view:stock" as Permission,
-    category: "logistics"
-  },
-  {
-    title: "Journal de Caisse",
-    description: "Historique des sessions, clôtures et écarts de rapprochement.",
-    icon: History,
-    href: "/reports/cash",
-    color: "text-purple-600",
-    borderColor: "hover:border-purple-500/25 hover:shadow-purple-500/[0.03]",
-    bg: "bg-purple-50",
-    hoverBg: "group-hover:bg-purple-100",
-    permission: "view:reports:cash" as Permission,
-    category: "finance"
-  },
-  {
-    title: "Portefeuille Clients",
-    description: "Analyse détaillée des créances et historique par client.",
-    icon: Users,
-    href: "/reports/clients",
-    color: "text-amber-600",
-    borderColor: "hover:border-amber-500/25 hover:shadow-amber-500/[0.03]",
-    bg: "bg-amber-50",
-    hoverBg: "group-hover:bg-amber-100",
-    permission: "view:reports:clients" as Permission,
-    category: "clients"
-  },
-  {
-    title: "Suivi Fournisseurs",
-    description: "Analyse des achats, délais de livraison et dettes fournisseurs.",
-    icon: Truck,
-    href: "/reports/suppliers",
-    color: "text-orange-600",
-    borderColor: "hover:border-orange-500/25 hover:shadow-orange-500/[0.03]",
-    bg: "bg-orange-50",
-    hoverBg: "group-hover:bg-orange-100",
-    permission: "view:reports:suppliers" as Permission,
-    category: "logistics"
-  }
-]
-
-const CATEGORIES = [
-  { id: "all", label: "Tous les rapports" },
-  { id: "finance", label: "Finances & Caisse" },
-  { id: "logistics", label: "Stocks & Achats" },
-  { id: "clients", label: "Clients" }
-]
 
 export default function ReportsPage() {
   const { can } = usePermissions()
   const [searchQuery, setSearchQuery] = useState("")
-  const [activeCategory, setActiveCategory] = useState("all")
+  const [activeCategory, setActiveCategory] = useState<"all" | ReportCategory>("all")
 
-  // Filter based on both category selection and search query
-  const allowedReports = REPORT_CARDS.filter(report => {
-    const hasPermission = can(report.permission)
-    const matchesCategory = activeCategory === "all" || report.category === activeCategory
-    const matchesSearch = report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.description.toLowerCase().includes(searchQuery.toLowerCase())
+  const allowedReports = useMemo(
+    () =>
+      filterReports(REPORT_CARDS, {
+        search: searchQuery,
+        category: activeCategory,
+        can,
+      }),
+    [searchQuery, activeCategory, can]
+  )
 
-    return hasPermission && matchesCategory && matchesSearch
-  })
+  const stats = useMemo(() => countReportsByCategory(REPORT_CARDS, can), [can])
+
+  const canAccessCash = can("reconcile:cash")
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto px-4 py-2">
-      {/* Premium Hero Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-border">
-        <div className="space-y-1.5">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-            <Sparkles className="w-3 h-3" />
-            <span>Centre de Décision & BI</span>
+    <div className="space-y-6 pb-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <BarChart3 className="h-5 w-5 text-primary" />
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground font-headline">
-            Centre de Reporting & BI
-          </h1>
-          <p className="text-muted-foreground text-sm max-w-xl">
-            Accédez aux analyses consolidées en temps réel et gérez les exports de conformité FODOBA IMPEX.
-          </p>
-        </div>
-
-        {/* Dynamic BI Metrics */}
-        <div className="grid grid-cols-2 sm:flex items-center gap-3">
-          <div className="bg-card border border-border rounded-xl p-3 px-4 shadow-sm flex flex-col justify-center min-w-[130px]">
-            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Disponibles</span>
-            <span className="text-xl font-extrabold text-foreground mt-0.5">{allowedReports.length} rapports</span>
-          </div>
-          <div className="bg-card border border-border rounded-xl p-3 px-4 shadow-sm flex flex-col justify-center min-w-[130px]">
-            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Synchronisation</span>
-            <span className="text-xs font-bold text-emerald-600 mt-1 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
-              Live / 24h
-            </span>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Centre de reporting & BI</h1>
+            <p className="text-sm text-muted-foreground">
+              Analyses consolidées et exports de conformité FODOBA IMPEX.
+            </p>
           </div>
         </div>
+        {canAccessCash && (
+          <Button variant="outline" asChild className="rounded-xl font-semibold">
+            <Link href="/reconciliation">
+              <Wallet className="mr-2 h-4 w-4" />
+              Trésorerie & caisse
+            </Link>
+          </Button>
+        )}
       </div>
 
-      {/* Modern Filter & Search Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-muted/20 p-3 rounded-2xl border border-border">
-        {/* Category Pill Buttons */}
-        <div className="flex flex-wrap gap-1.5">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              className={cn(
-                "px-4 py-2 text-xs font-semibold rounded-xl transition-all duration-200",
-                activeCategory === cat.id
-                  ? "bg-foreground text-background shadow-sm"
-                  : "bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <BarChart3 className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Rapports accessibles
+              </p>
+              <p className="text-2xl font-bold">{stats.total}</p>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Premium Search Input */}
-        <div className="relative min-w-[280px] lg:max-w-xs w-full">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Rechercher un rapport..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-10 w-full bg-background border-border rounded-xl text-xs focus-visible:ring-primary/20"
-          />
-        </div>
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 dark:bg-purple-950/40">
+              <PieChart className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Finances & caisse
+              </p>
+              <p className="text-2xl font-bold">{stats.finance}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
+              <Layers className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Stocks & achats
+              </p>
+              <p className="text-2xl font-bold">{stats.logistics}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-2 rounded-2xl border bg-card shadow-sm lg:col-span-1">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/40">
+              <Users className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Clients & tiers
+              </p>
+              <p className="text-2xl font-bold">{stats.clients}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Reports Grid with Premium Cards */}
+      <Card className="rounded-2xl border bg-card shadow-sm">
+        <CardContent className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap gap-1.5">
+            {REPORT_CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setActiveCategory(cat.id)}
+                className={cn(
+                  "rounded-xl px-4 py-2 text-xs font-semibold transition-colors",
+                  activeCategory === cat.id
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative w-full lg:max-w-xs">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Rechercher un rapport…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-10 rounded-xl pl-9"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {allowedReports.length > 0 ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {allowedReports.map((report) => {
             const IconComponent = report.icon
             return (
               <Card
                 key={report.href}
-                className={cn(
-                  "group relative border border-border bg-card rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 overflow-hidden flex flex-col justify-between cursor-pointer",
-                  report.borderColor
-                )}
+                className="group overflow-hidden rounded-2xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
               >
-                <Link href={report.href} className="flex flex-col h-full justify-between">
-                  <div>
-                    {/* Header with Styled Icon */}
-                    <CardHeader className="p-6 pb-2 flex flex-row items-center gap-4">
-                      <div className={cn(
-                        "p-3 rounded-xl transition-transform duration-300 group-hover:scale-105",
+                <Link href={report.href} className="flex h-full flex-col">
+                  <CardHeader className="flex flex-row items-start gap-4 p-5 pb-2">
+                    <div
+                      className={cn(
+                        "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105",
                         report.bg,
                         report.color
-                      )}>
-                        <IconComponent className="w-5 h-5" />
-                      </div>
-                      <div className="space-y-0.5">
-                        <CardTitle className="text-base font-bold text-foreground group-hover:text-primary transition-colors duration-200">
-                          {report.title}
-                        </CardTitle>
-                        <span className="inline-block text-[9px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted px-2 py-0.5 rounded-md">
-                          {report.category === "finance" ? "Finance & Caisse" : report.category === "logistics" ? "Stocks & Achats" : "Tiers & Clients"}
-                        </span>
-                      </div>
-                    </CardHeader>
-
-                    {/* Report Description */}
-                    <CardContent className="p-6 pt-2">
-                      <p className="text-xs text-muted-foreground leading-relaxed min-h-[40px]">
-                        {report.description}
-                      </p>
-                    </CardContent>
-                  </div>
-
-                  {/* Elegant Call to Action Footer */}
-                  <div className="p-6 pt-0 border-t border-border/10 mt-auto flex items-center justify-between text-xs font-bold text-foreground group-hover:text-primary transition-colors duration-200">
-                    <span>Consulter le rapport</span>
-                    <div className="w-6 h-6 rounded-full bg-muted group-hover:bg-primary/10 flex items-center justify-center transition-colors duration-200">
-                      <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-transform duration-300 group-hover:translate-x-0.5" />
+                      )}
+                    >
+                      <IconComponent className="h-5 w-5" />
                     </div>
-                  </div>
+                    <div className="min-w-0 space-y-1">
+                      <CardTitle className="text-base font-bold group-hover:text-primary">
+                        {report.title}
+                      </CardTitle>
+                      <span className="inline-block rounded-md bg-muted px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        {REPORT_CATEGORY_LABELS[report.category]}
+                      </span>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="flex flex-1 flex-col justify-between p-5 pt-2">
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      {report.description}
+                    </p>
+                    <div className="mt-4 flex items-center justify-between border-t pt-4 text-xs font-semibold text-foreground group-hover:text-primary">
+                      <span>Consulter le rapport</span>
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted group-hover:bg-primary/10">
+                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                      </div>
+                    </div>
+                  </CardContent>
                 </Link>
               </Card>
             )
           })}
         </div>
       ) : (
-        /* Beautiful Empty State */
-        <div className="text-center py-16 bg-card border-2 border-dashed border-border rounded-2xl max-w-md mx-auto space-y-4">
-          <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center border border-border">
-            <Search className="w-5 h-5 text-muted-foreground" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-bold text-foreground">Aucun rapport trouvé</h3>
-            <p className="text-xs text-muted-foreground max-w-[280px] mx-auto">
-              Nous n'avons trouvé aucun rapport correspondant à vos critères de recherche ou de catégorie.
+        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed p-16 text-center">
+          <Search className="h-12 w-12 text-muted-foreground/30" />
+          <div>
+            <p className="font-semibold">Aucun rapport trouvé</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ajustez la recherche ou la catégorie, ou vérifiez vos droits d&apos;accès.
             </p>
           </div>
           <Button
-            onClick={() => { setSearchQuery(""); setActiveCategory("all") }}
             variant="outline"
-            className="h-9 text-xs rounded-xl"
+            className="rounded-xl font-semibold"
+            onClick={() => {
+              setSearchQuery("")
+              setActiveCategory("all")
+            }}
           >
             Réinitialiser les filtres
           </Button>
         </div>
       )}
 
-      {/* Redesigned Compliance Alert Information */}
-      <Card className="bg-primary/[0.02] border border-primary/10 rounded-2xl overflow-hidden">
-        <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="bg-primary/10 p-3 rounded-xl text-primary flex-shrink-0">
-            <ShieldCheck className="w-5 h-5" />
+      <Card className="overflow-hidden rounded-2xl border border-primary/10 bg-primary/[0.02] shadow-sm">
+        <CardContent className="flex flex-col items-start gap-4 p-5 sm:flex-row sm:items-center">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <ShieldCheck className="h-5 w-5" />
           </div>
           <div className="space-y-1">
-            <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wider">
-              Conformité et Synchronisation
+            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+              Conformité et synchronisation
             </h4>
-            <p className="text-xs text-muted-foreground leading-relaxed max-w-3xl">
-              Les rapports et graphiques analytiques sont recalculés en temps réel avec conversion automatique en FCFA.
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Les rapports sont recalculés en temps réel avec conversion automatique en FCFA.
+              Les exports PDF et CSV respectent les filtres de période et de boutique actifs.
             </p>
           </div>
-        </div>
+        </CardContent>
       </Card>
     </div>
   )

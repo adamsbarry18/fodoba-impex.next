@@ -2,39 +2,40 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { useRouter } from "next/navigation"
+import { DocumentSnapshot } from "firebase/firestore"
 import { ProductService } from "@/services/product.service"
 import { CategoryService } from "@/services/category.service"
 import { Product, Category } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table"
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Package, 
-  Loader2, 
-  Filter, 
-  ArrowDownToLine,
-  ArrowUpToLine,
-  QrCode,
-  ScanLine,
-  MoreVertical,
-  AlertTriangle,
+import {
+  Plus,
+  Search,
+  Edit,
+  Package,
+  Loader2,
   ChevronDown,
-  Eye
+  Eye,
+  RefreshCw,
+  History,
+  AlertTriangle,
+  Boxes,
+  TrendingDown,
+  MoreVertical,
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/ui/status-badge"
 import { useStore } from "@/lib/contexts/StoreContext"
 import { usePermissions } from "@/hooks/use-permissions"
 import {
@@ -43,12 +44,30 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DocumentSnapshot } from "firebase/firestore"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { BarcodeScanField } from "@/components/barcode/barcode-scan-field"
+import {
+  countLowStock,
+  countOutOfStock,
+  estimateStockValue,
+  getStockStatus,
+  type StockFilter,
+} from "@/lib/product-utils"
+import { cn } from "@/lib/utils"
+
+const PAGE_SIZE = 25
 
 export default function InventoryPage() {
+  const router = useRouter()
   const { activeStore } = useStore()
   const { can } = usePermissions()
+
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [stocks, setStocks] = useState<Record<string, number>>({})
@@ -56,181 +75,450 @@ export default function InventoryPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterCategory, setFilterCategory] = useState<string>("all")
+  const [stockFilter, setStockFilter] = useState<StockFilter>("all")
   const [lastVisible, setLastVisible] = useState<DocumentSnapshot | undefined>()
   const [hasMore, setHasMore] = useState(true)
+  const [scanProcessing, setScanProcessing] = useState(false)
 
-  const loadData = useCallback(async (isMore = false) => {
-    if (isMore) setLoadingMore(true); else setLoading(true);
-    
-    try {
-      const [prodData, catData] = await Promise.all([
-        ProductService.listProducts(
-          { 
-            categoryId: filterCategory === "all" ? undefined : filterCategory 
-          }, 
-          25, 
-          isMore ? lastVisible : undefined
-        ),
-        isMore ? Promise.resolve(null) : CategoryService.listCategories()
-      ])
+  const canManage = can("manage:catalog")
 
-      if (catData) setCategories(catData);
-      
-      const newProducts = isMore ? [...products, ...prodData.products] : prodData.products;
-      setProducts(newProducts);
-      setLastVisible(prodData.lastVisible);
-      setHasMore(prodData.products.length === 25);
+  const loadData = useCallback(
+    async (options?: { loadMore?: boolean; reset?: boolean }) => {
+      if (!activeStore) return
+      const loadMore = options?.loadMore ?? false
+      if (loadMore) setLoadingMore(true)
+      else setLoading(true)
 
-      if (activeStore) {
-        const productIds = prodData.products.map(p => p.id);
-        const newStocks = await ProductService.getStockLevelsForProducts(productIds, activeStore.id);
-        setStocks(prev => ({ ...prev, ...newStocks }));
+      try {
+        const [prodData, catData] = await Promise.all([
+          ProductService.listProducts(
+            {
+              categoryId: filterCategory === "all" ? undefined : filterCategory,
+            },
+            PAGE_SIZE,
+            loadMore && !options?.reset ? lastVisible : undefined
+          ),
+          loadMore ? Promise.resolve(null) : CategoryService.listCategories(),
+        ])
+
+        if (catData) setCategories(catData)
+
+        const newProducts = loadMore
+          ? [...products, ...prodData.products]
+          : prodData.products
+        setProducts(newProducts)
+        setLastVisible(prodData.lastVisible)
+        setHasMore(prodData.products.length === PAGE_SIZE)
+
+        const productIds = prodData.products.map((p) => p.id)
+        const newStocks = await ProductService.getStockLevelsForProducts(
+          productIds,
+          activeStore.id
+        )
+        setStocks((prev) => (loadMore ? { ...prev, ...newStocks } : newStocks))
+      } catch {
+        toast.error("Erreur de chargement")
+      } finally {
+        setLoading(false)
+        setLoadingMore(false)
       }
-    } catch (error) {
-      toast.error("Erreur de chargement")
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [filterCategory, lastVisible, products, activeStore])
+    },
+    [activeStore, filterCategory, lastVisible, products]
+  )
 
   useEffect(() => {
-    loadData()
+    if (!activeStore) {
+      setProducts([])
+      setStocks({})
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+
+    const fetchInitial = async () => {
+      setLoading(true)
+      try {
+        const [prodData, catData] = await Promise.all([
+          ProductService.listProducts(
+            { categoryId: filterCategory === "all" ? undefined : filterCategory },
+            PAGE_SIZE
+          ),
+          CategoryService.listCategories(),
+        ])
+        if (cancelled) return
+
+        setProducts(prodData.products)
+        setCategories(catData)
+        setLastVisible(prodData.lastVisible)
+        setHasMore(prodData.products.length === PAGE_SIZE)
+
+        const newStocks = await ProductService.getStockLevelsForProducts(
+          prodData.products.map((p) => p.id),
+          activeStore.id
+        )
+        if (!cancelled) setStocks(newStocks)
+      } catch {
+        if (!cancelled) toast.error("Erreur de chargement")
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    fetchInitial()
+    return () => {
+      cancelled = true
+    }
   }, [filterCategory, activeStore?.id])
 
   const filteredProducts = useMemo(() => {
-    if (!searchTerm) return products;
-    return products.filter(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  }, [products, searchTerm])
+    const term = searchTerm.trim().toLowerCase()
+    return products.filter((p) => {
+      const stock = stocks[p.id] ?? 0
+      const status = getStockStatus(stock, p.lowStockThreshold)
 
-  const canManage = can('manage:catalog')
+      const matchesSearch =
+        !term ||
+        p.name.toLowerCase().includes(term) ||
+        p.sku.toLowerCase().includes(term) ||
+        (p.barcode ?? "").toLowerCase().includes(term)
+
+      const matchesStock =
+        stockFilter === "all" ||
+        (stockFilter === "low" && status === "low") ||
+        (stockFilter === "out" && status === "out")
+
+      return matchesSearch && matchesStock
+    })
+  }, [products, searchTerm, stocks, stockFilter])
+
+  const stats = useMemo(
+    () => ({
+      total: products.length,
+      lowStock: countLowStock(products, stocks),
+      outOfStock: countOutOfStock(products, stocks),
+      valuation: estimateStockValue(products, stocks),
+    }),
+    [products, stocks]
+  )
+
+  const handleRefresh = async () => {
+    setLastVisible(undefined)
+    setHasMore(true)
+    await loadData({ reset: true })
+  }
+
+  const handleProductScan = useCallback(
+    async (code: string) => {
+      setScanProcessing(true)
+      try {
+        const product = await ProductService.findProductByCode(code)
+        if (!product) {
+          toast.error(`Produit introuvable : ${code}`)
+          return
+        }
+        router.push(`/inventory/${product.id}`)
+      } catch {
+        toast.error("Erreur lors du scan")
+      } finally {
+        setScanProcessing(false)
+      }
+    },
+    [router]
+  )
+
+  if (!activeStore) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+        <Package className="h-10 w-10 opacity-30" />
+        <p>Sélectionnez une boutique pour consulter le catalogue et les stocks.</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Catalogue & Stocks</h1>
-          <p className="text-muted-foreground text-[14px]">
-            Consultez les articles et les niveaux de stock pour <strong>{activeStore?.name}</strong>.
-          </p>
+    <div className="space-y-6 pb-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <Package className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Catalogue et stocks</h1>
+            <p className="text-sm text-muted-foreground">
+              Articles et niveaux de stock pour{" "}
+              <strong className="text-foreground">{activeStore.name}</strong>
+            </p>
+          </div>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
-          <Button variant="outline" className="hidden sm:flex rounded-xl font-medium h-10 border-border">
-            <ArrowDownToLine className="w-4 h-4 mr-2" /> Export
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            variant="outline"
+            className="rounded-xl font-semibold"
+            onClick={handleRefresh}
+            disabled={loading}
+          >
+            <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+            Actualiser
+          </Button>
+          <Button variant="outline" asChild className="rounded-xl font-semibold">
+            <Link href="/inventory/history">
+              <History className="mr-2 h-4 w-4" />
+              Historique flux
+            </Link>
           </Button>
           {canManage && (
-            <Button asChild className="rounded-xl font-medium bg-primary hover:bg-primary/90 h-10">
+            <Button asChild className="rounded-xl font-semibold">
               <Link href="/inventory/new">
-                <Plus className="w-4 h-4 mr-2" /> Ajouter
+                <Plus className="mr-2 h-4 w-4" />
+                Nouveau produit
               </Link>
             </Button>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="relative md:col-span-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Rechercher par nom, SKU ou code-barres..." 
-            className="pl-10 h-10 bg-background border-border rounded-xl focus:ring-2 focus:ring-primary/5 text-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <Select value={filterCategory} onValueChange={setFilterCategory}>
-          <SelectTrigger className="h-10 rounded-xl bg-background border-border text-sm text-muted-foreground focus:ring-2 focus:ring-primary/5">
-            <SelectValue placeholder="Toutes les catégories" />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-border shadow-md">
-            <SelectItem value="all">Toutes les catégories</SelectItem>
-            {categories.map(cat => (
-              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button variant="secondary" className="w-full h-10 rounded-xl font-medium border border-border">
-          <ScanLine className="w-4 h-4 mr-2" /> Scanner
-        </Button>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-900/50">
+              <Boxes className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Produits chargés
+              </p>
+              <p className="text-2xl font-bold">{stats.total}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/40">
+              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Stock bas
+              </p>
+              <p className="text-2xl font-bold">{stats.lowStock}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-950/40">
+              <TrendingDown className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Ruptures
+              </p>
+              <p className="text-2xl font-bold">{stats.outOfStock}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-2 rounded-2xl border bg-card shadow-sm lg:col-span-1">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <Package className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Valorisation vente
+              </p>
+              <p className="text-sm font-bold">
+                {stats.valuation.toLocaleString("fr-FR")} FCFA
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <Card className="border bg-card rounded-2xl shadow-sm overflow-hidden">
+      <Card className="rounded-2xl border bg-card shadow-sm">
+        <CardContent className="grid grid-cols-1 gap-3 p-4 md:grid-cols-4">
+          <div className="relative md:col-span-2">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par nom, SKU ou code-barres…"
+              className="h-10 rounded-xl pl-9"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue placeholder="Catégorie" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="all">Toutes les catégories</SelectItem>
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={stockFilter}
+            onValueChange={(v) => setStockFilter(v as StockFilter)}
+          >
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue placeholder="Stock" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="all">Tous les stocks</SelectItem>
+              <SelectItem value="low">Stock bas</SelectItem>
+              <SelectItem value="out">Rupture</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="md:col-span-4">
+            <BarcodeScanField
+              placeholder="Scanner un produit [F2]…"
+              onScan={handleProductScan}
+              processing={scanProcessing}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
+          <CardTitle className="text-base">Liste des produits</CardTitle>
+          <CardDescription className="text-xs">
+            {filteredProducts.length} produit{filteredProducts.length !== 1 ? "s" : ""}
+            {(searchTerm || stockFilter !== "all") && " (filtrés)"}
+          </CardDescription>
+        </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center p-12">
+            <div className="flex justify-center p-16">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 p-16 text-center text-muted-foreground">
+              <Package className="h-10 w-10 opacity-30" />
+              <p className="font-medium">Aucun produit trouvé</p>
+              <p className="text-xs">
+                {products.length === 0 && canManage
+                  ? "Ajoutez votre premier article au catalogue."
+                  : "Modifiez vos filtres de recherche."}
+              </p>
+              {products.length === 0 && canManage && (
+                <Button asChild className="mt-2 rounded-xl">
+                  <Link href="/inventory/new">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nouveau produit
+                  </Link>
+                </Button>
+              )}
             </div>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="py-4 pl-6 text-xs uppercase tracking-wider text-muted-foreground">Produit</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">SKU / Barcode</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wider text-muted-foreground">Catégorie</TableHead>
-                    <TableHead className="text-right text-xs uppercase tracking-wider text-muted-foreground">Prix (FCFA)</TableHead>
-                    <TableHead className="text-center text-xs uppercase tracking-wider text-muted-foreground">Stock Local</TableHead>
-                    <TableHead className="text-right pr-6 text-xs uppercase tracking-wider text-muted-foreground">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProducts.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-12 text-muted-foreground italic">
-                        Aucun produit trouvé.
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="pl-4 sm:pl-6">Produit</TableHead>
+                      <TableHead>SKU / Code-barres</TableHead>
+                      <TableHead>Catégorie</TableHead>
+                      <TableHead className="text-right">Prix (FCFA)</TableHead>
+                      <TableHead className="text-center">Stock</TableHead>
+                      <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
                     </TableRow>
-                  ) : (
-                    filteredProducts.map((p) => {
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProducts.map((p) => {
                       const stock = stocks[p.id] ?? 0
-                      const isLow = stock <= p.lowStockThreshold
-                      const category = categories.find(c => c.id === p.categoryId)?.name
+                      const status = getStockStatus(stock, p.lowStockThreshold)
+                      const category = categories.find((c) => c.id === p.categoryId)?.name
 
                       return (
-                        <TableRow key={p.id} className="group hover:bg-muted/30 transition-colors">
-                          <TableCell className="py-4 pl-6">
-                            <div className="font-semibold text-foreground text-sm">{p.name}</div>
-                            <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mt-0.5">{p.unit}</div>
+                        <TableRow
+                          key={p.id}
+                          className="transition-colors hover:bg-muted/20"
+                        >
+                          <TableCell className="pl-4 sm:pl-6">
+                            <p className="text-sm font-semibold">{p.name}</p>
+                            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              {p.unit}
+                            </p>
                           </TableCell>
                           <TableCell>
-                            <div className="font-mono text-xs text-muted-foreground">{p.sku}</div>
+                            <p className="font-mono text-xs">{p.sku}</p>
+                            {p.barcode && (
+                              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                                {p.barcode}
+                              </p>
+                            )}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="font-medium bg-background text-muted-foreground border-border">
+                            <StatusBadge hashFromLabel className="text-[10px]">
                               {category || "N/A"}
-                            </Badge>
+                            </StatusBadge>
                           </TableCell>
-                          <TableCell className="text-right font-headline font-bold text-foreground">
-                            {p.sellingPriceFCFA.toLocaleString()}
+                          <TableCell className="text-right font-headline font-bold">
+                            {p.sellingPriceFCFA.toLocaleString("fr-FR")}
                           </TableCell>
                           <TableCell className="text-center">
-                            <div className="flex flex-col items-center">
-                              <span className={`text-base font-bold font-headline ${isLow ? "text-destructive" : "text-foreground"}`}>
+                            <div className="flex flex-col items-center gap-1">
+                              <span
+                                className={cn(
+                                  "text-base font-bold font-headline",
+                                  status === "out" && "text-destructive",
+                                  status === "low" && "text-amber-600",
+                                  status === "ok" && "text-foreground"
+                                )}
+                              >
                                 {stock}
                               </span>
-                              {isLow && <Badge variant="destructive" className="text-[8px] h-3 px-1 rounded-sm mt-0.5">ALERTE</Badge>}
+                              {status === "low" && (
+                                <StatusBadge tone="warning" className="text-[8px]">
+                                  Alerte
+                                </StatusBadge>
+                              )}
+                              {status === "out" && (
+                                <StatusBadge tone="destructive" className="text-[8px]">
+                                  Rupture
+                                </StatusBadge>
+                              )}
                             </div>
                           </TableCell>
-                          <TableCell className="text-right pr-6">
+                          <TableCell className="pr-4 text-right sm:pr-6">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="rounded-lg h-8 w-8 hover:bg-muted text-muted-foreground">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-lg"
+                                >
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="rounded-xl border-border shadow-md w-40 p-2 bg-popover text-popover-foreground">
-                                <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                                  <Link href={`/inventory/${p.id}`} className="flex items-center gap-2">
-                                    <Eye className="w-4 h-4" /> Détails
+                              <DropdownMenuContent
+                                align="end"
+                                className="w-40 rounded-xl p-2"
+                              >
+                                <DropdownMenuItem asChild className="rounded-lg">
+                                  <Link
+                                    href={`/inventory/${p.id}`}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                    Détails
                                   </Link>
                                 </DropdownMenuItem>
                                 {canManage && (
-                                  <DropdownMenuItem asChild className="rounded-lg cursor-pointer text-primary">
-                                    <Link href={`/inventory/${p.id}/edit`} className="flex items-center gap-2">
-                                      <Edit className="w-4 h-4" /> Modifier
+                                  <DropdownMenuItem asChild className="rounded-lg">
+                                    <Link
+                                      href={`/inventory/${p.id}/edit`}
+                                      className="flex items-center gap-2 text-primary"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                      Modifier
                                     </Link>
                                   </DropdownMenuItem>
                                 )}
@@ -239,15 +527,24 @@ export default function InventoryPage() {
                           </TableCell>
                         </TableRow>
                       )
-                    })
-                  )}
-                </TableBody>
-              </Table>
-              
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
               {hasMore && (
-                <div className="p-6 border-t flex justify-center">
-                  <Button variant="ghost" onClick={() => loadData(true)} disabled={loadingMore} className="text-muted-foreground font-semibold hover:text-primary transition-colors h-10">
-                    {loadingMore ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
+                <div className="flex justify-center border-t p-4">
+                  <Button
+                    variant="ghost"
+                    onClick={() => loadData({ loadMore: true })}
+                    disabled={loadingMore}
+                    className="rounded-xl font-semibold"
+                  >
+                    {loadingMore ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <ChevronDown className="mr-2 h-4 w-4" />
+                    )}
                     Charger plus de produits
                   </Button>
                 </div>

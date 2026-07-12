@@ -4,6 +4,8 @@
 import { useEffect, useState } from "react"
 import { ProductService } from "@/services/product.service"
 import { StoreService } from "@/services/store.service"
+import { CategoryService } from "@/services/category.service"
+import { PrintService } from "@/services/print.service"
 import { Product, Store } from "@/lib/types"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -36,6 +38,7 @@ export default function ProductDetailsPage() {
   const [stockLevels, setStockLevels] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [adjusting, setAdjusting] = useState(false)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
 
   const canEdit = can('manage:catalog')
   const canAdjust = can('adjust:stock')
@@ -84,6 +87,32 @@ export default function ProductDetailsPage() {
     }
   }
 
+  const handleDownloadPdf = async () => {
+    if (!product) return
+    setGeneratingPdf(true)
+    try {
+      let categoryName: string | undefined
+      try {
+        const category = await CategoryService.getCategory(product.categoryId)
+        categoryName = category?.name
+      } catch {
+        // catégorie optionnelle pour le PDF
+      }
+      await PrintService.generateProductSheet(
+        product,
+        stores,
+        stockLevels,
+        activeStore,
+        categoryName
+      )
+      toast.success("Fiche PDF téléchargée")
+    } catch {
+      toast.error("Erreur lors de la génération du PDF")
+    } finally {
+      setGeneratingPdf(false)
+    }
+  }
+
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-primary" /></div>
   if (!product) return null
 
@@ -108,8 +137,18 @@ export default function ProductDetailsPage() {
           </div>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="rounded-xl font-bold">
-             <Download className="w-4 h-4 mr-2" /> Fiche PDF
+          <Button
+            variant="outline"
+            className="rounded-xl font-bold"
+            onClick={handleDownloadPdf}
+            disabled={generatingPdf}
+          >
+            {generatingPdf ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            Fiche PDF
           </Button>
           {canEdit && (
             <Button asChild className="rounded-xl font-bold bg-primary hover:bg-primary/90">

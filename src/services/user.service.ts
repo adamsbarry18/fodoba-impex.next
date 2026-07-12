@@ -95,8 +95,43 @@ export const UserService = {
 
   async updateUserProfile(uid: string, data: Partial<UserProfile>) {
     const docRef = doc(db, COLLECTION_NAME, uid);
-    await updateDoc(docRef, data);
+    const { uid: _ignoredUid, ...rest } = data;
+    const payload = Object.fromEntries(
+      Object.entries(rest).filter(([, value]) => value !== undefined)
+    );
+    await updateDoc(docRef, payload);
     await this.logAudit("UPDATE_USER", `Mise à jour du profil ${uid}`, uid);
+  },
+
+  /**
+   * Mise à jour limitée du profil par l'utilisateur connecté (prénom, nom, téléphone, photo).
+   */
+  async updateOwnProfile(
+    uid: string,
+    data: Pick<UserProfile, "prenom" | "nom"> & {
+      phone?: string;
+      photoURL?: string;
+    }
+  ) {
+    if (auth.currentUser?.uid !== uid) {
+      throw new Error("Vous ne pouvez modifier que votre propre profil.");
+    }
+
+    const payload: Record<string, string> = {
+      prenom: data.prenom.trim(),
+      nom: data.nom.trim(),
+    };
+
+    if (data.phone !== undefined) {
+      payload.phone = data.phone.trim();
+    }
+    if (data.photoURL !== undefined) {
+      payload.photoURL = data.photoURL;
+    }
+
+    const docRef = doc(db, COLLECTION_NAME, uid);
+    await updateDoc(docRef, payload);
+    await this.logAudit("UPDATE_USER", "Mise à jour du profil personnel", uid);
   },
 
   async toggleUserStatus(uid: string, active: boolean) {
@@ -106,11 +141,21 @@ export const UserService = {
 
   async logAudit(action: string, details: string, targetId?: string) {
     const currentUser = auth.currentUser;
+    let performedByName = "Système";
+
+    if (currentUser?.uid) {
+      const profile = await this.getUser(currentUser.uid);
+      performedByName = profile
+        ? `${profile.prenom} ${profile.nom}`
+        : currentUser.email || currentUser.uid;
+    }
+
     await addDoc(collection(db, AUDIT_COLLECTION), {
       action,
       details,
       targetId,
       performedBy: currentUser?.uid || "system",
+      performedByName,
       timestamp: serverTimestamp(),
     });
   }

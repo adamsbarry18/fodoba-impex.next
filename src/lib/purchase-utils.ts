@@ -1,0 +1,42 @@
+import type { LucideIcon } from "lucide-react"
+import { Clock, Truck, CheckCircle2, BadgeAlert } from "lucide-react"
+import type { Purchase, PurchaseItem, PurchaseExpense } from "@/lib/types"
+
+export type PurchaseStatus = Purchase["status"]
+
+export const PURCHASE_CURRENCIES = ["FCFA", "GNF", "USD", "EUR"] as const
+
+export const PURCHASE_STATUS_ORDER: PurchaseStatus[] = [
+  "DRAFT",
+  "ORDERED",
+  "RECEIVED",
+  "CANCELLED",
+]
+
+export const PURCHASE_STATUS_ICONS: Record<PurchaseStatus, LucideIcon> = {
+  DRAFT: Clock,
+  ORDERED: Truck,
+  RECEIVED: CheckCircle2,
+  CANCELLED: BadgeAlert,
+}
+
+export function formatPurchaseRef(id: string): string {
+  return `#${id.slice(-6).toUpperCase()}`
+}
+
+export function getPurchaseLineTotal(item: PurchaseItem): number {
+  return item.quantity * item.unitCost * item.exchangeRate
+}
+
+export function getPurchaseSubtotal(items: PurchaseItem[]): number {
+  return items.reduce((acc, item) => acc + getPurchaseLineTotal(item), 0)
+}
+
+export function getExpensesTotal(expenses: PurchaseExpense[]): number {
+  return expenses.reduce((acc, exp) => acc + exp.amount * exp.exchangeRate, 0)
+}
+
+export function toPurchaseDate(ts: Purchase["timestamp"]): Date | null {
+  if (!ts) return null
+  return ts.toDate ? ts.toDate() : new Date(ts)
+}

@@ -1,4 +1,4 @@
-# Fodoba — Référence complète
+# Fodoba -Référence complète
 
 ## Structure `src/`
 
@@ -23,7 +23,7 @@ Fichier : `src/app/layout.tsx`
 
 - Routes : anglais kebab-case (`/inventory/transfers/new`, `/landed-cost`)
 - Rôles Firestore : `"admin"`, `"manager"`, `"seller"` (lowercase)
-- Permissions : `"action:ressource"` — `permissions.ts`
+- Permissions : `"action:ressource"` -`permissions.ts`
 - Services : `{Domain}Service` dans `{domain}.service.ts`
 - Champs mixtes : `nom`/`prenom`/`boutiqueIds` (profil) vs `storeId`/`activeStore` (contexte)
 - localStorage boutique : clé `activeStoreId`
@@ -37,7 +37,7 @@ Fichier : `src/app/layout.tsx`
 import { app, auth, db } from '@/lib/firebase/client';
 ```
 
-Config : `NEXT_PUBLIC_FIREBASE_*` — `.env.example`
+Config : `NEXT_PUBLIC_FIREBASE_*` -`.env.example`
 
 ### Pattern données
 
@@ -86,13 +86,13 @@ export const ProductService = {
 
 ### Auth
 
-- Erreurs FR : `AuthService.handleAuthError()` — `auth.service.ts`
-- Bootstrap : premier user → admin auto si `users` vide — `AuthContext.tsx`
-- Création collaborateur : app Firebase secondaire — `UserService.createCollaborator`
+- Erreurs FR : `AuthService.handleAuthError()` -`auth.service.ts`
+- Bootstrap : premier user → admin auto si `users` vide -`AuthContext.tsx`
+- Création collaborateur : app Firebase secondaire -`UserService.createCollaborator`
 
 ### Index Firestore
 
-Éviter `where` + `orderBy` composites — tri/filtre en mémoire (commentaires dans `product.service.ts`, `notification.service.ts`).
+Éviter `where` + `orderBy` composites -tri/filtre en mémoire (commentaires dans `product.service.ts`, `notification.service.ts`).
 
 ## Contextes & hooks
 
@@ -116,8 +116,8 @@ Rôles et permissions dans `src/lib/auth/permissions.ts`.
 | `manager` | `manage:catalog`, `manage:purchases`, `manage:transfers`, `view:reports:cash` |
 | `seller` | `create:sale`, `view:stock`, `reconcile:cash`, `manage:expenses` |
 
-Garde UI : `RoleGuard` — `src/components/auth/role-guard.tsx`
-Nav sidebar filtrée par `usePermissions()` — `app-sidebar.tsx`
+Garde UI : `RoleGuard` -`src/components/auth/role-guard.tsx`
+Nav sidebar filtrée par `usePermissions()` -`app-sidebar.tsx`
 
 ## UI
 
@@ -126,7 +126,7 @@ Nav sidebar filtrée par `usePermissions()` — `app-sidebar.tsx`
 Route group `(dashboard)/layout.tsx` :
 `SidebarProvider` → `AppSidebar` + `AppHeader` + carte scrollable `max-w-[1600px]`
 
-Pas de wrapper `<AppLayout>` — layout intégré au route group.
+Pas de wrapper `<AppLayout>` -layout intégré au route group.
 Auth guard : `auth-layout-wrapper.tsx` (redirect `/login`).
 
 ### Style
@@ -181,7 +181,7 @@ const form = useForm<z.infer<typeof Schema>>({
 
 ### Caisse
 
-- `cash.service.ts` — sessions ouvertes/fermées, rapprochement
+- `cash.service.ts` -sessions ouvertes/fermées, rapprochement
 - Page : `reconciliation/page.tsx`
 
 ### Rapports
@@ -191,7 +191,7 @@ const form = useForm<z.infer<typeof Schema>>({
 
 ### Notifications
 
-Firestore collection `notifications` — `NotificationService.createNotification()`
+Firestore collection `notifications` -`NotificationService.createNotification()`
 Contexte : `NotificationContext` avec `onSnapshot`
 Panel : `notification-panel.tsx`
 
@@ -213,14 +213,14 @@ Panel : `notification-panel.tsx`
 ## CI/CD
 
 - Push/PR `main`/`dev` → job `validate` (lint + typecheck + build)
-- Déploiement Vercel : `workflow_dispatch` uniquement — `.github/workflows/ci-cd.yml`
+- Déploiement Vercel : `workflow_dispatch` uniquement -`.github/workflows/ci-cd.yml`
 
 ## Documentation projet
 
 | Fichier | Rôle |
 |---------|------|
 | `README.md` | Setup, stack, modules |
-| `docs/cahier_de_charges.md` | CDC v1.0 — **source métier** |
+| `docs/cahier_de_charges.md` | CDC v1.0 -**source métier** |
 | `docs/blueprint.md` | Spec produit (partiellement EN/aspirational) |
 
 Le **code fait foi** techniquement ; le **CDC** pour les règles métier.

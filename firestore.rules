@@ -37,10 +37,24 @@ service cloud.firestore {
 
     // --- RÈGLES PAR COLLECTION (Alignées CDC v1.0) ---
 
-    // Utilisateurs : Seul l'admin gère tout par défaut pour garantir la sécurité.
+    // Utilisateurs : lecture par soi-même ou admin ; écriture admin ou auto-édition limitée.
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow write: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || isSelfProfileUpdate(userId);
+    }
+
+    function isSelfProfileUpdate(userId) {
+      return isSignedIn()
+        && isActif()
+        && request.auth.uid == userId
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.actif == resource.data.actif
+        && request.resource.data.boutiqueIds == resource.data.boutiqueIds
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['prenom', 'nom', 'phone', 'photoURL']);
     }
 
     // Boutiques : Écriture Admin uniquement (CDC 2.2).
@@ -131,6 +145,13 @@ service cloud.firestore {
     match /audit_logs/{logId} {
       allow read: if isAdmin();
       allow create: if isSignedIn() && isActif();
+    }
+
+    // Notifications in-app
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && isActif();
+      allow create: if isSignedIn() && isActif();
+      allow update, delete: if isSignedIn() && isActif();
     }
   }
 }

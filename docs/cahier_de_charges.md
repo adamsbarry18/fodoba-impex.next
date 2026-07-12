@@ -4,17 +4,17 @@
 ### FODOBA IMPEX  
 **Commerce de gros et détail - Produits alimentaires**  
 
-**Version 1.0 — Mai 2026**
+**Version 1.0 -Mai 2026**
 
 ---
 
 | Élément | Détail |
 |---|---|
 | **Projet** | Logiciel de gestion commerciale multi-boutiques |
-| **Client** | FODOBA IMPEX — Gros et détail alimentaire |
+| **Client** | FODOBA IMPEX -Gros et détail alimentaire |
 | **Secteur** | Distribution et commerce de produits alimentaires |
 | **Devises** | GNF, FCFA (référence), USD, EUR |
-| **Version** | v1.0 — Document définitif corrigé |
+| **Version** | v1.0 -Document définitif corrigé |
 | **Date** | Mai 2026 |
 | **Statut** | Validé |
 

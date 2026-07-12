@@ -6,7 +6,7 @@ import { ReportService } from "@/services/report.service"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/ui/status-badge"
 import { 
   ArrowLeft, 
   Download, 
@@ -133,11 +133,11 @@ export default function ClientDebtReportPage() {
                 data.clients.map((c: any) => (
                   <TableRow key={c.id} className="hover:bg-gray-50/50 transition-colors">
                     <TableCell className="py-4 pl-8 font-bold text-gray-900">{c.name}</TableCell>
-                    <TableCell className="capitalize"><Badge variant="outline" className="font-medium">{c.type}</Badge></TableCell>
+                    <TableCell className="capitalize">
+                      <StatusBadge preset="clientType" value={c.type} className="text-[10px]" />
+                    </TableCell>
                     <TableCell>
-                       <Badge variant={c.status === 'suspendu' ? 'destructive' : 'secondary'} className="text-[10px]">
-                         {c.status}
-                       </Badge>
+                       <StatusBadge preset="clientStatus" value={c.status} className="text-[10px]" />
                     </TableCell>
                     <TableCell className="text-right pr-8 font-headline font-bold text-destructive">
                       {c.currentDebt.toLocaleString()}

@@ -1,142 +1,364 @@
-
 "use client"
 
 import { useState } from "react"
 import { useNotifications } from "@/lib/contexts/NotificationContext"
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetHeader, 
-  SheetTitle,
+import { useStore } from "@/lib/contexts/StoreContext"
+import {
+  Sheet,
+  SheetContent,
   SheetDescription,
-  SheetFooter
+  SheetHeader,
+  SheetTitle,
 } from "@/components/ui/sheet"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { 
-  Bell, 
-  Trash2, 
-  Package, 
-  ShoppingCart, 
-  Truck, 
-  Info,
-  Clock,
+import { StatusBadge } from "@/components/ui/status-badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import {
+  Bell,
+  BellOff,
+  Trash2,
   CheckCheck,
-  Wrench
+  Clock,
+  Loader2,
 } from "lucide-react"
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
+import type { AppNotification } from "@/lib/types"
+import {
+  NOTIFICATION_TYPE_META,
+  filterNotifications,
+  formatNotificationTime,
+  type NotificationTab,
+} from "@/lib/notification-utils"
 
 interface NotificationPanelProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
-const TYPE_ICONS = {
-  STOCK_ALERT: <Package className="h-4 w-4 text-destructive" />,
-  SALE: <ShoppingCart className="h-4 w-4 text-primary" />,
-  PURCHASE: <Truck className="h-4 w-4 text-accent" />,
-  INFO: <Info className="h-4 w-4 text-blue-500" />
-};
-
 export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps) {
-  const { notifications, unreadCount, markAsRead, deleteNotification, clearAll } = useNotifications();
-  const [activeTab, setActiveTab] = useState("all");
+  const { activeStore } = useStore()
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    clearAll,
+  } = useNotifications()
 
-  const filtered = activeTab === "all" 
-    ? notifications 
-    : notifications.filter(n => !n.read);
+  const [activeTab, setActiveTab] = useState<NotificationTab>("all")
+  const [markingAll, setMarkingAll] = useState(false)
+  const [clearing, setClearing] = useState(false)
 
-  const formatTime = (ts: any) => {
-    if (!ts) return "";
-    const date = ts.toDate ? ts.toDate() : new Date(ts);
-    return format(date, "'il y a' d 'jours'", { locale: fr });
-  };
+  const filtered = filterNotifications(notifications, activeTab)
+
+  const handleMarkAllAsRead = async () => {
+    if (unreadCount === 0) return
+    setMarkingAll(true)
+    try {
+      await markAllAsRead()
+      toast.success("Toutes les notifications ont été marquées comme lues.")
+    } catch {
+      toast.error("Impossible de marquer les notifications comme lues.")
+    } finally {
+      setMarkingAll(false)
+    }
+  }
+
+  const handleClearAll = async () => {
+    setClearing(true)
+    try {
+      await clearAll()
+      toast.success("Historique des notifications effacé.")
+    } catch {
+      toast.error("Impossible d'effacer l'historique.")
+    } finally {
+      setClearing(false)
+    }
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-[450px] p-0 flex flex-col gap-0 border-l-0 shadow-2xl">
-        <SheetHeader className="p-6 border-b">
-          <div className="flex items-center justify-between">
-            <SheetTitle className="text-2xl font-bold tracking-tight">Historique</SheetTitle>
-            {notifications.length > 0 && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-xs text-muted-foreground hover:text-destructive"
-                onClick={clearAll}
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Tout effacer
-              </Button>
+      <SheetContent className="flex w-full flex-col gap-0 border-l p-0 shadow-2xl sm:max-w-[420px]">
+        <SheetHeader className="shrink-0 space-y-3 border-b bg-muted/20 p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                <Bell className="h-5 w-5 text-primary" />
+              </div>
+              <div className="space-y-0.5 text-left">
+                <SheetTitle className="text-lg font-bold tracking-tight">
+                  Notifications
+                </SheetTitle>
+                <SheetDescription className="text-xs">
+                  {activeStore?.name
+                    ? `Activité récente - ${activeStore.name}`
+                    : "Activité récente de la boutique"}
+                </SheetDescription>
+              </div>
+            </div>
+            {unreadCount > 0 && (
+              <StatusBadge tone="primary-soft" className="shrink-0 text-[10px]">
+                {unreadCount} non lue{unreadCount > 1 ? "s" : ""}
+              </StatusBadge>
             )}
           </div>
+
+          {(notifications.length > 0 || unreadCount > 0) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {unreadCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-lg text-xs font-semibold"
+                  disabled={markingAll}
+                  onClick={handleMarkAllAsRead}
+                >
+                  {markingAll ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCheck className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Tout marquer lu
+                </Button>
+              )}
+              {notifications.length > 0 && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 rounded-lg text-xs font-semibold text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                      Tout effacer
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="rounded-2xl">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Effacer l&apos;historique ?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Cette action supprime définitivement les {notifications.length}{" "}
+                        notification{notifications.length > 1 ? "s" : ""} affichées. Elle est
+                        irréversible.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="rounded-xl">Annuler</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        disabled={clearing}
+                        onClick={handleClearAll}
+                      >
+                        {clearing ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="mr-2 h-4 w-4" />
+                        )}
+                        Effacer
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
+          )}
         </SheetHeader>
 
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Tabs defaultValue="all" className="w-full flex-1 flex flex-col" onValueChange={setActiveTab}>
-            <div className="px-6 py-4">
-              <TabsList className="bg-gray-100/50 p-1 h-11 rounded-xl">
-                <TabsTrigger value="all" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-6">
-                  Toutes <span className="ml-2 text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full">{notifications.length}</span>
-                </TabsTrigger>
-                <TabsTrigger value="unread" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm px-6">
-                  Non lues
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            <ScrollArea className="flex-1">
-              <div className="px-2 pb-10">
-                {filtered.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-                    <Bell className="h-12 w-12 mb-4 opacity-10" />
-                    <p className="text-sm font-medium">Aucune notification</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {filtered.map((n) => (
-                      <div 
-                        key={n.id} 
-                        className={cn(
-                          "group relative flex items-start gap-4 p-4 rounded-2xl transition-all hover:bg-gray-50",
-                          !n.read && "bg-blue-50/30"
-                        )}
-                        onClick={() => !n.read && markAsRead(n.id)}
-                      >
-                        <div className="mt-1 bg-white p-2 rounded-lg shadow-sm border border-gray-100">
-                          <Wrench className="h-4 w-4 text-emerald-500" />
-                        </div>
-                        
-                        <div className="flex-1 space-y-1 pr-6">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">RÉPARATION</p>
-                          <h4 className="text-[15px] font-bold text-gray-900">{n.title}</h4>
-                          <p className="text-[14px] text-gray-500 leading-relaxed">{n.message}</p>
-                          <p className="text-[12px] text-gray-400 font-medium">{formatTime(n.timestamp)}</p>
-                        </div>
-
-                        {!n.read && <div className="absolute right-12 top-1/2 -translate-y-1/2 w-2 h-2 bg-emerald-500 rounded-full" />}
-                        
-                        <button 
-                          className="opacity-0 group-hover:opacity-100 absolute right-4 top-4 p-1.5 text-gray-300 hover:text-destructive transition-all"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteNotification(n.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as NotificationTab)}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <div className="shrink-0 border-b px-5 py-3">
+            <TabsList className="grid h-10 w-full grid-cols-2 rounded-xl bg-muted/50 p-1">
+              <TabsTrigger
+                value="all"
+                className="rounded-lg text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              >
+                Toutes
+                <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+                  {notifications.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="unread"
+                className="rounded-lg text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              >
+                Non lues
+                {unreadCount > 0 && (
+                  <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                    {unreadCount}
+                  </span>
                 )}
-              </div>
-            </ScrollArea>
-          </Tabs>
-        </div>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="p-3 pb-8">
+              {filtered.length === 0 ? (
+                <NotificationEmptyState tab={activeTab} />
+              ) : (
+                <div className="space-y-2">
+                  {filtered.map((notification) => (
+                    <NotificationItem
+                      key={notification.id}
+                      notification={notification}
+                      onMarkAsRead={markAsRead}
+                      onDelete={deleteNotification}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </Tabs>
       </SheetContent>
     </Sheet>
+  )
+}
+
+function NotificationEmptyState({ tab }: { tab: NotificationTab }) {
+  const isUnreadTab = tab === "unread"
+
+  return (
+    <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted/60">
+        {isUnreadTab ? (
+          <CheckCheck className="h-7 w-7 text-muted-foreground/40" />
+        ) : (
+          <BellOff className="h-7 w-7 text-muted-foreground/40" />
+        )}
+      </div>
+      <p className="text-sm font-semibold text-foreground">
+        {isUnreadTab ? "Aucune notification non lue" : "Aucune notification"}
+      </p>
+      <p className="mt-1 max-w-[240px] text-xs text-muted-foreground">
+        {isUnreadTab
+          ? "Vous êtes à jour. Les nouvelles alertes apparaîtront ici."
+          : "Les alertes stock, ventes et achats s'afficheront dans cet historique."}
+      </p>
+    </div>
+  )
+}
+
+function NotificationItem({
+  notification,
+  onMarkAsRead,
+  onDelete,
+}: {
+  notification: AppNotification
+  onMarkAsRead: (id: string) => Promise<void>
+  onDelete: (id: string) => Promise<void>
+}) {
+  const [deleting, setDeleting] = useState(false)
+  const meta = NOTIFICATION_TYPE_META[notification.type] ?? NOTIFICATION_TYPE_META.INFO
+  const Icon = meta.Icon
+
+  const handleClick = () => {
+    if (!notification.read) {
+      void onMarkAsRead(notification.id)
+    }
+  }
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDeleting(true)
+    try {
+      await onDelete(notification.id)
+      toast.success("Notification supprimée.")
+    } catch {
+      toast.error("Impossible de supprimer la notification.")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          handleClick()
+        }
+      }}
+      className={cn(
+        "group relative flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-colors",
+        notification.read
+          ? "border-border/60 bg-card hover:bg-muted/40"
+          : "border-primary/15 bg-primary/5 hover:bg-primary/10"
+      )}
+    >
+      <div
+        className={cn(
+          "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border",
+          notification.read ? "border-border bg-muted/30" : "border-primary/20 bg-background"
+        )}
+      >
+        <Icon
+          className={cn(
+            "h-4 w-4",
+            notification.type === "STOCK_ALERT" && "text-destructive",
+            notification.type === "SALE" && "text-primary",
+            notification.type === "PURCHASE" && "text-cyan-600",
+            notification.type === "INFO" && "text-muted-foreground"
+          )}
+        />
+      </div>
+
+      <div className="min-w-0 flex-1 space-y-1.5 pr-8">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge
+            preset="notificationType"
+            value={notification.type}
+            className="text-[9px] uppercase"
+          />
+          {!notification.read && (
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+          )}
+        </div>
+        <h4 className="text-sm font-bold leading-snug text-foreground">{notification.title}</h4>
+        <p className="text-xs leading-relaxed text-muted-foreground">{notification.message}</p>
+        <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground/80">
+          <Clock className="h-3 w-3" />
+          {formatNotificationTime(notification.timestamp)}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        aria-label="Supprimer la notification"
+        disabled={deleting}
+        className={cn(
+          "absolute right-3 top-3 rounded-lg p-1.5 text-muted-foreground/40 transition-all",
+          "opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100",
+          "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        )}
+        onClick={handleDelete}
+      >
+        {deleting ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Trash2 className="h-3.5 w-3.5" />
+        )}
+      </button>
+    </div>
   )
 }

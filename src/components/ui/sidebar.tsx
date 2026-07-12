@@ -162,6 +162,7 @@ const Sidebar = React.forwardRef<
     side?: "left" | "right"
     variant?: "sidebar" | "floating" | "inset"
     collapsible?: "offcanvas" | "icon" | "none"
+    hideMobileCloseButton?: boolean
   }
 >(
   (
@@ -169,6 +170,7 @@ const Sidebar = React.forwardRef<
       side = "left",
       variant = "sidebar",
       collapsible = "offcanvas",
+      hideMobileCloseButton = false,
       className,
       children,
       ...props
@@ -208,16 +210,18 @@ const Sidebar = React.forwardRef<
           >
             <SheetTitle className="sr-only">Menu de navigation</SheetTitle>
             <div className="relative flex h-full w-full flex-col">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-2 top-2 z-[60] h-9 w-9 shrink-0 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                onClick={() => setOpenMobile(false)}
-                aria-label="Fermer le menu"
-              >
-                <X className="h-5 w-5" aria-hidden />
-              </Button>
+              {!hideMobileCloseButton ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-3 top-1/2 z-[60] h-9 w-9 shrink-0 -translate-y-1/2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                  onClick={() => setOpenMobile(false)}
+                  aria-label="Fermer le menu"
+                >
+                  <X className="h-5 w-5" aria-hidden />
+                </Button>
+              ) : null}
               {children}
             </div>
           </SheetContent>

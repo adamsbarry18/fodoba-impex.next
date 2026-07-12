@@ -1,16 +1,18 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { ProductService } from "@/services/product.service"
 import { ClientService } from "@/services/client.service"
 import { SaleService } from "@/services/sale.service"
 import { PrintService } from "@/services/print.service"
 import { CategoryService } from "@/services/category.service"
-import { Product, Client, SaleItem, Sale, Category } from "@/lib/types"
+import { CashService } from "@/services/cash.service"
+import { Product, Client, SaleItem, Sale, Category, CashSession, PaymentMethod } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/ui/status-badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { 
   Search, 
@@ -18,7 +20,6 @@ import {
   Trash2, 
   Plus, 
   Minus, 
-  ScanLine,
   Printer,
   Loader2,
   CheckCircle2,
@@ -30,11 +31,10 @@ import {
   Barcode,
   Keyboard,
   Percent,
-  Sparkles,
   Tag,
   Store,
-  Clock,
-  X
+  X,
+  RefreshCw,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useStore } from "@/lib/contexts/StoreContext"
@@ -44,15 +44,28 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogFooter,
   DialogDescription
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import { PaymentDialog } from "@/components/pos/payment-dialog"
+import { BarcodeScanField } from "@/components/barcode/barcode-scan-field"
+import { useGlobalBarcodeListener } from "@/hooks/use-barcode-scanner"
+import { applyReturnSelection } from "@/hooks/use-return-selection"
+import { SearchListAddFooter } from "@/components/forms/search-list-add-footer"
+import { ENTITY_ROUTES } from "@/lib/navigation/return-to"
+import Link from "next/link"
+import { useCurrency } from "@/hooks/use-currency"
+import {
+  applyCartDiscount,
+  getCartItemCount,
+  getCartSubtotal,
+} from "@/lib/pos-utils"
 
 export default function POSPage() {
   const { activeStore } = useStore()
   const { userProfile } = useAuth()
+  const { formatAmount } = useCurrency()
   
   // Product & Category Data
   const [products, setProducts] = useState<Product[]>([])
@@ -76,37 +89,17 @@ export default function POSPage() {
   const [discount, setDiscount] = useState<number>(0)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   
-  // Barcode Scanner simulation states
-  const [scannerInput, setScannerInput] = useState("")
-  const [isScannerFocused, setIsScannerFocused] = useState(false)
-  
-  // Success states
+  // Barcode scan
+  const [scanProcessing, setScanProcessing] = useState(false)
   const [isSuccessOpen, setIsSuccessOpen] = useState(false)
   const [lastSale, setLastSale] = useState<Sale | null>(null)
 
   // Payment State
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
   const [processing, setProcessing] = useState(false)
-  const [paymentAmounts, setPaymentAmounts] = useState<Record<string, string>>({
-    CASH: "", ORANGE_MONEY: "", MOBILE_MONEY: "", CARD: "", TRANSFER: ""
-  })
+  const [cashSession, setCashSession] = useState<CashSession | null>(null)
 
-  // Keyboard shortcut listener for Scanner Focus [F2]
-  const scannerInputRef = useRef<HTMLInputElement>(null)
-  
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F2") {
-        e.preventDefault()
-        scannerInputRef.current?.focus()
-        toast.info("Prêt pour la simulation de scan code-barres !")
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [])
-
-  // Initial Load (Categories and initial clients/products)
+  // Success states
   useEffect(() => {
     const loadInitialData = async () => {
       setLoading(true)
@@ -121,6 +114,22 @@ export default function POSPage() {
         setHasMore(prodResult.products.length === 24)
         setClients(clientResult)
         setCategories(categoriesResult)
+
+        await applyReturnSelection(
+          ENTITY_ROUTES.client.param,
+          (id) => {
+            setSelectedClientId(id)
+            setIsClientDropdownOpen(false)
+            setClientSearch("")
+          },
+          {
+            successMessage: ENTITY_ROUTES.client.createdMessage,
+            reload: async () => {
+              const fresh = await ClientService.listClients()
+              setClients(fresh)
+            },
+          }
+        )
       } catch (error) {
         toast.error("Erreur lors du chargement des données initiales")
       } finally {
@@ -129,6 +138,16 @@ export default function POSPage() {
     }
     loadInitialData()
   }, [])
+
+  useEffect(() => {
+    if (!activeStore?.id) {
+      setCashSession(null)
+      return
+    }
+    CashService.getActiveSession(activeStore.id)
+      .then(setCashSession)
+      .catch(() => setCashSession(null))
+  }, [activeStore?.id, isPaymentOpen, isSuccessOpen])
 
   // Load products when active category changes (excluding search query matches)
   const loadProductsByCategory = async (categoryId: string, isLoadMore = false) => {
@@ -205,27 +224,7 @@ export default function POSPage() {
     return () => clearTimeout(searchDebounce)
   }, [searchTerm])
 
-  // Barcode Scanner Simulator
-  const handleBarcodeScan = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const inputVal = scannerInput.trim()
-    if (!inputVal) return
-    
-    try {
-      const searchResults = await ProductService.searchProducts(inputVal)
-      if (searchResults.length > 0) {
-        const product = searchResults[0]
-        addToCart(product)
-        setScannerInput("")
-        toast.success(`${product.name} scanné !`, { duration: 1500, position: 'bottom-center' })
-      } else {
-        toast.error(`Aucun produit trouvé pour le code : "${inputVal}"`)
-      }
-    } catch (error) {
-      toast.error("Erreur lors du scan du code-barres")
-    }
-  }
-
+  // Barcode / douchette / caméra
   const addToCart = (product: Product) => {
     setCart(prev => {
       const existing = prev.find(item => item.productId === product.id)
@@ -246,6 +245,28 @@ export default function POSPage() {
     })
   }
 
+  const handleProductScan = useCallback(async (code: string) => {
+    setScanProcessing(true)
+    try {
+      const product = await ProductService.findProductByCode(code)
+      if (!product) {
+        toast.error(`Produit introuvable : ${code}`)
+        return
+      }
+      addToCart(product)
+      toast.success(`${product.name} ajouté au panier`, {
+        duration: 1500,
+        position: "bottom-center",
+      })
+    } catch {
+      toast.error("Erreur lors du scan")
+    } finally {
+      setScanProcessing(false)
+    }
+  }, [])
+
+  useGlobalBarcodeListener(handleProductScan)
+
   const updateQty = (id: string, delta: number) => {
     setCart(prev => prev.map(item => {
       if (item.productId === id) {
@@ -265,13 +286,22 @@ export default function POSPage() {
     ))
   }
 
-  const subtotal = cart.reduce((acc, item) => acc + item.total, 0)
-  const total = Math.max(subtotal - discount, 0)
-  const totalPaid = Object.values(paymentAmounts).reduce((acc, val) => acc + (Number(val) || 0), 0)
-  const change = totalPaid > total ? totalPaid - total : 0
-  const debtAmount = totalPaid < total ? total - totalPaid : 0
+  const subtotal = getCartSubtotal(cart)
+  const total = applyCartDiscount(subtotal, discount)
+  const cartItemCount = getCartItemCount(cart)
 
-  const handleCheckout = async () => {
+  const handleOpenPayment = () => {
+    if (!cashSession) {
+      toast.error("Ouvrez la caisse avant d'encaisser une vente.")
+      return
+    }
+    setIsPaymentOpen(true)
+  }
+
+  const handleCheckout = async (
+    payments: { method: PaymentMethod; amount: number }[],
+    debtAmount: number
+  ) => {
     if (!activeStore || !userProfile || cart.length === 0) return
     if (debtAmount > 0 && (!selectedClientId || selectedClientId === "none")) {
       toast.error("Sélectionnez un client pour une vente à crédit.")
@@ -280,16 +310,12 @@ export default function POSPage() {
 
     setProcessing(true)
     try {
-      const finalPayments = Object.entries(paymentAmounts)
-        .filter(([_, amount]) => Number(amount) > 0)
-        .map(([method, amount]) => ({ method, amount: Number(amount) }))
-
       const sale = await SaleService.processSale({
         store: activeStore,
         user: userProfile,
         items: cart,
         clientId: selectedClientId !== "none" ? selectedClientId : undefined,
-        payments: finalPayments as any,
+        payments,
         discount,
         subtotal,
         total,
@@ -301,9 +327,9 @@ export default function POSPage() {
       setSelectedClientId("none")
       setClientSearch("")
       setDiscount(0)
-      setPaymentAmounts({ CASH: "", ORANGE_MONEY: "", MOBILE_MONEY: "", CARD: "", TRANSFER: "" })
       setIsPaymentOpen(false)
       setIsSuccessOpen(true)
+      CashService.getActiveSession(activeStore.id).then(setCashSession)
     } catch (error: any) {
       toast.error(error.message || "Erreur de validation de la transaction")
     } finally {
@@ -326,41 +352,76 @@ export default function POSPage() {
     return clients.find(c => c.id === selectedClientId)?.name || "Client sélectionné"
   }, [clients, selectedClientId])
 
+  const selectedClient = useMemo(
+    () => clients.find((c) => c.id === selectedClientId),
+    [clients, selectedClientId]
+  )
+
+  const refreshCashSession = () => {
+    if (!activeStore?.id) return
+    CashService.getActiveSession(activeStore.id)
+      .then(setCashSession)
+      .catch(() => setCashSession(null))
+  }
+
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto px-4 py-1">
-      {/* POS Top Activity & Simulation Info Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 border border-border bg-card rounded-2xl shadow-sm">
+    <div className="mx-auto max-w-[1600px] space-y-6 pb-8">
+      <div className="flex flex-col gap-4 rounded-2xl border bg-card p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <div className="bg-primary/10 p-2.5 rounded-xl text-primary">
-            <Store className="w-5 h-5" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <Store className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-base font-extrabold text-foreground flex items-center gap-2">
-              Point de Vente 
-              <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider text-primary border-primary/20 bg-primary/5">
-                {activeStore?.name || "Boutique Active"}
-              </Badge>
-            </h1>
-            <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5 font-medium">
-              <User className="w-3.5 h-3.5 text-muted-foreground" />
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight">Point de vente</h1>
+              <StatusBadge tone="primary-soft" className="text-[10px]">
+                {activeStore?.name || "Boutique"}
+              </StatusBadge>
+              <StatusBadge
+                preset="cashSessionStatus"
+                value={cashSession ? "OPEN" : "CLOSED"}
+                className="text-[9px] uppercase"
+              />
+            </div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <User className="h-3.5 w-3.5" />
               Caissier : {userProfile?.prenom} {userProfile?.nom}
-            </p>
+            </div>
           </div>
         </div>
 
-        {/* Keyboard and Shortcut tips */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-muted text-muted-foreground border border-border">
-            <Keyboard className="w-3.5 h-3.5" />
-            <span>Appuyez sur <kbd className="px-1.5 py-0.5 rounded bg-background border text-[10px]">F2</kbd> pour scanner</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="hidden items-center gap-1.5 rounded-xl border bg-muted/30 px-3 py-2 text-xs text-muted-foreground sm:flex">
+            <Keyboard className="h-3.5 w-3.5" />
+            <span>
+              Douchette ou <kbd className="rounded border bg-background px-1.5 py-0.5 text-[10px]">F2</kbd>
+            </span>
           </div>
-
-          <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-500 bg-emerald-500/5 px-3 py-1.5 rounded-xl border border-emerald-500/10">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Mode Émulateur Code-Barres Actif</span>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-xl"
+            onClick={refreshCashSession}
+          >
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+            Caisse
+          </Button>
         </div>
       </div>
+
+      {!cashSession && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-sm font-bold text-foreground">Caisse fermée</p>
+            <p className="text-xs text-muted-foreground">
+              Ouvrez une session de caisse pour enregistrer des ventes et mettre à jour les encaissements.
+            </p>
+          </div>
+          <Button asChild variant="outline" className="shrink-0 rounded-xl font-bold">
+            <Link href="/reconciliation">Ouvrir la caisse</Link>
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
@@ -381,26 +442,13 @@ export default function POSPage() {
               />
             </div>
 
-            {/* simulated Scanner Input box */}
-            <form onSubmit={handleBarcodeScan} className="relative flex-1">
-              <ScanLine className={cn(
-                "absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200",
-                isScannerFocused ? "text-primary animate-pulse" : "text-muted-foreground"
-              )} />
-              <Input 
-                ref={scannerInputRef}
-                placeholder="Scanner Code-barres [F2] + Entrée..." 
-                className={cn(
-                  "pl-10 h-10 w-full bg-background border-border rounded-xl text-xs transition-all duration-200 font-semibold focus-visible:ring-primary/20",
-                  isScannerFocused && "border-primary/50 shadow-sm"
-                )}
-                value={scannerInput}
-                onChange={(e) => setScannerInput(e.target.value)}
-                onFocus={() => setIsScannerFocused(true)}
-                onBlur={() => setIsScannerFocused(false)}
-              />
-              <Button type="submit" className="hidden" />
-            </form>
+            <BarcodeScanField
+              className="flex-1"
+              placeholder="Scanner code-barres [F2]…"
+              onScan={handleProductScan}
+              processing={scanProcessing}
+              onFocusHint={() => toast.info("Prêt pour le scan", { duration: 1500 })}
+            />
 
             {/* View Mode Grid/List toggle */}
             <div className="flex items-center gap-1.5 bg-background p-1 border border-border rounded-xl h-10 self-end">
@@ -493,7 +541,7 @@ export default function POSPage() {
                           <div className="space-y-0.5">
                             <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Prix de vente</span>
                             <div className="text-primary font-extrabold text-base font-headline">
-                              {product.sellingPriceFCFA.toLocaleString()} <span className="text-[9px] font-bold text-muted-foreground ml-0.5">FCFA</span>
+                              {formatAmount(product.sellingPriceFCFA, "FCFA")}
                             </div>
                           </div>
                           <div className="bg-primary/10 p-2 rounded-xl text-primary group-hover:bg-primary group-hover:text-white transition-all duration-200 active:scale-90">
@@ -527,8 +575,14 @@ export default function POSPage() {
                           >
                             <td className="py-2.5 px-5 font-mono text-[10px] text-muted-foreground">{product.sku}</td>
                             <td className="py-2.5 px-5 font-bold text-foreground group-hover:text-primary transition-colors">{product.name}</td>
-                            <td className="py-2.5 px-5"><Badge variant="outline" className="text-[9px] font-bold px-1.5 py-0 rounded">{product.unit}</Badge></td>
-                            <td className="py-2.5 px-5 text-right font-bold text-foreground">{product.sellingPriceFCFA.toLocaleString()}</td>
+                            <td className="py-2.5 px-5">
+                              <StatusBadge tone="slate" className="text-[9px] font-bold uppercase">
+                                {product.unit}
+                              </StatusBadge>
+                            </td>
+                            <td className="py-2.5 px-5 text-right font-bold text-foreground">
+                              {formatAmount(product.sellingPriceFCFA, "FCFA")}
+                            </td>
                             <td className="py-2.5 px-5 text-center">
                               <Button 
                                 size="sm" 
@@ -594,91 +648,134 @@ export default function POSPage() {
                   <CardTitle className="text-sm font-bold text-foreground">Panier actif</CardTitle>
                 </div>
                 <Badge variant="secondary" className="bg-primary/10 text-primary font-bold rounded-full px-2.5 py-0.5 text-[10px]">
-                  {cart.reduce((sum, i) => sum + i.quantity, 0)} articles
+                  {cartItemCount} article{cartItemCount > 1 ? "s" : ""}
                 </Badge>
               </CardHeader>
 
               <CardContent className="p-0">
-                {/* Autocomplete Customer Search & Selection */}
-                <div className="p-5 border-b border-border space-y-1.5 relative">
+                {/* Client de facturation - passage par défaut */}
+                <div className="p-5 border-b border-border space-y-2 relative">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider ml-1">
                     Client Facturation
                   </Label>
-                  
-                  {selectedClientId === "none" ? (
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                      <Input
-                        type="text"
-                        placeholder="Rechercher un client (Nom, Tel)..."
-                        className="pl-10 h-10 text-xs border border-input rounded-xl bg-background focus-visible:ring-primary/20 font-medium"
-                        value={clientSearch}
-                        onChange={(e) => {
-                          setClientSearch(e.target.value)
-                          setIsClientDropdownOpen(true)
-                        }}
-                        onFocus={() => setIsClientDropdownOpen(true)}
+
+                  <div
+                    className={cn(
+                      "flex items-center justify-between gap-2 rounded-xl border p-2.5",
+                      selectedClientId === "none"
+                        ? "bg-muted/40 border-border"
+                        : "bg-primary/5 border-primary/20"
+                    )}
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Users
+                        className={cn(
+                          "h-4 w-4 shrink-0",
+                          selectedClientId === "none" ? "text-muted-foreground" : "text-primary"
+                        )}
                       />
-                      
-                      {/* Floating Autocomplete Dropdown */}
-                      {isClientDropdownOpen && (
-                        <div className="absolute z-20 w-full mt-1.5 bg-popover border border-border shadow-lg rounded-xl overflow-hidden text-xs max-h-48 overflow-y-auto divide-y divide-border">
+                      <div className="min-w-0">
+                        <p
+                          className={cn(
+                            "truncate text-xs font-semibold",
+                            selectedClientId === "none" ? "text-foreground" : "text-primary"
+                          )}
+                        >
+                          {selectedClientName}
+                        </p>
+                        {selectedClientId === "none" ? (
+                          <p className="text-[10px] text-muted-foreground">
+                            Par défaut - vente comptant intégrale
+                          </p>
+                        ) : selectedClient?.phone ? (
+                          <p className="text-[10px] text-muted-foreground font-mono">{selectedClient.phone}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {selectedClientId !== "none" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedClientId("none")
+                            setClientSearch("")
+                          }}
+                          className="rounded-full p-1 text-primary transition-colors hover:bg-primary/10"
+                          aria-label="Revenir au client de passage"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-lg text-[11px] font-bold"
+                        onClick={() => setIsClientDropdownOpen(true)}
+                      >
+                        {selectedClientId === "none" ? "Choisir" : "Modifier"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {isClientDropdownOpen && (
+                    <div className="absolute left-5 right-5 top-full z-20 mt-1.5 rounded-xl border border-border bg-popover shadow-lg overflow-hidden">
+                      <div className="border-b border-border p-2">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            type="text"
+                            placeholder="Rechercher un client (Nom, Tel)..."
+                            className="h-9 pl-9 text-xs rounded-lg"
+                            value={clientSearch}
+                            onChange={(e) => setClientSearch(e.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto divide-y divide-border text-xs">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedClientId("none")
+                            setIsClientDropdownOpen(false)
+                            setClientSearch("")
+                          }}
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left font-semibold text-foreground transition-colors hover:bg-muted"
+                        >
+                          <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>Client de passage</span>
+                        </button>
+                        {filteredClients.map((c) => (
                           <button
+                            key={c.id}
                             type="button"
                             onClick={() => {
-                              setSelectedClientId("none")
+                              setSelectedClientId(c.id)
                               setIsClientDropdownOpen(false)
                               setClientSearch("")
                             }}
-                            className="w-full text-left px-4 py-2.5 font-semibold text-foreground hover:bg-muted transition-colors flex items-center gap-2"
+                            className="flex w-full flex-col px-4 py-2.5 text-left font-semibold text-foreground transition-colors hover:bg-muted"
                           >
-                            <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                            <span>Client de passage (Par défaut)</span>
+                            <span>{c.name}</span>
+                            {c.phone && (
+                              <span className="mt-0.5 font-mono text-[10px] text-muted-foreground">{c.phone}</span>
+                            )}
                           </button>
-                          
-                          {filteredClients.map(c => (
-                            <button
-                              key={c.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedClientId(c.id)
-                                setIsClientDropdownOpen(false)
-                                setClientSearch("")
-                              }}
-                              className="w-full text-left px-4 py-2.5 font-semibold text-foreground hover:bg-muted transition-colors flex flex-col"
-                            >
-                              <span className="text-foreground">{c.name}</span>
-                              {c.phone && <span className="text-[10px] text-muted-foreground font-mono mt-0.5">{c.phone}</span>}
-                            </button>
-                          ))}
-                          {filteredClients.length === 0 && (
-                            <div className="px-4 py-2.5 text-muted-foreground italic text-[11px] text-center">
-                              Aucun client correspondant
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    /* Customer Pill display once selected */
-                    <div className="flex items-center justify-between bg-primary/5 border border-primary/20 rounded-xl p-2.5 text-xs font-semibold text-primary">
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4" />
-                        <span>{selectedClientName}</span>
+                        ))}
+                        {filteredClients.length === 0 && clientSearch && (
+                          <div className="px-4 py-2.5 text-center text-[11px] italic text-muted-foreground">
+                            Aucun client correspondant
+                          </div>
+                        )}
                       </div>
-                      <button
-                        onClick={() => setSelectedClientId("none")}
-                        className="text-primary hover:bg-primary/10 p-1 rounded-full transition-colors"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                      <SearchListAddFooter entity="client" returnTo="/pos" />
                     </div>
                   )}
 
-                  {/* Backdrop closer for dropdown */}
                   {isClientDropdownOpen && (
-                    <div 
-                      className="fixed inset-0 z-10" 
+                    <div
+                      className="fixed inset-0 z-10"
                       onClick={() => setIsClientDropdownOpen(false)}
                     />
                   )}
@@ -696,22 +793,29 @@ export default function POSPage() {
                   ) : (
                     <div className="space-y-2">
                       {cart.map((item) => (
-                        <div key={item.productId} className="p-3 border border-border/60 bg-card rounded-xl flex items-center justify-between gap-3 group transition-shadow hover:shadow-sm">
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <p className="text-xs font-bold text-foreground leading-tight truncate">{item.name}</p>
-                            
-                            {/* Inline Unit Price Override Input */}
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Prix :</span>
-                              <div className="relative">
-                                <Input 
+                        <div key={item.productId} className="group flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3 transition-shadow hover:shadow-sm">
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <p className="truncate text-xs font-bold leading-tight text-foreground">
+                              {item.name}
+                            </p>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                  Prix
+                                </span>
+                                <Input
                                   type="number"
                                   value={item.unitPrice}
-                                  onChange={(e) => handlePriceEdit(item.productId, Number(e.target.value))}
-                                  className="w-20 h-6 px-1.5 text-right font-semibold text-[10px] border border-input rounded bg-background focus-visible:ring-primary/20"
+                                  onChange={(e) =>
+                                    handlePriceEdit(item.productId, Number(e.target.value))
+                                  }
+                                  className="h-6 w-20 rounded border border-input bg-background px-1.5 text-right text-[10px] font-semibold focus-visible:ring-primary/20"
                                 />
                               </div>
-                              <span className="text-[9px] text-muted-foreground">FCFA</span>
+                              <span className="text-[10px] font-bold text-primary">
+                                {formatAmount(item.total, "FCFA")}
+                              </span>
                             </div>
                           </div>
 
@@ -758,7 +862,7 @@ export default function POSPage() {
               <div className="space-y-3">
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-muted-foreground">Sous-total</span>
-                  <span className="text-foreground">{subtotal.toLocaleString()} FCFA</span>
+                  <span className="text-foreground">{formatAmount(subtotal, "FCFA")}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-semibold">
                   <div className="flex items-center gap-1 text-muted-foreground">
@@ -776,80 +880,38 @@ export default function POSPage() {
                 </div>
                 
                 <div className="flex justify-between items-center pt-3 border-t border-border">
-                  <span className="font-extrabold text-[10px] uppercase tracking-wider text-muted-foreground">NET À ENCAISSER</span>
-                  <span className="text-xl font-black text-primary font-headline tracking-tight">{total.toLocaleString()} FCFA</span>
+                  <span className="font-extrabold text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Net à encaisser
+                  </span>
+                  <span className="text-xl font-black text-primary font-headline tracking-tight">
+                    {formatAmount(total, "FCFA")}
+                  </span>
                 </div>
               </div>
 
               {/* Cash-out checkout logic */}
-              <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
-                <Button 
-                  onClick={() => setIsPaymentOpen(true)}
-                  className="w-full h-11 text-sm bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-sm hover:shadow transition-all duration-200 active:scale-[0.98]" 
-                  disabled={cart.length === 0}
-                >
-                  Encaisser la commande
-                </Button>
-                
-                <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden border bg-background shadow-lg">
-                  <DialogHeader className="p-6 bg-muted/30 border-b border-border">
-                    <DialogTitle className="text-base font-extrabold text-foreground">Règlement de la vente</DialogTitle>
-                    <DialogDescription className="text-xs text-muted-foreground mt-1">
-                      Configurez la ventilation des règlements par mode de paiement.
-                    </DialogDescription>
-                  </DialogHeader>
+              <Button
+                onClick={handleOpenPayment}
+                className="h-11 w-full rounded-xl text-sm font-bold shadow-sm transition-all duration-200 hover:shadow active:scale-[0.98]"
+                disabled={cart.length === 0 || !cashSession}
+              >
+                {cart.length === 0
+                  ? "Panier vide"
+                  : !cashSession
+                    ? "Caisse fermée"
+                    : `Encaisser ${formatAmount(total, "FCFA")}`}
+              </Button>
 
-                  <div className="p-6 space-y-5">
-                    <div className="bg-primary/5 p-4 rounded-xl flex items-center justify-between border border-primary/15">
-                      <span className="text-[10px] font-black text-primary uppercase tracking-wider">Montant total net</span>
-                      <span className="text-xl font-extrabold text-primary font-headline">{total.toLocaleString()} FCFA</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      {['CASH', 'ORANGE_MONEY', 'MOBILE_MONEY', 'CARD', 'TRANSFER'].map((method) => (
-                        <div key={method} className="space-y-1">
-                          <Label className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider ml-0.5">
-                            {method.replace('_', ' ')}
-                          </Label>
-                          <Input 
-                            type="number" 
-                            placeholder="0" 
-                            className="h-9 border border-input bg-background rounded-lg font-bold text-foreground focus-visible:ring-primary/20 text-xs"
-                            value={paymentAmounts[method]}
-                            onChange={(e) => setPaymentAmounts(prev => ({ ...prev, [method]: e.target.value }))}
-                          />
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Change calculator display banner */}
-                    {change > 0 && (
-                      <div className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/10 flex justify-between items-center text-amber-600 dark:text-amber-500 text-xs font-semibold">
-                        <span className="text-[9px] font-bold uppercase tracking-wider">Rendu monnaie</span>
-                        <span className="text-lg font-extrabold font-headline">-{change.toLocaleString()} FCFA</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <DialogFooter className="p-6 bg-muted/30 border-t border-border flex-row gap-2">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setIsPaymentOpen(false)} 
-                      className="h-10 rounded-xl flex-1 font-bold text-xs"
-                    >
-                      Annuler
-                    </Button>
-                    <Button 
-                      className="bg-primary hover:bg-primary/90 h-10 rounded-xl flex-1 font-bold text-xs text-white" 
-                      disabled={processing || (debtAmount > 0 && selectedClientId === "none") || (totalPaid === 0 && total > 0)}
-                      onClick={handleCheckout}
-                    >
-                      {processing ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                      Valider la vente
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <PaymentDialog
+                open={isPaymentOpen}
+                onOpenChange={setIsPaymentOpen}
+                total={total}
+                selectedClientId={selectedClientId}
+                selectedClientName={selectedClientName}
+                selectedClient={selectedClient}
+                processing={processing}
+                onConfirm={handleCheckout}
+              />
 
               <div className="pt-0.5">
                 <Button 
@@ -866,26 +928,33 @@ export default function POSPage() {
         </div>
       </div>
 
-      {/* Modern Success Dialog */}
       <Dialog open={isSuccessOpen} onOpenChange={setIsSuccessOpen}>
-        <DialogContent className="max-w-sm text-center p-6 rounded-2xl border bg-background shadow-lg">
-          <div className="mx-auto bg-primary/10 p-3.5 rounded-full w-fit mb-4 text-primary animate-bounce">
-            <CheckCircle2 className="h-9 w-9" />
+        <DialogContent className="max-w-sm overflow-hidden rounded-2xl border p-0 text-center shadow-lg">
+          <div className="p-6">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <CheckCircle2 className="h-8 w-8" />
+            </div>
+            <DialogTitle className="text-lg font-bold">Vente enregistrée</DialogTitle>
+            <DialogDescription className="mt-2 text-xs">
+              Transaction validée. Stock et caisse mis à jour.
+            </DialogDescription>
+            {lastSale && (
+              <p className="mt-3 font-mono text-sm font-bold text-primary">
+                #{lastSale.id.slice(-6).toUpperCase()} - {formatAmount(lastSale.total, "FCFA")}
+              </p>
+            )}
           </div>
-          <DialogTitle className="text-lg font-bold text-foreground">Vente enregistrée !</DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground mt-1.5">
-            La transaction a été validée avec succès sur les serveurs de FODOBA IMPEX.
-          </DialogDescription>
-          <div className="mt-5 space-y-2">
-            <Button 
-              onClick={() => lastSale && PrintService.generateThermalTicket(lastSale, activeStore!)} 
-              className="w-full h-10 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-sm text-xs"
+          <div className="space-y-2 border-t bg-muted/20 p-4">
+            <Button
+              onClick={() => lastSale && PrintService.generateThermalTicket(lastSale, activeStore!)}
+              className="w-full rounded-xl font-semibold"
             >
-              <Printer className="mr-2 h-4 w-4" /> Imprimer le ticket de caisse
+              <Printer className="mr-2 h-4 w-4" />
+              Imprimer le ticket
             </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full h-10 text-muted-foreground hover:text-foreground font-semibold rounded-xl hover:bg-secondary transition-colors text-xs" 
+            <Button
+              variant="outline"
+              className="w-full rounded-xl font-semibold"
               onClick={() => setIsSuccessOpen(false)}
             >
               Nouvelle vente

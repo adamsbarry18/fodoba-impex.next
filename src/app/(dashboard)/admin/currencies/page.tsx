@@ -1,184 +1,564 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useCurrency } from "@/hooks/use-currency"
 import { CurrencyService } from "@/services/currency.service"
 import { useAuth } from "@/lib/contexts/AuthContext"
-import { CurrencyCode } from "@/lib/types"
+import { CurrencyCode, ExchangeRate } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { 
-  Coins, 
-  Save, 
-  Loader2, 
-  Info, 
-  TrendingUp, 
+import { StatusBadge } from "@/components/ui/status-badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Coins,
+  Loader2,
+  Info,
+  TrendingUp,
   ArrowRightLeft,
-  DollarSign,
-  Euro,
-  CircleDollarSign
+  RefreshCw,
+  Pencil,
+  ShieldCheck,
+  Clock,
+  User,
 } from "lucide-react"
 import { toast } from "sonner"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
+import {
+  CURRENCY_META,
+  CURRENCY_ORDER,
+  EDITABLE_CURRENCIES,
+  formatRate,
+  validateRate,
+} from "@/lib/currency-utils"
+import { cn } from "@/lib/utils"
+
+function toDate(ts: ExchangeRate["lastUpdated"]): Date | null {
+  if (!ts) return null
+  return ts.toDate ? ts.toDate() : new Date(ts)
+}
 
 export default function CurrenciesAdminPage() {
-  const { rates, refreshRates, loading, formatAmount } = useCurrency()
+  const { rates, refreshRates, loading: contextLoading, formatAmount, convertToRef, convertFromRef } =
+    useCurrency()
   const { userProfile } = useAuth()
-  const [updating, setUpdating] = useState<string | null>(null)
-  
-  // Local state for edits
-  const [editRates, setEditRates] = useState<Record<string, string>>({
-    GNF: "",
-    USD: "",
-    EUR: ""
-  })
 
-  const handleUpdate = async (code: CurrencyCode) => {
-    if (!userProfile || !editRates[code]) return
-    
-    setUpdating(code)
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([])
+  const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState(false)
+  const [editCode, setEditCode] = useState<CurrencyCode | null>(null)
+  const [newRate, setNewRate] = useState("")
+  const [simAmount, setSimAmount] = useState("100")
+  const [simCurrency, setSimCurrency] = useState<CurrencyCode>("USD")
+
+  const loadExchangeRates = async () => {
+    setLoading(true)
     try {
-      await CurrencyService.updateRate(code, Number(editRates[code]), userProfile)
-      toast.success(`Taux ${code} mis à jour.`)
+      const data = await CurrencyService.getExchangeRates()
+      setExchangeRates(data)
       await refreshRates()
-      setEditRates(prev => ({ ...prev, [code]: "" }))
-    } catch (error: any) {
-      toast.error(error.message)
+    } catch {
+      toast.error("Erreur lors du chargement des taux de change")
     } finally {
-      setUpdating(null)
+      setLoading(false)
     }
   }
 
-  const CURRENCY_ICONS: Record<string, any> = {
-    GNF: <Coins className="w-4 h-4" />,
-    USD: <DollarSign className="w-4 h-4" />,
-    EUR: <Euro className="w-4 h-4" />,
-    FCFA: <CircleDollarSign className="w-4 h-4" />
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchRates = async () => {
+      setLoading(true)
+      try {
+        const data = await CurrencyService.getExchangeRates()
+        if (cancelled) return
+        setExchangeRates(data)
+        await refreshRates()
+      } catch {
+        if (!cancelled) toast.error("Erreur lors du chargement des taux de change")
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    fetchRates()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const lastUpdate = useMemo(() => {
+    const dates = exchangeRates
+      .map((r) => toDate(r.lastUpdated))
+      .filter((d): d is Date => d !== null)
+    if (dates.length === 0) return null
+    return dates.sort((a, b) => b.getTime() - a.getTime())[0]!
+  }, [exchangeRates])
+
+  const openEdit = (code: CurrencyCode) => {
+    const current = exchangeRates.find((r) => r.code === code)?.rateToRef ?? rates[code]
+    setEditCode(code)
+    setNewRate(String(current))
   }
 
+  const closeEdit = () => {
+    setEditCode(null)
+    setNewRate("")
+  }
+
+  const handleUpdate = async () => {
+    if (!userProfile || !editCode) return
+
+    const parsed = Number(newRate)
+    const validationError = validateRate(parsed)
+    if (validationError) {
+      toast.error(validationError)
+      return
+    }
+
+    setUpdating(true)
+    try {
+      await CurrencyService.updateRate(editCode, parsed, userProfile)
+      toast.success(`Taux ${editCode} mis à jour`)
+      closeEdit()
+      await loadExchangeRates()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Erreur lors de la mise à jour"
+      toast.error(message)
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const simValue = Number(simAmount) || 0
+  const simInFcfa = convertToRef(simValue, simCurrency)
+  const simReverse = convertFromRef(10_000, simCurrency)
+
+  const editingMeta = editCode ? CURRENCY_META[editCode] : null
+  const currentEditRate = editCode
+    ? exchangeRates.find((r) => r.code === editCode)?.rateToRef ?? rates[editCode]
+    : 0
+
+  const isPageLoading = loading || contextLoading
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Gestion des Devises</h1>
-        <p className="text-muted-foreground">Définissez les taux de change officiels pour le réseau FODOBA IMPEX.</p>
+    <div className="space-y-6 pb-8">
+      {/* En-tête */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <Coins className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Gestion des devises</h1>
+            <p className="text-sm text-muted-foreground">
+              Taux officiels du réseau - le FCFA sert de devise pivot pour tous les rapports.
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          className="rounded-xl font-semibold"
+          onClick={loadExchangeRates}
+          disabled={isPageLoading}
+        >
+          <RefreshCw className={cn("mr-2 h-4 w-4", isPageLoading && "animate-spin")} />
+          Actualiser
+        </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-12">
-        <div className="md:col-span-8 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-accent" />
-                Taux de Change Actuels
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Devise pivot
+              </p>
+              <p className="text-lg font-bold">FCFA</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-950/40">
+              <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Devises actives
+              </p>
+              <p className="text-2xl font-bold">{CURRENCY_ORDER.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/40">
+              <Pencil className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Modifiables
+              </p>
+              <p className="text-2xl font-bold">{EDITABLE_CURRENCIES.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-900/50">
+              <Clock className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Dernière MAJ
+              </p>
+              <p className="text-sm font-bold">
+                {lastUpdate
+                  ? format(lastUpdate, "dd MMM yyyy HH:mm", { locale: fr })
+                  : "-"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* Tableau des taux */}
+        <div className="space-y-6 lg:col-span-8">
+          <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+            <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                Taux de change actuels
               </CardTitle>
-              <CardDescription>Valeur de 1 unité par rapport au FCFA (Référence).</CardDescription>
+              <CardDescription className="text-xs">
+                Valeur de <strong>1 unité</strong> de chaque devise exprimée en FCFA.
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Devise</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead className="text-right">Taux (1 unit = x FCFA)</TableHead>
-                    <TableHead className="text-right">Mise à jour</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow className="bg-accent/5">
-                    <TableCell className="font-bold flex items-center gap-2">
-                      {CURRENCY_ICONS.FCFA} Franc CFA
-                    </TableCell>
-                    <TableCell><Badge variant="outline">FCFA</Badge></TableCell>
-                    <TableCell className="text-right font-mono font-bold">1.00 (REF)</TableCell>
-                    <TableCell className="text-right text-xs text-muted-foreground italic">Système</TableCell>
-                  </TableRow>
-                  {(["GNF", "USD", "EUR"] as CurrencyCode[]).map((code) => (
-                    <TableRow key={code}>
-                      <TableCell className="font-medium flex items-center gap-2">
-                        {CURRENCY_ICONS[code]} {code === "GNF" ? "Franc Guinéen" : code === "USD" ? "Dollar US" : "Euro"}
-                      </TableCell>
-                      <TableCell><Badge variant="secondary">{code}</Badge></TableCell>
-                      <TableCell className="text-right font-mono font-bold">
-                        {rates[code]?.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                         <div className="space-y-1">
-                            <div className="flex items-center justify-end gap-2">
-                               <Input 
-                                 type="number" 
-                                 step="0.0001" 
-                                 placeholder="Nouveau taux..." 
-                                 className="h-8 w-32 text-right"
-                                 value={editRates[code]}
-                                 onChange={e => setEditRates(prev => ({ ...prev, [code]: e.target.value }))}
-                               />
-                               <Button 
-                                 size="sm" 
-                                 className="h-8 w-8 p-0" 
-                                 onClick={() => handleUpdate(code)}
-                                 disabled={updating === code || !editRates[code]}
-                               >
-                                 {updating === code ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                               </Button>
-                            </div>
-                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              {isPageLoading ? (
+                <div className="flex justify-center p-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="pl-4 sm:pl-6">Devise</TableHead>
+                        <TableHead className="text-right">Taux (→ FCFA)</TableHead>
+                        <TableHead className="hidden md:table-cell">Dernière MAJ</TableHead>
+                        <TableHead className="hidden sm:table-cell">Par</TableHead>
+                        <TableHead className="pr-4 text-right sm:pr-6">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {exchangeRates.map((rate) => {
+                        const meta = CURRENCY_META[rate.code]
+                        const Icon = meta.icon
+                        const updatedAt = toDate(rate.lastUpdated)
+
+                        return (
+                          <TableRow
+                            key={rate.code}
+                            className={cn(
+                              "transition-colors hover:bg-muted/20",
+                              rate.code === "FCFA" && "bg-primary/5"
+                            )}
+                          >
+                            <TableCell className="pl-4 sm:pl-6">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={cn(
+                                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                                    rate.code === "FCFA"
+                                      ? "bg-primary/10 text-primary"
+                                      : "bg-muted text-muted-foreground"
+                                  )}
+                                >
+                                  <Icon className="h-4 w-4" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-semibold">{meta.label}</p>
+                                  <StatusBadge tone={meta.tone} className="mt-1 text-[10px]">
+                                    {rate.code}
+                                  </StatusBadge>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <p className="font-mono text-sm font-bold">
+                                {rate.code === "FCFA"
+                                  ? "1,00 (réf.)"
+                                  : formatRate(rate.rateToRef, rate.code)}
+                              </p>
+                              {rate.code !== "FCFA" && rate.rateToRef > 0 && (
+                                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                                  1 FCFA ≈ {formatRate(1 / rate.rateToRef, rate.code)} {rate.code}
+                                </p>
+                              )}
+                            </TableCell>
+                            <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
+                              {updatedAt
+                                ? format(updatedAt, "dd MMM yyyy HH:mm", { locale: fr })
+                                : "-"}
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell">
+                              {rate.updatedBy && rate.updatedBy !== "-" ? (
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                  <User className="h-3 w-3" />
+                                  {rate.updatedBy}
+                                </div>
+                              ) : (
+                                <span className="text-xs italic text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="pr-4 text-right sm:pr-6">
+                              {meta.editable ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="rounded-lg text-xs font-semibold"
+                                  onClick={() => openEdit(rate.code)}
+                                >
+                                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                                  Modifier
+                                </Button>
+                              ) : (
+                                <StatusBadge tone="slate" className="text-[10px]">
+                                  Référence
+                                </StatusBadge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <Card className="bg-muted/30 border-dashed">
+          <Card className="rounded-2xl border border-dashed bg-muted/20 shadow-sm">
             <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Info className="w-4 h-4 text-accent" /> Rappel de fonctionnement
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Info className="h-4 w-4 text-primary" />
+                Rappel de fonctionnement
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0 text-xs text-muted-foreground leading-relaxed">
-              Le FCFA est la devise pivot. Toutes les transactions (Ventes, Achats) saisies dans une autre devise sont converties et stockées en FCFA pour garantir la cohérence des rapports financiers consolidés. La mise à jour des taux impacte les futures saisies mais ne modifie pas l'historique des ventes passées.
+            <CardContent className="space-y-2 p-4 pt-0 text-xs leading-relaxed text-muted-foreground">
+              <p>
+                Le <strong className="text-foreground">FCFA</strong> est la devise pivot. Les ventes et
+                achats saisis dans une autre devise sont convertis et stockés en FCFA pour garantir
+                la cohérence des rapports consolidés.
+              </p>
+              <p>
+                La mise à jour d&apos;un taux impacte les <strong className="text-foreground">futures saisies</strong>{" "}
+                uniquement - l&apos;historique des transactions passées n&apos;est pas recalculé.
+              </p>
+              <p>
+                Chaque modification est tracée dans le{" "}
+                <strong className="text-foreground">journal d&apos;audit</strong>.
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        <div className="md:col-span-4 space-y-6">
-           <Card>
-             <CardHeader>
-               <CardTitle className="text-lg flex items-center gap-2">
-                  <ArrowRightLeft className="w-5 h-5 text-accent" /> Simulateur
-               </CardTitle>
-             </CardHeader>
-             <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Montant à tester</Label>
-                  <Input type="number" placeholder="100" defaultValue="100" id="test-amount" />
-                </div>
-                <div className="space-y-3 pt-2">
-                   <p className="text-xs font-bold uppercase text-muted-foreground">Équivalences FCFA</p>
-                   <div className="space-y-2">
-                      <div className="flex justify-between p-2 rounded bg-card border text-sm">
-                        <span>100 USD</span>
-                        <span className="font-bold text-accent">{formatAmount(100 * rates.USD, "FCFA")}</span>
-                      </div>
-                      <div className="flex justify-between p-2 rounded bg-card border text-sm">
-                        <span>100 EUR</span>
-                        <span className="font-bold text-accent">{formatAmount(100 * rates.EUR, "FCFA")}</span>
-                      </div>
-                      <div className="flex justify-between p-2 rounded bg-card border text-sm">
-                        <span>100 GNF</span>
-                        <span className="font-bold text-accent">{formatAmount(100 * rates.GNF, "FCFA")}</span>
-                      </div>
-                   </div>
-                </div>
-             </CardContent>
-           </Card>
+        {/* Simulateur */}
+        <div className="lg:col-span-4">
+          <Card className="sticky top-4 rounded-2xl border bg-card shadow-sm">
+            <CardHeader className="border-b bg-muted/20 p-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ArrowRightLeft className="h-4 w-4 text-primary" />
+                Simulateur de conversion
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Testez un montant avec les taux en vigueur.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Montant
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={simAmount}
+                  onChange={(e) => setSimAmount(e.target.value)}
+                  className="h-10 rounded-xl font-bold"
+                  placeholder="100"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Devise source
+                </Label>
+                <Select
+                  value={simCurrency}
+                  onValueChange={(v) => setSimCurrency(v as CurrencyCode)}
+                >
+                  <SelectTrigger className="h-10 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {CURRENCY_ORDER.map((code) => (
+                      <SelectItem key={code} value={code}>
+                        {CURRENCY_META[code].label} ({code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="rounded-xl border bg-primary/5 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Équivalent FCFA
+                </p>
+                <p className="mt-1 text-2xl font-bold text-primary">
+                  {formatAmount(simInFcfa, "FCFA")}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {simValue.toLocaleString("fr-FR")} {simCurrency} ×{" "}
+                  {formatRate(rates[simCurrency], simCurrency)} ={" "}
+                  {simInFcfa.toLocaleString("fr-FR")} FCFA
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Repères rapides (100 unités)
+                </p>
+                {EDITABLE_CURRENCIES.map((code) => (
+                  <div
+                    key={code}
+                    className="flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-sm"
+                  >
+                    <span className="text-muted-foreground">
+                      100 {code}
+                    </span>
+                    <span className="font-bold text-foreground">
+                      {formatAmount(100 * rates[code], "FCFA")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                10 000 FCFA ≈ {simReverse.toLocaleString("fr-FR", {
+                  maximumFractionDigits: CURRENCY_META[simCurrency].decimals,
+                })}{" "}
+                {simCurrency}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
+
+      {/* Dialog modification */}
+      <Dialog open={editCode !== null} onOpenChange={(open) => !open && closeEdit()}>
+        <DialogContent className="max-w-md gap-0 overflow-hidden rounded-2xl p-0">
+          <DialogHeader className="border-b bg-muted/30 p-6">
+            <DialogTitle className="text-xl font-bold">
+              Modifier le taux {editCode}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {editingMeta?.label} - valeur de 1 {editCode} en FCFA.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 p-6">
+            <div className="rounded-xl border bg-muted/20 p-3 text-sm">
+              <p className="text-xs text-muted-foreground">Taux actuel</p>
+              <p className="font-mono font-bold">
+                {formatRate(currentEditRate, editCode ?? "FCFA")} FCFA
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label required className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Nouveau taux (FCFA)
+              </Label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                value={newRate}
+                onChange={(e) => setNewRate(e.target.value)}
+                className="h-10 rounded-xl font-mono font-bold"
+                autoFocus
+              />
+              {newRate && !validateRate(Number(newRate)) && Number(newRate) !== currentEditRate && (
+                <p className="text-xs text-muted-foreground">
+                  Variation :{" "}
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      Number(newRate) > currentEditRate ? "text-emerald-600" : "text-destructive"
+                    )}
+                  >
+                    {currentEditRate > 0
+                      ? `${(((Number(newRate) - currentEditRate) / currentEditRate) * 100).toFixed(1)} %`
+                      : "-"}
+                  </span>
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="border-t bg-muted/20 p-4 sm:p-6">
+            <Button variant="outline" className="rounded-xl" onClick={closeEdit} disabled={updating}>
+              Annuler
+            </Button>
+            <Button
+              className="rounded-xl font-semibold"
+              onClick={handleUpdate}
+              disabled={
+                updating ||
+                !newRate ||
+                validateRate(Number(newRate)) !== null ||
+                Number(newRate) === currentEditRate
+              }
+            >
+              {updating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="mr-2 h-4 w-4" />
+              )}
+              Confirmer la mise à jour
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

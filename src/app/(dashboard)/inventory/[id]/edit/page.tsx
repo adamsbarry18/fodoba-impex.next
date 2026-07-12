@@ -17,6 +17,9 @@ import { ArrowLeft, Loader2, Save, Barcode } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { Switch } from "@/components/ui/switch"
+import { FieldWithAdd } from "@/components/forms/field-with-add"
+import { applyReturnSelection } from "@/hooks/use-return-selection"
+import { ENTITY_ROUTES } from "@/lib/navigation/return-to"
 
 export default function EditProductPage() {
   const router = useRouter()
@@ -42,6 +45,18 @@ export default function EditProductPage() {
           router.push("/inventory")
         }
         setCategories(cats.filter(c => c.active))
+
+        await applyReturnSelection(
+          ENTITY_ROUTES.category.param,
+          (id) => form.setValue("categoryId", id),
+          {
+            successMessage: ENTITY_ROUTES.category.createdMessage,
+            reload: async () => {
+              const fresh = await CategoryService.listCategories()
+              setCategories(fresh.filter((c) => c.active))
+            },
+          }
+        )
       } catch (error) {
         toast.error("Erreur de chargement")
       } finally {
@@ -50,6 +65,8 @@ export default function EditProductPage() {
     }
     init()
   }, [params.id])
+
+  const editReturnPath = `/inventory/${params.id}/edit`
 
   const onSubmit = async (values: Product) => {
     try {
@@ -87,7 +104,7 @@ export default function EditProductPage() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Désignation commerciale</FormLabel>
+                      <FormLabel required>Désignation commerciale</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -101,7 +118,7 @@ export default function EditProductPage() {
                     name="sku"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Référence (SKU)</FormLabel>
+                        <FormLabel required>Référence (SKU)</FormLabel>
                         <FormControl>
                           <Input {...field} />
                         </FormControl>
@@ -131,19 +148,21 @@ export default function EditProductPage() {
                   name="categoryId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Catégorie</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Choisir une catégorie" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {categories.map(cat => (
-                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormLabel required>Catégorie</FormLabel>
+                      <FieldWithAdd entity="category" returnTo={editReturnPath}>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Choisir une catégorie" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {categories.map(cat => (
+                              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FieldWithAdd>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -162,7 +181,7 @@ export default function EditProductPage() {
                     name="unit"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Unité</FormLabel>
+                        <FormLabel required>Unité</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
@@ -224,7 +243,7 @@ export default function EditProductPage() {
                 name="sellingPriceFCFA"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Prix de vente public</FormLabel>
+                    <FormLabel required>Prix de vente public</FormLabel>
                     <FormControl>
                       <Input type="number" className="text-xl font-bold" {...field} onChange={e => field.onChange(Number(e.target.value))} />
                     </FormControl>
