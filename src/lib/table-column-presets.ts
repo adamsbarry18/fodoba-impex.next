@@ -6,7 +6,7 @@ export const CLIENT_TABLE_COLUMNS: TableColumnDef[] = [
   { id: "type", label: "Type", defaultVisible: true },
   { id: "debt", label: "Dette actuelle", defaultVisible: true },
   { id: "status", label: "Statut", defaultVisible: false },
-  { id: "actions", label: "Actions", locked: true },
+  { id: "actions", label: "Encaissement", locked: true },
 ]
 
 export const SUPPLIER_TABLE_COLUMNS: TableColumnDef[] = [
@@ -15,7 +15,7 @@ export const SUPPLIER_TABLE_COLUMNS: TableColumnDef[] = [
   { id: "type", label: "Type", defaultVisible: true },
   { id: "currency", label: "Devise", defaultVisible: false },
   { id: "debt", label: "Dette (encours)", defaultVisible: true },
-  { id: "actions", label: "Actions", locked: true },
+  { id: "actions", label: "Règlement", locked: true },
 ]
 
 export const INVENTORY_TABLE_COLUMNS: TableColumnDef[] = [

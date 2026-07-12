@@ -22,23 +22,13 @@ import {
   Truck,
   Globe,
   MapPin,
-  ChevronRight,
-  MoreVertical,
   RefreshCw,
   Wallet,
-  Eye,
-  Edit,
   Banknote,
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { StatusBadge } from "@/components/ui/status-badge"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   Select,
   SelectContent,
@@ -355,7 +345,7 @@ export default function SuppliersPage() {
                       <TableHead className="text-right">Dette (encours)</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="actions" isVisible={isVisible}>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-right">Règlement</TableHead>
                     </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
@@ -364,7 +354,10 @@ export default function SuppliersPage() {
                     <TableRow key={supplier.id} className="group">
                       <VisibleTableColumn id="supplier" isVisible={isVisible}>
                         <TableCell>
-                          <div className="flex items-center gap-3">
+                          <Link
+                            href={`/suppliers/${supplier.id}`}
+                            className="flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/40 -m-1 p-1"
+                          >
                             <div
                               className={cn(
                                 "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
@@ -379,14 +372,18 @@ export default function SuppliersPage() {
                                 <Truck className="h-4 w-4" />
                               )}
                             </div>
-                            <div>
-                              <div className="font-semibold">{supplier.name}</div>
+                            <div className="min-w-0">
+                              <div className="font-semibold group-hover:text-primary">
+                                {supplier.name}
+                              </div>
                               <div className="flex items-center text-[10px] text-muted-foreground">
-                                <Banknote className="mr-1 h-2.5 w-2.5" />
-                                {supplier.paymentTerms || "Paiement comptant"}
+                                <Banknote className="mr-1 h-2.5 w-2.5 shrink-0" />
+                                <span className="truncate">
+                                  {supplier.paymentTerms || "Paiement comptant"}
+                                </span>
                               </div>
                             </div>
-                          </div>
+                          </Link>
                         </TableCell>
                       </VisibleTableColumn>
                       <VisibleTableColumn id="location" isVisible={isVisible}>
@@ -435,50 +432,22 @@ export default function SuppliersPage() {
                       </VisibleTableColumn>
                       <VisibleTableColumn id="actions" isVisible={isVisible}>
                         <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            asChild
-                            className="h-8 w-8 rounded-lg"
-                          >
-                            <Link href={`/suppliers/${supplier.id}`}>
-                              <ChevronRight className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 rounded-lg"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44 rounded-xl p-2">
-                              <DropdownMenuItem asChild className="rounded-lg">
-                                <Link
-                                  href={`/suppliers/${supplier.id}`}
-                                  className="flex items-center gap-2"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                  Voir le profil
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild className="rounded-lg">
-                                <Link
-                                  href={`/suppliers/${supplier.id}/edit`}
-                                  className="flex items-center gap-2"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                  Modifier
-                                </Link>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </TableCell>
+                          {supplier.currentDebt > 0 ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                              className="h-8 rounded-lg text-xs font-semibold"
+                            >
+                              <Link href={`/suppliers/${supplier.id}?tab=payments`}>
+                                <Wallet className="mr-1.5 h-3.5 w-3.5" />
+                                Régler
+                              </Link>
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                       </VisibleTableColumn>
                     </TableRow>
                   ))}

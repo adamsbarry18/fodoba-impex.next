@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react"
 import { SupplierService } from "@/services/supplier.service"
 import { Supplier } from "@/lib/types"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -29,8 +29,10 @@ import { fr } from "date-fns/locale"
 export default function SupplierDetailsPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [supplier, setSupplier] = useState<Supplier | null>(null)
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState("history")
 
   const loadSupplier = async () => {
     try {
@@ -51,6 +53,13 @@ export default function SupplierDetailsPage() {
   useEffect(() => {
     loadSupplier()
   }, [params.id])
+
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    if (tab === "payments" || tab === "statement" || tab === "history") {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-accent" /></div>
   if (!supplier) return null
@@ -122,7 +131,7 @@ export default function SupplierDetailsPage() {
         </Card>
       </div>
 
-      <Tabs defaultValue="history" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="w-4 h-4" /> Historique Achats

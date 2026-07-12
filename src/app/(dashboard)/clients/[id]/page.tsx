@@ -1,9 +1,9 @@
 
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { ClientService } from "@/services/client.service"
-import { Client, ClientPayment } from "@/lib/types"
+import { Client, ClientPayment, Sale } from "@/lib/types"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -46,50 +46,83 @@ export default function ClientDetailsPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { userProfile } = useAuth()
-  const { activeStore } = useStore()
+  const { availableStores, activeStore, loading: storeLoading } = useStore()
   
   const [client, setClient] = useState<Client | null>(null)
   const [payments, setPayments] = useState<ClientPayment[]>([])
-  const [sales, setSales] = useState<any[]>([])
+  const [sales, setSales] = useState<Sale[]>([])
   const [loading, setLoading] = useState(true)
   const [paymentLoading, setPaymentLoading] = useState(false)
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState("history")
+
+  const authorizedStoreIds = useMemo(
+    () => availableStores.map((store) => store.id),
+    [availableStores]
+  )
   
   // Payment Form
   const [amount, setAmount] = useState<string>("")
   const [method, setMethod] = useState<ClientPayment["method"]>("CASH")
   const [notes, setNotes] = useState("")
 
-  const loadData = async () => {
-    try {
-      const [clientData, paymentsData, salesData] = await Promise.all([
-        ClientService.getClient(params.id as string),
-        ClientService.getClientPayments(params.id as string),
-        ClientService.getClientSales(params.id as string)
-      ])
+  const loadData = useCallback(async () => {
+    const clientId = params.id as string
+    setLoading(true)
 
-      if (clientData) {
-        setClient(clientData)
-        setPayments(paymentsData)
-        setSales(salesData)
-      } else {
+    try {
+      const clientData = await ClientService.getClient(clientId)
+
+      if (!clientData) {
         toast.error("Client introuvable")
         router.push("/clients")
+        return
       }
+
+      setClient(clientData)
+
+      if (authorizedStoreIds.length === 0) {
+        setPayments([])
+        setSales([])
+        return
+      }
+
+      const [paymentsData, salesData] = await Promise.all([
+        ClientService.getClientPayments(clientId, authorizedStoreIds),
+        ClientService.getClientSales(clientId, authorizedStoreIds),
+      ])
+
+      setPayments(paymentsData)
+      setSales(salesData)
     } catch (error) {
+      console.error("Erreur chargement client:", error)
       toast.error("Erreur de chargement")
     } finally {
       setLoading(false)
     }
-  }
+  }, [authorizedStoreIds, params.id, router])
 
   useEffect(() => {
-    loadData()
-  }, [params.id])
+    if (storeLoading) return
+    void loadData()
+  }, [storeLoading, loadData])
+
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    if (tab === "payments" || tab === "statement" || tab === "history") {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    if (searchParams.get("action") === "payment" && client && client.currentDebt > 0) {
+      setPaymentDialogOpen(true)
+    }
+  }, [searchParams, client])
 
   const handlePayment = async () => {
     if (!amount || Number(amount) <= 0) return toast.error("Montant invalide")
     if (!activeStore || !userProfile) return
-    
     setPaymentLoading(true)
     try {
       await ClientService.recordPayment({
@@ -103,6 +136,7 @@ export default function ClientDetailsPage() {
       toast.success("Remboursement enregistré")
       setAmount("")
       setNotes("")
+      setPaymentDialogOpen(false)
       loadData()
     } catch (error) {
       toast.error("Erreur lors du paiement")
@@ -111,7 +145,13 @@ export default function ClientDetailsPage() {
     }
   }
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>
+  if (storeLoading || loading) {
+    return (
+      <div className="flex justify-center p-12">
+        <Loader2 className="animate-spin" />
+      </div>
+    )
+  }
   if (!client) return null
 
   const isOverLimit = client.currentDebt > client.creditCeiling && client.creditCeiling > 0;
@@ -139,7 +179,7 @@ export default function ClientDetailsPage() {
               <Edit className="w-4 h-4 mr-2" /> Modifier
             </Link>
           </Button>
-          <Dialog>
+          <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="w-4 h-4 mr-2" /> Remboursement
@@ -252,7 +292,7 @@ export default function ClientDetailsPage() {
         </Card>
       </div>
 
-      <Tabs defaultValue={searchParams.get("tab") || "history"} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="w-4 h-4" /> Historique Achats
@@ -286,8 +326,8 @@ export default function ClientDetailsPage() {
                       </div>
                       <div className="text-right">
                         <div className="font-headline font-bold">{sale.total.toLocaleString()} FCFA</div>
-                        <Badge variant={sale.paymentMethod === "CREDIT" ? "destructive" : "outline"} className="text-[10px]">
-                          {sale.paymentMethod}
+                        <Badge variant={sale.debtAmount > 0 ? "destructive" : "outline"} className="text-[10px]">
+                          {sale.debtAmount > 0 ? "Crédit" : "Payé"}
                         </Badge>
                       </div>
                     </div>

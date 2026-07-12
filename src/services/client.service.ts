@@ -13,11 +13,47 @@ import {
   runTransaction
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import { Client, ClientPayment, UserProfile } from "@/lib/types";
+import { Client, ClientPayment, Sale, UserProfile } from "@/lib/types";
 import { CashService } from "./cash.service";
 
 const COLLECTION_NAME = "clients";
 const PAYMENTS_COLLECTION = "client_payments";
+
+function getTimestampSortValue(timestamp: unknown): number {
+  if (!timestamp || typeof timestamp !== "object") return 0;
+  if ("seconds" in timestamp && typeof (timestamp as { seconds: number }).seconds === "number") {
+    return (timestamp as { seconds: number }).seconds;
+  }
+  if ("toDate" in timestamp && typeof (timestamp as { toDate: () => Date }).toDate === "function") {
+    return (timestamp as { toDate: () => Date }).toDate().getTime();
+  }
+  return 0;
+}
+
+async function fetchByClientAndStores<T extends { timestamp?: unknown }>(
+  collectionName: string,
+  clientId: string,
+  storeIds: string[]
+): Promise<T[]> {
+  if (!storeIds.length) return [];
+
+  const uniqueStoreIds = [...new Set(storeIds)];
+  const results = await Promise.all(
+    uniqueStoreIds.map(async (storeId) => {
+      const q = query(
+        collection(db, collectionName),
+        where("clientId", "==", clientId),
+        where("storeId", "==", storeId)
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map((docSnap) => docSnap.data() as T);
+    })
+  );
+
+  return results
+    .flat()
+    .sort((a, b) => getTimestampSortValue(b.timestamp) - getTimestampSortValue(a.timestamp));
+}
 
 export const ClientService = {
   async createClient(data: Omit<Client, "id" | "createdAt" | "currentDebt">) {
@@ -103,23 +139,19 @@ export const ClientService = {
     });
   },
 
-  async getClientPayments(clientId: string) {
-    const q = query(
-      collection(db, PAYMENTS_COLLECTION), 
-      where("clientId", "==", clientId),
-      orderBy("timestamp", "desc")
+  async getClientPayments(clientId: string, storeIds: string[]) {
+    return fetchByClientAndStores<ClientPayment>(
+      PAYMENTS_COLLECTION,
+      clientId,
+      storeIds
     );
-    const snap = await getDocs(q);
-    return snap.docs.map(doc => doc.data() as ClientPayment);
   },
 
-  async getClientSales(clientId: string) {
-    const q = query(
-      collection(db, "sales"), 
-      where("clientId", "==", clientId),
-      orderBy("timestamp", "desc")
+  async getClientSales(clientId: string, storeIds: string[]) {
+    return fetchByClientAndStores<Sale>(
+      "sales",
+      clientId,
+      storeIds
     );
-    const snap = await getDocs(q);
-    return snap.docs.map(doc => doc.data() as any);
   }
 };
