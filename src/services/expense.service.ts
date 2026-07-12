@@ -2,11 +2,9 @@
 import { 
   collection, 
   doc, 
-  getDocs, 
-  setDoc, 
+  getDocs,  
   query, 
   where, 
-  orderBy, 
   limit, 
   serverTimestamp,
   runTransaction

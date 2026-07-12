@@ -3,13 +3,11 @@ import {
   collection, 
   getDocs, 
   query, 
-  where, 
-  orderBy, 
-  Timestamp,
-  limit
+  where,  
+  Timestamp
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import { Sale, Expense, Product, Client, Supplier, StockLevel } from "@/lib/types";
+import { Sale, Product, Client, Supplier, StockLevel } from "@/lib/types";
 
 export const ReportService = {
   /**

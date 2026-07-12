@@ -1,0 +1,100 @@
+---
+description: Règles pour rédiger et organiser la documentation du dépôt FODOBA IMPEX
+globs: docs/**,README.md,**/*.md
+alwaysApply: false
+---
+
+# Documentation Guidelines
+
+Lors de la rédaction ou mise à jour de documentation dans ce dépôt, suivre ces règles.
+
+## Nommage des fichiers
+
+- **Minuscules avec tirets** pour tous les docs sauf `README.md`
+- Exemples : `ci-cd.md`, `firebase-schema.md`, `pos-flow.md`
+- **Jamais d'espaces** dans les noms de fichiers
+
+## Emplacement
+
+### Documentation projet
+- `README.md` — vue d'ensemble, setup, déploiement Vercel
+- `docs/` — documentation technique transverse :
+  - `docs/cahier_de_charges.md` — CDC v1.0 (source métier)
+  - `docs/blueprint.md` — spec produit
+
+### Documentation spécifique au code
+- Préférer les **Cursor Skills** (`.cursor/skills/fodoba/`) pour les conventions de code IA
+- Préférer les **Cursor Rules** (`.cursor/rules/`) pour les règles persistantes
+
+### Documents de revue / analyse
+- Créer un sous-dossier `docs/reviews/`
+- Noms descriptifs : `security-analysis.md`, `performance-review.md`
+- Ces docs décrivent des analyses, pas l'implémentation courante
+
+## Structure des dossiers
+
+Garder les dossiers plats — ne pas imbriquer pour 2-3 fichiers :
+
+```
+✅ Bon :
+docs/
+├── cahier_de_charges.md
+├── blueprint.md
+└── ci-cd.md
+
+❌ Mauvais :
+docs/
+└── specifications/
+    ├── cahier_de_charges.md
+    └── blueprint.md
+```
+
+## Style de contenu
+
+### Descriptions autonomes
+Les documents décrivent **CE QUE le système EST**, pas ce qui a changé.
+
+**Mauvais :** « Nouvelle optimisation CI/CD — le workflow détecte… »
+**Bon :** « Pipeline CI/CD — le workflow détecte… »
+
+### À éviter
+- Titres « New Implementation », « Optimization », « Changes », « Migration »
+- Contenu historique « ce qu'on a changé »
+- Longues explications sans exemples
+- Milliers de lignes illisibles
+
+### Concision et actionnabilité
+- **Exemples plutôt qu'explications** — montrer des commandes
+- **Commandes copiables** — prêtes à exécuter
+- **Moins de 500 lignes** par fichier — scinder si nécessaire
+
+### Sections recommandées
+1. **Quick Start** (< 5 commandes)
+2. **Common Tasks** avec exemples
+3. **Configuration** (bref)
+4. **Liens** vers docs connexes
+
+## Alignement code / docs
+
+- Le **code source fait foi** techniquement
+- Le **cahier des charges** (`docs/cahier_de_charges.md`) fait foi pour les règles métier
+- Collections Firestore plates + `storeId` (pas de sous-collections par boutique)
+- Notifications : collection Firestore `notifications` (pas localStorage)
+- Devise de référence : **FCFA**
+- Rôles : `admin`, `manager`, `seller` (lowercase)
+- Offline/IndexedDB mentionné dans README : documenter comme non implémenté tant qu'absent du code
+
+## Cross-références
+
+- Mettre à jour **toutes** les références lors d'un déplacement/renommage
+- Chemins relatifs : `[CDC](cahier_de_charges.md)` — pas de chemins absolus `/docs/...`
+
+## Checklist avant commit doc
+
+- [ ] Nom en minuscules (sauf `README.md`)
+- [ ] Décrit l'état actuel, pas les changements
+- [ ] Exemples copiables
+- [ ] Cross-références à jour
+- [ ] < 500 lignes (ou scindé)
+- [ ] Docs de revue dans `docs/reviews/`
+- [ ] Pas de « New », « Optimization », « Migration » dans les titres
