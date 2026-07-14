@@ -16,6 +16,7 @@ import {
 import { db } from "@/lib/firebase/client";
 import { Store } from "@/lib/types";
 import { normalizeStoreCode, validateStoreCodeFormat } from "@/lib/store-utils";
+import { stripUndefined } from "@/lib/firestore-utils";
 import { UserService } from "./user.service";
 
 const COLLECTION_NAME = "stores";
@@ -49,7 +50,7 @@ export const StoreService = {
       id: newDocRef.id,
       createdAt: serverTimestamp(),
     };
-    await setDoc(newDocRef, store);
+    await setDoc(newDocRef, stripUndefined(store));
     await UserService.logAudit(
       "CREATE_STORE",
       `Création de la boutique ${code} - ${data.name}`,
@@ -70,7 +71,7 @@ export const StoreService = {
     }
 
     const docRef = doc(db, COLLECTION_NAME, id);
-    await updateDoc(docRef, data);
+    await updateDoc(docRef, stripUndefined(data));
     await UserService.logAudit(
       "UPDATE_STORE",
       `Mise à jour de la boutique ${id}`,

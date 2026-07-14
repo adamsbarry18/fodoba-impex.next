@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { CashSession, CashMovement, UserProfile } from "@/lib/types";
+import { stripUndefined } from "@/lib/firestore-utils";
 
 const SESSIONS_COLLECTION = "cash_sessions";
 const MOVEMENTS_COLLECTION = "cash_movements";
@@ -102,11 +103,11 @@ export const CashService = {
 
     const sessionRef = doc(db, SESSIONS_COLLECTION, sessionId);
     const moveRef = doc(collection(db, MOVEMENTS_COLLECTION));
-    
-    const movement: CashMovement = {
+
+    const movement = stripUndefined({
       id: moveRef.id,
       storeId,
-      sessionId: sessionId,
+      sessionId,
       type,
       source,
       amount,
@@ -115,8 +116,8 @@ export const CashService = {
       performedBy: user.uid,
       performedByName: `${user.prenom} ${user.nom}`,
       relatedDocId,
-      description
-    };
+      description,
+    });
 
     transaction.set(moveRef, movement);
 

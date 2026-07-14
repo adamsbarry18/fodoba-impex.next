@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Category } from "@/lib/types";
+import { stripUndefined } from "@/lib/firestore-utils";
 
 const COLLECTION_NAME = "categories";
 
@@ -23,13 +24,13 @@ export const CategoryService = {
       id: newDocRef.id,
       createdAt: serverTimestamp(),
     };
-    await setDoc(newDocRef, category);
+    await setDoc(newDocRef, stripUndefined(category));
     return category;
   },
 
   async updateCategory(id: string, data: Partial<Category>) {
     const docRef = doc(db, COLLECTION_NAME, id);
-    await updateDoc(docRef, data);
+    await updateDoc(docRef, stripUndefined(data));
   },
 
   async getCategory(id: string) {

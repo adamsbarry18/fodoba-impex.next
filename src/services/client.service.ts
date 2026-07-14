@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Client, ClientPayment, Sale, UserProfile } from "@/lib/types";
+import { stripUndefined } from "@/lib/firestore-utils";
 import { CashService } from "./cash.service";
 
 const COLLECTION_NAME = "clients";
@@ -64,13 +65,13 @@ export const ClientService = {
       currentDebt: 0,
       createdAt: serverTimestamp(),
     };
-    await setDoc(newDocRef, client);
+    await setDoc(newDocRef, stripUndefined(client));
     return client;
   },
 
   async updateClient(id: string, data: Partial<Client>) {
     const docRef = doc(db, COLLECTION_NAME, id);
-    await updateDoc(docRef, data);
+    await updateDoc(docRef, stripUndefined(data));
   },
 
   async getClient(id: string) {

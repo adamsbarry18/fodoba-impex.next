@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Supplier, SupplierPayment, Purchase, UserProfile } from "@/lib/types";
+import { stripUndefined } from "@/lib/firestore-utils";
 import { CashService } from "./cash.service";
 
 const COLLECTION_NAME = "suppliers";
@@ -67,13 +68,13 @@ export const SupplierService = {
       currentDebt: 0,
       createdAt: serverTimestamp(),
     };
-    await setDoc(newDocRef, supplier);
+    await setDoc(newDocRef, stripUndefined(supplier));
     return supplier;
   },
 
   async updateSupplier(id: string, data: Partial<Supplier>) {
     const docRef = doc(db, COLLECTION_NAME, id);
-    await updateDoc(docRef, data);
+    await updateDoc(docRef, stripUndefined(data));
   },
 
   async getSupplier(id: string) {

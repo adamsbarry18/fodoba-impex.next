@@ -17,6 +17,7 @@ import {
 import { db } from "@/lib/firebase/client";
 import { Purchase, UserProfile, Product, Supplier, StockLevel } from "@/lib/types";
 import { getLandedCostUnit } from "@/lib/purchase-utils";
+import { stripUndefined } from "@/lib/firestore-utils";
 
 const COLLECTION_NAME = "purchases";
 
@@ -28,7 +29,7 @@ export const PurchaseService = {
       id: newDocRef.id,
       timestamp: serverTimestamp(),
     };
-    await setDoc(newDocRef, purchase);
+    await setDoc(newDocRef, stripUndefined(purchase));
     return purchase;
   },
 

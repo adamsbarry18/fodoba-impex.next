@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Product, StockLevel } from "@/lib/types";
+import { stripUndefined } from "@/lib/firestore-utils";
 
 const COLLECTION_NAME = "products";
 const STOCKS_COLLECTION = "stocks";
@@ -28,13 +29,13 @@ export const ProductService = {
       id: newDocRef.id,
       createdAt: serverTimestamp(),
     };
-    await setDoc(newDocRef, product);
+    await setDoc(newDocRef, stripUndefined(product));
     return product;
   },
 
   async updateProduct(id: string, data: Partial<Product>) {
     const docRef = doc(db, COLLECTION_NAME, id);
-    await updateDoc(docRef, data);
+    await updateDoc(docRef, stripUndefined(data));
   },
 
   async getProduct(id: string) {

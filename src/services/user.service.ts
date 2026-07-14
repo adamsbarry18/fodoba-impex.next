@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase/client";
 import { UserProfile } from "@/lib/types";
+import { stripUndefined } from "@/lib/firestore-utils";
 import { initializeApp, deleteApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { firebaseConfig } from "@/lib/firebase/config";
@@ -88,7 +89,7 @@ export const UserService = {
       ...data,
       uid,
     };
-    await setDoc(userRef, profile);
+    await setDoc(userRef, stripUndefined(profile));
     await this.logAudit("CREATE_USER", `Création de l'utilisateur ${data.email}`, uid);
     return profile;
   },
@@ -96,9 +97,7 @@ export const UserService = {
   async updateUserProfile(uid: string, data: Partial<UserProfile>) {
     const docRef = doc(db, COLLECTION_NAME, uid);
     const { uid: _ignoredUid, ...rest } = data;
-    const payload = Object.fromEntries(
-      Object.entries(rest).filter(([, value]) => value !== undefined)
-    );
+    const payload = stripUndefined(rest);
     await updateDoc(docRef, payload);
     await this.logAudit("UPDATE_USER", `Mise à jour du profil ${uid}`, uid);
   },
@@ -150,13 +149,13 @@ export const UserService = {
         : currentUser.email || currentUser.uid;
     }
 
-    await addDoc(collection(db, AUDIT_COLLECTION), {
+    await addDoc(collection(db, AUDIT_COLLECTION), stripUndefined({
       action,
       details,
       targetId,
       performedBy: currentUser?.uid || "system",
       performedByName,
       timestamp: serverTimestamp(),
-    });
+    }));
   }
 };

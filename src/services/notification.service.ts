@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { AppNotification } from "@/lib/types";
+import { stripUndefined } from "@/lib/firestore-utils";
 
 const COLLECTION_NAME = "notifications";
 
@@ -31,7 +32,7 @@ export const NotificationService = {
       read: false,
       timestamp: serverTimestamp(),
     };
-    await setDoc(newDocRef, notification);
+    await setDoc(newDocRef, stripUndefined(notification));
     return notification;
   },
 
