@@ -40,6 +40,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/lib/contexts/AuthContext"
 import { useStore } from "@/lib/contexts/StoreContext"
+import { SaleTicketButton } from "@/components/sales/sale-ticket-button"
 
 export default function ClientDetailsPage() {
   const params = useParams()
@@ -47,7 +48,6 @@ export default function ClientDetailsPage() {
   const router = useRouter()
   const { userProfile } = useAuth()
   const { availableStores, activeStore, loading: storeLoading } = useStore()
-  
   const [client, setClient] = useState<Client | null>(null)
   const [payments, setPayments] = useState<ClientPayment[]>([])
   const [sales, setSales] = useState<Sale[]>([])
@@ -317,18 +317,21 @@ export default function ClientDetailsPage() {
               ) : (
                 <div className="space-y-4">
                   {sales.map((sale) => (
-                    <div key={sale.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div key={sale.id} className="flex items-center justify-between rounded-xl border p-3">
                       <div className="flex flex-col">
                         <span className="font-bold">Facture #{sale.id.slice(-6).toUpperCase()}</span>
                         <span className="text-xs text-muted-foreground">
                           {format(sale.timestamp.toDate(), "dd/MM/yyyy HH:mm")}
                         </span>
                       </div>
-                      <div className="text-right">
-                        <div className="font-headline font-bold">{sale.total.toLocaleString()} FCFA</div>
-                        <Badge variant={sale.debtAmount > 0 ? "destructive" : "outline"} className="text-[10px]">
-                          {sale.debtAmount > 0 ? "Crédit" : "Payé"}
-                        </Badge>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="font-headline font-bold">{sale.total.toLocaleString()} FCFA</div>
+                          <Badge variant={sale.debtAmount > 0 ? "destructive" : "outline"} className="text-[10px]">
+                            {sale.debtAmount > 0 ? "Crédit" : "Payé"}
+                          </Badge>
+                        </div>
+                        <SaleTicketButton sale={sale} stores={availableStores} />
                       </div>
                     </div>
                   ))}

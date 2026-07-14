@@ -35,6 +35,7 @@ import { TableColumnToggle } from "@/components/ui/table-column-toggle"
 import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { TableListToolbar } from "@/components/ui/table-list-toolbar"
 import { SALES_REPORT_TABLE_COLUMNS } from "@/lib/table-column-presets"
+import { SaleTicketButton } from "@/components/sales/sale-ticket-button"
 
 const PAGE_SIZE = 50
 
@@ -223,6 +224,9 @@ export default function SalesReportPage() {
                     <VisibleTableColumn id="status" isVisible={isVisible}>
                       <TableHead>Statut</TableHead>
                     </VisibleTableColumn>
+                    <VisibleTableColumn id="actions" isVisible={isVisible}>
+                      <TableHead className="text-right">Ticket</TableHead>
+                    </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -271,6 +275,11 @@ export default function SalesReportPage() {
                       <VisibleTableColumn id="status" isVisible={isVisible}>
                         <TableCell>
                           <StatusBadge preset="saleStatus" value={s.status} className="text-[9px] uppercase" />
+                        </TableCell>
+                      </VisibleTableColumn>
+                      <VisibleTableColumn id="actions" isVisible={isVisible}>
+                        <TableCell className="text-right">
+                          <SaleTicketButton sale={s} stores={stores} />
                         </TableCell>
                       </VisibleTableColumn>
                     </TableRow>

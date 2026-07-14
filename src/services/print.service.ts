@@ -71,7 +71,7 @@ export const PrintService = {
       doc.addImage(qrDataUrl, 'PNG', pageWidth / 2 - 10, y, 20, 20);
     } catch {}
 
-    window.open(doc.output('bloburl'), '_blank');
+    doc.save(`Ticket_${sale.id.slice(-6).toUpperCase()}.pdf`);
   },
 
   /**

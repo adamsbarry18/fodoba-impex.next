@@ -76,6 +76,7 @@ export const SALES_REPORT_TABLE_COLUMNS: TableColumnDef[] = [
   { id: "total", label: "Total (FCFA)", defaultVisible: true },
   { id: "payment", label: "Encaissement", defaultVisible: false },
   { id: "status", label: "Statut", defaultVisible: true },
+  { id: "actions", label: "Ticket", defaultVisible: true },
 ]
 
 export const AUDIT_TABLE_COLUMNS: TableColumnDef[] = [

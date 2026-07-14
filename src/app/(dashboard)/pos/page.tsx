@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { ProductService } from "@/services/product.service"
 import { ClientService } from "@/services/client.service"
 import { SaleService } from "@/services/sale.service"
-import { PrintService } from "@/services/print.service"
 import { CategoryService } from "@/services/category.service"
 import { CashService } from "@/services/cash.service"
 import { Product, Client, SaleItem, Sale, Category, CashSession, PaymentMethod } from "@/lib/types"
@@ -61,6 +60,7 @@ import {
   getCartItemCount,
   getCartSubtotal,
 } from "@/lib/pos-utils"
+import { useSaleTicket } from "@/hooks/use-sale-ticket"
 
 export default function POSPage() {
   const { activeStore } = useStore()
@@ -93,6 +93,7 @@ export default function POSPage() {
   const [scanProcessing, setScanProcessing] = useState(false)
   const [isSuccessOpen, setIsSuccessOpen] = useState(false)
   const [lastSale, setLastSale] = useState<Sale | null>(null)
+  const { printTicket, printingId } = useSaleTicket(activeStore ? [activeStore] : undefined)
 
   // Payment State
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
@@ -336,6 +337,13 @@ export default function POSPage() {
       setProcessing(false)
     }
   }
+
+  const handlePrintTicket = async () => {
+    if (!lastSale) return
+    await printTicket(lastSale)
+  }
+
+  const printingTicket = lastSale ? printingId === lastSale.id : false
 
   // Filter clients locally for autocomplete
   const filteredClients = useMemo(() => {
@@ -917,9 +925,14 @@ export default function POSPage() {
                 <Button 
                   variant="link" 
                   className="w-full text-xs text-muted-foreground h-auto p-0 flex items-center justify-center gap-1.5 font-bold hover:text-primary transition-colors" 
-                  onClick={() => lastSale && PrintService.generateThermalTicket(lastSale, activeStore!)}
+                  onClick={handlePrintTicket}
+                  disabled={!lastSale || printingTicket}
                 >
-                  <Printer className="h-4 w-4 text-muted-foreground" /> 
+                  {printingTicket ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Printer className="h-4 w-4 text-muted-foreground" />
+                  )}
                   <span>Ticket thermique de la dernière vente</span>
                 </Button>
               </div>
@@ -946,10 +959,15 @@ export default function POSPage() {
           </div>
           <div className="space-y-2 border-t bg-muted/20 p-4">
             <Button
-              onClick={() => lastSale && PrintService.generateThermalTicket(lastSale, activeStore!)}
+              onClick={handlePrintTicket}
               className="w-full rounded-xl font-semibold"
+              disabled={!lastSale || printingTicket}
             >
-              <Printer className="mr-2 h-4 w-4" />
+              {printingTicket ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="mr-2 h-4 w-4" />
+              )}
               Imprimer le ticket
             </Button>
             <Button
@@ -958,6 +976,9 @@ export default function POSPage() {
               onClick={() => setIsSuccessOpen(false)}
             >
               Nouvelle vente
+            </Button>
+            <Button variant="link" className="w-full text-xs text-muted-foreground" asChild>
+              <Link href="/reports/sales">Voir l&apos;historique des ventes</Link>
             </Button>
           </div>
         </DialogContent>
