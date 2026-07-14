@@ -129,6 +129,11 @@ service cloud.firestore {
       allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
       allow create: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId);
     }
+
+    match /supplier_payments/{paymentId} {
+      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
+      allow create: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId);
+    }
     
     match /suppliers/{supplierId} {
       allow read: if isSignedIn() && isActif();

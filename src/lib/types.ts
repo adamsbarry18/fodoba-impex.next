@@ -132,6 +132,19 @@ export const SupplierSchema = z.object({
 
 export type Supplier = z.infer<typeof SupplierSchema>;
 
+export const SupplierPaymentSchema = z.object({
+  id: z.string(),
+  supplierId: z.string(),
+  amount: z.number(),
+  method: z.enum(["CASH", "MOBILE_MONEY", "CARD", "TRANSFER", "ORANGE_MONEY"]),
+  timestamp: z.any(),
+  storeId: z.string(),
+  performedBy: z.string(),
+  notes: z.string().optional(),
+});
+
+export type SupplierPayment = z.infer<typeof SupplierPaymentSchema>;
+
 export type CurrencyCode = "FCFA" | "GNF" | "USD" | "EUR";
 
 export interface ExchangeRate {

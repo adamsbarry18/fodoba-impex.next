@@ -27,7 +27,7 @@ import {
   Plus,
   Loader2,
   Truck,
-  ChevronRight,
+  Eye,
   Calendar,
   User,
   Search,
@@ -364,27 +364,39 @@ export default function PurchasesPage() {
                     const StatusIcon = PURCHASE_STATUS_ICONS[p.status]
 
                     return (
-                      <TableRow key={p.id} className="transition-colors hover:bg-muted/20">
+                      <TableRow key={p.id} className="group transition-colors hover:bg-muted/20">
                         <VisibleTableColumn id="ref" isVisible={isVisible}>
                           <TableCell className="pl-4 sm:pl-6">
-                            <p className="font-mono text-sm font-bold">
-                              {formatPurchaseRef(p.id)}
-                            </p>
-                            {date && (
-                              <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-                                <Calendar className="h-3 w-3" />
-                                {format(date, "dd MMM yyyy", { locale: fr })}
+                            <Link
+                              href={`/purchases/${p.id}`}
+                              className="inline-block rounded-lg transition-colors hover:text-primary"
+                            >
+                              <p className="font-mono text-sm font-bold group-hover:text-primary">
+                                {formatPurchaseRef(p.id)}
                               </p>
-                            )}
+                              {date && (
+                                <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  {format(date, "dd MMM yyyy", { locale: fr })}
+                                </p>
+                              )}
+                            </Link>
                           </TableCell>
                         </VisibleTableColumn>
                         <VisibleTableColumn id="supplier" isVisible={isVisible}>
                           <TableCell>
-                            <p className="text-sm font-semibold">{p.supplierName}</p>
-                            <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <User className="h-3 w-3" />
-                              {p.performedByName}
-                            </p>
+                            <Link
+                              href={`/purchases/${p.id}`}
+                              className="block rounded-lg transition-colors hover:text-primary"
+                            >
+                              <p className="text-sm font-semibold group-hover:text-primary">
+                                {p.supplierName}
+                              </p>
+                              <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                <User className="h-3 w-3" />
+                                {p.performedByName}
+                              </p>
+                            </Link>
                           </TableCell>
                         </VisibleTableColumn>
                         <VisibleTableColumn id="items" isVisible={isVisible}>
@@ -412,13 +424,14 @@ export default function PurchasesPage() {
                         <VisibleTableColumn id="actions" isVisible={isVisible}>
                           <TableCell className="pr-4 text-right sm:pr-6">
                             <Button
-                              variant="ghost"
-                              size="icon"
+                              variant="outline"
+                              size="sm"
                               asChild
-                              className="h-8 w-8 rounded-lg"
+                              className="h-8 rounded-lg text-xs font-semibold"
                             >
                               <Link href={`/purchases/${p.id}`}>
-                                <ChevronRight className="h-4 w-4" />
+                                <Eye className="mr-1.5 h-3.5 w-3.5" />
+                                Voir le détail
                               </Link>
                             </Button>
                           </TableCell>
