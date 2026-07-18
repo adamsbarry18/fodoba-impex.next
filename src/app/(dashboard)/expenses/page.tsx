@@ -25,7 +25,6 @@ import {
 } from "lucide-react"
 import { useStore } from "@/lib/contexts/StoreContext"
 import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { toast } from "sonner"
 import {
   Select,
@@ -56,12 +55,18 @@ import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { TableListToolbar } from "@/components/ui/table-list-toolbar"
 import { EXPENSE_TABLE_COLUMNS } from "@/lib/table-column-presets"
 
+import { useT, useLocale } from "@/i18n/context"
+import { getDateLocale } from "@/i18n/get-date-locale"
+
 const PAGE_SIZE = 50
 
 export default function ExpensesPage() {
   const { activeStore } = useStore()
   const { userProfile } = useAuth()
   const { formatAmount } = useCurrency()
+  const t = useT()
+  const { locale } = useLocale()
+  const dateLocale = useMemo(() => getDateLocale(locale), [locale])
 
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
@@ -77,7 +82,7 @@ export default function ExpensesPage() {
       const data = await ExpenseService.listExpenses(activeStore.id)
       setExpenses(data)
     } catch {
-      toast.error("Erreur de chargement")
+      toast.error(t("common.error"))
     } finally {
       setLoading(false)
     }
@@ -100,7 +105,7 @@ export default function ExpensesPage() {
           setExpenses(data)
         }
       } catch {
-        if (!cancelled) toast.error("Erreur de chargement")
+        if (!cancelled) toast.error(t("common.error"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -110,7 +115,7 @@ export default function ExpensesPage() {
     return () => {
       cancelled = true
     }
-  }, [activeStore?.id])
+  }, [activeStore?.id, t])
 
   const filteredExpenses = useMemo(
     () =>
@@ -140,18 +145,18 @@ export default function ExpensesPage() {
 
   const handleExportCSV = () => {
     if (filteredExpenses.length === 0) {
-      toast.error("Aucune dépense à exporter")
+      toast.error(t("expenses.exportEmpty"))
       return
     }
     const data = filteredExpenses.map((e) => {
       const date = toExpenseDate(e.timestamp)
       return {
-        Date: date ? format(date, "dd/MM/yyyy HH:mm") : "-",
-        Categorie: e.category,
-        Libelle: e.label,
-        Montant: e.amount,
-        Mode: getPaymentMethodLabel(e.method),
-        Auteur: e.performedByName,
+        [t("expenses.colDate")]: date ? format(date, "dd/MM/yyyy HH:mm") : "-",
+        [t("expenses.colCategory")]: e.category,
+        Label: e.label,
+        [t("expenses.colAmount")]: e.amount,
+        [t("expenses.colMethod")]: t(getPaymentMethodLabel(e.method)),
+        [t("expenses.colAuthor")]: e.performedByName,
         Notes: e.notes || "",
       }
     })
@@ -169,14 +174,15 @@ export default function ExpensesPage() {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-    toast.success("Export CSV téléchargé")
+    toast.success(t("expenses.exportSuccess"))
   }
+
 
   if (!activeStore) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
         <Wallet className="h-10 w-10 opacity-30" />
-        <p>Sélectionnez une boutique pour consulter les dépenses.</p>
+        <p>{t("expenses.selectStore")}</p>
       </div>
     )
   }
@@ -189,9 +195,9 @@ export default function ExpensesPage() {
             <Wallet className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Gestion des dépenses</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("expenses.title")}</h1>
             <p className="text-sm text-muted-foreground">
-              Charges opérationnelles de{" "}
+              {t("expenses.subtitle")}{" "}
               <strong className="text-foreground">{activeStore.name}</strong>
             </p>
           </div>
@@ -204,7 +210,7 @@ export default function ExpensesPage() {
             disabled={loading}
           >
             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            Actualiser
+            {t("common.refresh")}
           </Button>
           <Button
             variant="outline"
@@ -213,7 +219,7 @@ export default function ExpensesPage() {
             disabled={filteredExpenses.length === 0}
           >
             <Download className="mr-2 h-4 w-4" />
-            Export CSV
+            {t("common.exportCsv")}
           </Button>
           <Button
             className="rounded-xl font-semibold"
@@ -221,7 +227,7 @@ export default function ExpensesPage() {
             disabled={!userProfile}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Nouvelle dépense
+            {t("expenses.newExpense")}
           </Button>
         </div>
       </div>
@@ -244,13 +250,13 @@ export default function ExpensesPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Dépenses du mois
+                {t("expenses.statMonth")}
               </p>
               <p className="text-sm font-bold">
                 {formatAmount(stats.totalThisMonth, "FCFA")}
               </p>
               <p className="text-[10px] text-muted-foreground">
-                {stats.monthCount} opération{stats.monthCount > 1 ? "s" : ""}
+                {t("expenses.statOperations", { count: stats.monthCount })}
               </p>
             </div>
           </CardContent>
@@ -263,7 +269,7 @@ export default function ExpensesPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Poste principal
+                {t("expenses.statTopCategory")}
               </p>
               <p className="text-sm font-bold">{stats.topCategory}</p>
               <p className="text-[10px] text-muted-foreground">
@@ -280,7 +286,7 @@ export default function ExpensesPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Écritures
+                {t("expenses.statCount")}
               </p>
               <p className="text-2xl font-bold">{stats.count}</p>
             </div>
@@ -294,7 +300,7 @@ export default function ExpensesPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Total cumulé
+                {t("expenses.statTotalCumulated")}
               </p>
               <p className="text-sm font-bold">{formatAmount(stats.totalAll, "FCFA")}</p>
             </div>
@@ -307,7 +313,7 @@ export default function ExpensesPage() {
           <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher par motif, catégorie ou auteur…"
+              placeholder={t("expenses.searchPlaceholder")}
               className="h-10 rounded-xl pl-9"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -318,10 +324,10 @@ export default function ExpensesPage() {
             onValueChange={(v) => setCategoryFilter(v as ExpenseCategoryFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="Catégorie" />
+              <SelectValue placeholder={t("expenses.filterCategory")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Toutes les catégories</SelectItem>
+              <SelectItem value="all">{t("expenses.filterCategoryAll")}</SelectItem>
               {EXPENSE_CATEGORIES.map((c) => (
                 <SelectItem key={c} value={c}>
                   {c}
@@ -334,13 +340,13 @@ export default function ExpensesPage() {
             onValueChange={(v) => setMethodFilter(v as ExpenseMethodFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="Mode" />
+              <SelectValue placeholder={t("expenses.filterMethod")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Tous les modes</SelectItem>
+              <SelectItem value="all">{t("expenses.filterMethodAll")}</SelectItem>
               {PAYMENT_METHOD_OPTIONS.map((m) => (
                 <SelectItem key={m.id} value={m.id}>
-                  {m.label}
+                  {t(m.label)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -353,7 +359,7 @@ export default function ExpensesPage() {
           <TableListToolbar
             summary={
               !loading && filteredExpenses.length > 0
-                ? `${filteredExpenses.length} dépense${filteredExpenses.length !== 1 ? "s" : ""}`
+                ? t("expenses.countSummary", { count: filteredExpenses.length })
                 : undefined
             }
             actions={
@@ -373,11 +379,11 @@ export default function ExpensesPage() {
             <div className="flex flex-col items-center justify-center gap-4 p-16 text-center">
               <Wallet className="h-12 w-12 text-muted-foreground/30" />
               <div>
-                <p className="font-semibold">Aucune dépense trouvée</p>
+                <p className="font-semibold">{t("expenses.noExpensesFound")}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {expenses.length === 0
-                    ? "Enregistrez votre première charge opérationnelle."
-                    : "Ajustez les filtres ou la recherche."}
+                    ? t("expenses.emptyStateDesc")
+                    : t("expenses.emptyStateFilterDesc")}
                 </p>
               </div>
               {expenses.length === 0 && userProfile && (
@@ -386,7 +392,7 @@ export default function ExpensesPage() {
                   onClick={() => setDialogOpen(true)}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Nouvelle dépense
+                  {t("expenses.newExpense")}
                 </Button>
               )}
             </div>
@@ -396,19 +402,19 @@ export default function ExpensesPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <VisibleTableColumn id="date" isVisible={isVisible}>
-                      <TableHead>Date & heure</TableHead>
+                      <TableHead>{t("expenses.colDate")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="category" isVisible={isVisible}>
-                      <TableHead>Catégorie / Motif</TableHead>
+                      <TableHead>{t("expenses.colCategory")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="method" isVisible={isVisible}>
-                      <TableHead>Mode</TableHead>
+                      <TableHead>{t("expenses.colMethod")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="author" isVisible={isVisible}>
-                      <TableHead>Auteur</TableHead>
+                      <TableHead>{t("expenses.colAuthor")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="amount" isVisible={isVisible}>
-                      <TableHead className="text-right">Montant</TableHead>
+                      <TableHead className="text-right">{t("expenses.colAmount")}</TableHead>
                     </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
@@ -420,7 +426,7 @@ export default function ExpensesPage() {
                         <VisibleTableColumn id="date" isVisible={isVisible}>
                           <TableCell className="font-mono text-xs text-muted-foreground">
                             {date
-                              ? format(date, "dd/MM/yyyy HH:mm", { locale: fr })
+                              ? format(date, "dd/MM/yyyy HH:mm", { locale: dateLocale })
                               : "-"}
                           </TableCell>
                         </VisibleTableColumn>
@@ -434,7 +440,7 @@ export default function ExpensesPage() {
                               <span className="text-xs text-muted-foreground">{e.label}</span>
                               {e.notes && (
                                 <StatusBadge tone="slate" className="mt-1 w-fit text-[10px]">
-                                  Réf : {e.notes}
+                                  {t("expenses.refLabel", { notes: e.notes })}
                                 </StatusBadge>
                               )}
                             </div>
@@ -442,9 +448,7 @@ export default function ExpensesPage() {
                         </VisibleTableColumn>
                         <VisibleTableColumn id="method" isVisible={isVisible}>
                           <TableCell>
-                            <StatusBadge preset="paymentMethod" value={e.method} className="text-[10px]">
-                              {getPaymentMethodLabel(e.method)}
-                            </StatusBadge>
+                            <StatusBadge preset="paymentMethod" value={e.method} className="text-[10px]" />
                           </TableCell>
                         </VisibleTableColumn>
                         <VisibleTableColumn id="author" isVisible={isVisible}>

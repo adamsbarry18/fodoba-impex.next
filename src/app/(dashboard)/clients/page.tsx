@@ -58,10 +58,13 @@ import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { TableListToolbar } from "@/components/ui/table-list-toolbar"
 import { CLIENT_TABLE_COLUMNS } from "@/lib/table-column-presets"
 
+import { useT } from "@/i18n/context"
+
 const PAGE_SIZE = 50
 
 export default function ClientsPage() {
   const { formatAmount } = useCurrency()
+  const t = useT()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -75,7 +78,7 @@ export default function ClientsPage() {
       const data = await ClientService.listClients()
       setClients(data)
     } catch {
-      toast.error("Erreur de chargement des clients")
+      toast.error(t("clients.errorLoading"))
     } finally {
       setLoading(false)
     }
@@ -92,7 +95,7 @@ export default function ClientsPage() {
           setClients(data)
         }
       } catch {
-        if (!cancelled) toast.error("Erreur de chargement des clients")
+        if (!cancelled) toast.error(t("clients.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -147,9 +150,9 @@ export default function ClientsPage() {
             <Users className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Portefeuille Clients</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("clients.title")}</h1>
             <p className="text-sm text-muted-foreground">
-              Base globale partagée - crédit et encours communs à toutes les boutiques.
+              {t("clients.subtitle")}
             </p>
           </div>
         </div>
@@ -161,12 +164,12 @@ export default function ClientsPage() {
             disabled={loading}
           >
             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            Actualiser
+            {t("common.refresh")}
           </Button>
           <Button asChild className="rounded-xl font-semibold">
             <Link href="/clients/new">
               <UserPlus className="mr-2 h-4 w-4" />
-              Nouveau client
+              {t("entity.client.new")}
             </Link>
           </Button>
         </div>
@@ -180,7 +183,7 @@ export default function ClientsPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Clients
+                {t("nav.clients")}
               </p>
               <p className="text-2xl font-bold">{stats.total}</p>
             </div>
@@ -194,7 +197,7 @@ export default function ClientsPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Avec dette
+                {t("clients.statWithDebt")}
               </p>
               <p className="text-2xl font-bold">{stats.withDebt}</p>
             </div>
@@ -208,7 +211,7 @@ export default function ClientsPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Plafond dépassé
+                {t("clients.statOverLimit")}
               </p>
               <p className="text-2xl font-bold">{stats.overLimit}</p>
             </div>
@@ -222,7 +225,7 @@ export default function ClientsPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Encours total
+                {t("clients.statTotalDebt")}
               </p>
               <p className="text-sm font-bold">{formatAmount(stats.totalDebt, "FCFA")}</p>
             </div>
@@ -235,7 +238,7 @@ export default function ClientsPage() {
           <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher par nom, téléphone ou adresse…"
+              placeholder={t("clients.searchPlaceholder")}
               className="h-10 rounded-xl pl-9"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -246,12 +249,12 @@ export default function ClientsPage() {
             onValueChange={(v) => setTypeFilter(v as ClientTypeFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="Type" />
+              <SelectValue placeholder={t("clients.filterType")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Tous les types</SelectItem>
-              <SelectItem value="particulier">Particulier</SelectItem>
-              <SelectItem value="grossiste">Grossiste</SelectItem>
+              <SelectItem value="all">{t("clients.filterTypeAll")}</SelectItem>
+              <SelectItem value="particulier">{t("badges.clientType.particulier")}</SelectItem>
+              <SelectItem value="grossiste">{t("badges.clientType.grossiste")}</SelectItem>
             </SelectContent>
           </Select>
           <Select
@@ -259,13 +262,13 @@ export default function ClientsPage() {
             onValueChange={(v) => setStatusFilter(v as ClientStatusFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="Statut" />
+              <SelectValue placeholder={t("clients.filterStatus")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Tous les statuts</SelectItem>
-              <SelectItem value="actif">Actif</SelectItem>
-              <SelectItem value="suspendu">Suspendu</SelectItem>
-              <SelectItem value="vip">VIP</SelectItem>
+              <SelectItem value="all">{t("clients.filterStatusAll")}</SelectItem>
+              <SelectItem value="actif">{t("badges.clientStatus.actif")}</SelectItem>
+              <SelectItem value="suspendu">{t("badges.clientStatus.suspendu")}</SelectItem>
+              <SelectItem value="vip">{t("badges.clientStatus.vip")}</SelectItem>
             </SelectContent>
           </Select>
           <Select
@@ -273,13 +276,13 @@ export default function ClientsPage() {
             onValueChange={(v) => setDebtFilter(v as ClientDebtFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl md:col-span-1">
-              <SelectValue placeholder="Dette" />
+              <SelectValue placeholder={t("clients.filterDebt")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Toutes les dettes</SelectItem>
-              <SelectItem value="with_debt">Avec dette</SelectItem>
-              <SelectItem value="over_limit">Plafond dépassé</SelectItem>
-              <SelectItem value="clear">Sans dette</SelectItem>
+              <SelectItem value="all">{t("clients.filterDebtAll")}</SelectItem>
+              <SelectItem value="with_debt">{t("clients.filterDebtWith")}</SelectItem>
+              <SelectItem value="over_limit">{t("clients.filterDebtOver")}</SelectItem>
+              <SelectItem value="clear">{t("clients.filterDebtClear")}</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
@@ -290,7 +293,7 @@ export default function ClientsPage() {
           <TableListToolbar
             summary={
               !loading && filteredClients.length > 0
-                ? `${filteredClients.length} client${filteredClients.length !== 1 ? "s" : ""}`
+                ? t("clients.countSummary", { count: filteredClients.length })
                 : undefined
             }
             actions={
@@ -310,18 +313,18 @@ export default function ClientsPage() {
             <div className="flex flex-col items-center justify-center gap-4 p-16 text-center">
               <Users className="h-12 w-12 text-muted-foreground/30" />
               <div>
-                <p className="font-semibold">Aucun client trouvé</p>
+                <p className="font-semibold">{t("clients.noClientsFound")}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {clients.length === 0
-                    ? "Commencez par enregistrer votre premier client."
-                    : "Ajustez les filtres ou la recherche."}
+                    ? t("clients.emptyStateDesc")
+                    : t("clients.emptyStateFilterDesc")}
                 </p>
               </div>
               {clients.length === 0 && (
                 <Button asChild className="rounded-xl font-semibold">
                   <Link href="/clients/new">
                     <UserPlus className="mr-2 h-4 w-4" />
-                    Nouveau client
+                    {t("entity.client.new")}
                   </Link>
                 </Button>
               )}
@@ -332,22 +335,22 @@ export default function ClientsPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <VisibleTableColumn id="client" isVisible={isVisible}>
-                      <TableHead>Client</TableHead>
+                      <TableHead>{t("clients.colClient")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="contact" isVisible={isVisible}>
-                      <TableHead>Contact</TableHead>
+                      <TableHead>{t("clients.colContact")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="type" isVisible={isVisible}>
-                      <TableHead>Type</TableHead>
+                      <TableHead>{t("clients.colType")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="debt" isVisible={isVisible}>
-                      <TableHead className="text-right">Dette actuelle</TableHead>
+                      <TableHead className="text-right">{t("clients.colDebt")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="status" isVisible={isVisible}>
-                      <TableHead>Statut</TableHead>
+                      <TableHead>{t("clients.colStatus")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="actions" isVisible={isVisible}>
-                      <TableHead className="text-right">Encaissement</TableHead>
+                      <TableHead className="text-right">{t("clients.colActions")}</TableHead>
                     </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
@@ -372,7 +375,7 @@ export default function ClientsPage() {
                                 <div className="flex items-center text-[10px] text-muted-foreground">
                                   <MapPin className="mr-1 h-2.5 w-2.5 shrink-0" />
                                   <span className="truncate">
-                                    {client.address || "Adresse non renseignée"}
+                                    {client.address || t("clients.noAddress")}
                                   </span>
                                 </div>
                               </div>
@@ -411,7 +414,7 @@ export default function ClientsPage() {
                               </span>
                               {client.creditCeiling > 0 && (
                                 <span className="text-[10px] text-muted-foreground">
-                                  Plafond : {formatAmount(client.creditCeiling, "FCFA")}
+                                  {t("clients.ceilingLabel", { amount: formatAmount(client.creditCeiling, "FCFA") })}
                                 </span>
                               )}
                             </div>
@@ -428,7 +431,7 @@ export default function ClientsPage() {
                               {overLimit && (
                                 <AlertTriangle
                                   className="h-4 w-4 text-destructive"
-                                  aria-label="Plafond dépassé"
+                                  aria-label={t("clients.statOverLimit")}
                                 />
                               )}
                             </div>
@@ -445,11 +448,11 @@ export default function ClientsPage() {
                               >
                                 <Link href={`/clients/${client.id}?tab=payments&action=payment`}>
                                   <CreditCard className="mr-1.5 h-3.5 w-3.5" />
-                                  Encaisser
+                                  {t("clients.collectBtn")}
                                 </Link>
                               </Button>
                             ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
+                              <span className="text-xs text-muted-foreground">-</span>
                             )}
                           </TableCell>
                         </VisibleTableColumn>

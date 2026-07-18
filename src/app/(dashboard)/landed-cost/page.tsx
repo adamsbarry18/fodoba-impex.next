@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { calculateLandedCost, type LandedCostOutput } from "@/lib/calculations"
@@ -46,10 +46,18 @@ import {
   TARGET_CURRENCIES,
   type LandedCostFormValues,
 } from "@/lib/landed-cost-utils"
-import { cn } from "@/lib/utils"
+import { useT } from "@/i18n/context"
+
+const BREAKDOWN_LABEL_KEYS = [
+  "landedCost.breakdown.basePrice",
+  "landedCost.breakdown.transport",
+  "landedCost.breakdown.customs",
+  "landedCost.breakdown.other",
+] as const
 
 export default function LandedCostPage() {
   const { rates, formatAmount } = useCurrency()
+  const t = useT()
   const [result, setResult] = useState<LandedCostOutput | null>(null)
 
   const form = useForm<LandedCostFormValues>({
@@ -59,6 +67,7 @@ export default function LandedCostPage() {
 
   const purchaseCurrency = form.watch("purchaseCurrency")
   const targetCurrency = form.watch("targetCurrency")
+  const customsPercent = form.watch("customsDutyPercentage")
 
   useEffect(() => {
     const suggested = suggestExchangeRate(purchaseCurrency, targetCurrency, rates)
@@ -70,12 +79,14 @@ export default function LandedCostPage() {
   const onSubmit = (values: LandedCostFormValues) => {
     const output = calculateLandedCost(values)
     setResult(output)
-    toast.success("Calcul effectué")
+    toast.success(t("landedCost.calcSuccess"))
   }
 
-  const breakdownRows = result
-    ? getCostBreakdownRows(result, form.getValues().customsDutyPercentage)
-    : []
+  const breakdownRows = useMemo(
+    () =>
+      result ? getCostBreakdownRows(result, form.getValues().customsDutyPercentage) : [],
+    [result, form]
+  )
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-8">
@@ -84,10 +95,8 @@ export default function LandedCostPage() {
           <Calculator className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Analyse du coût de revient</h1>
-          <p className="text-sm text-muted-foreground">
-            Simulateur d&apos;import - prix d&apos;achat, logistique, douanes et conversion devise.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("landedCost.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("landedCost.subtitle")}</p>
         </div>
       </div>
 
@@ -98,10 +107,10 @@ export default function LandedCostPage() {
               <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Coins className="h-4 w-4 text-primary" />
-                  Acquisition
+                  {t("landedCost.acquisitionTitle")}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Prix unitaire et devise d&apos;origine de l&apos;approvisionnement.
+                  {t("landedCost.acquisitionDesc")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 p-4 sm:p-6">
@@ -111,7 +120,7 @@ export default function LandedCostPage() {
                     name="purchasePrice"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Prix unitaire</FormLabel>
+                        <FormLabel required>{t("landedCost.unitPrice")}</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -131,7 +140,7 @@ export default function LandedCostPage() {
                     name="purchaseCurrency"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Devise d&apos;origine</FormLabel>
+                        <FormLabel required>{t("landedCost.originCurrency")}</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger className="h-10 rounded-xl">
@@ -158,10 +167,10 @@ export default function LandedCostPage() {
               <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Truck className="h-4 w-4 text-primary" />
-                  Frais logistiques & douaniers
+                  {t("landedCost.logisticsTitle")}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Coûts annexes exprimés dans la devise d&apos;origine.
+                  {t("landedCost.logisticsDesc")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 p-4 sm:p-6">
@@ -170,7 +179,7 @@ export default function LandedCostPage() {
                   name="transportFees"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Transport & logistique</FormLabel>
+                      <FormLabel required>{t("landedCost.transport")}</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -192,7 +201,7 @@ export default function LandedCostPage() {
                     name="customsDutyPercentage"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Droits de douane (%)</FormLabel>
+                        <FormLabel required>{t("landedCost.customsDuty")}</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -212,7 +221,7 @@ export default function LandedCostPage() {
                     name="otherFees"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Autres frais</FormLabel>
+                        <FormLabel required>{t("landedCost.otherFees")}</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -235,10 +244,10 @@ export default function LandedCostPage() {
               <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Globe className="h-4 w-4 text-primary" />
-                  Conversion devise
+                  {t("landedCost.conversionTitle")}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Taux appliqué pour 1 unité de la devise d&apos;origine.
+                  {t("landedCost.conversionDesc")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 p-4 sm:p-6">
@@ -248,7 +257,7 @@ export default function LandedCostPage() {
                     name="targetCurrency"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Devise de destination</FormLabel>
+                        <FormLabel required>{t("landedCost.targetCurrency")}</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger className="h-10 rounded-xl">
@@ -272,7 +281,7 @@ export default function LandedCostPage() {
                     name="exchangeRateToTargetCurrency"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Taux de change</FormLabel>
+                        <FormLabel required>{t("landedCost.exchangeRate")}</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -284,7 +293,11 @@ export default function LandedCostPage() {
                           />
                         </FormControl>
                         <FormDescription className="text-[10px]">
-                          1 {purchaseCurrency} = {field.value} {targetCurrency}
+                          {t("landedCost.exchangeRateHint", {
+                            from: purchaseCurrency,
+                            rate: field.value,
+                            to: targetCurrency,
+                          })}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -294,10 +307,7 @@ export default function LandedCostPage() {
 
                 <div className="flex items-start gap-3 rounded-xl border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  <p>
-                    Le taux est pré-rempli depuis les cours FODOBA lorsque disponible. Outil
-                    indicatif - à valider avec votre service achats.
-                  </p>
+                  <p>{t("landedCost.rateInfo")}</p>
                 </div>
 
                 <Button
@@ -310,7 +320,7 @@ export default function LandedCostPage() {
                   ) : (
                     <Calculator className="mr-2 h-4 w-4" />
                   )}
-                  Lancer le calcul
+                  {t("landedCost.calculate")}
                 </Button>
               </CardContent>
             </Card>
@@ -323,7 +333,7 @@ export default function LandedCostPage() {
                   <Card className="overflow-hidden rounded-2xl border border-primary/20 bg-primary/5 shadow-sm">
                     <CardHeader className="p-4 pb-2">
                       <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-primary">
-                        Coût de revient total
+                        {t("landedCost.totalCostTitle")}
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0">
@@ -331,7 +341,7 @@ export default function LandedCostPage() {
                         <span className="text-3xl font-bold font-headline">
                           {targetCurrency === "FCFA"
                             ? formatAmount(result.totalLandedCostInTargetCurrency, "FCFA")
-                            : result.totalLandedCostInTargetCurrency.toLocaleString("fr-FR")}
+                            : result.totalLandedCostInTargetCurrency.toLocaleString()}
                         </span>
                         {targetCurrency !== "FCFA" && (
                           <span className="text-lg font-semibold text-primary">
@@ -341,25 +351,35 @@ export default function LandedCostPage() {
                       </div>
                       <div className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
                         <TrendingUp className="h-4 w-4 text-primary" />
-                        1 {purchaseCurrency} = {result.exchangeRateUsed} {targetCurrency}
+                        {t("landedCost.exchangeRateHint", {
+                          from: purchaseCurrency,
+                          rate: result.exchangeRateUsed,
+                          to: targetCurrency,
+                        })}
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
                     <CardHeader className="border-b bg-muted/20 p-4">
-                      <CardTitle className="text-sm font-bold">Détail des coûts</CardTitle>
+                      <CardTitle className="text-sm font-bold">
+                        {t("landedCost.costBreakdownTitle")}
+                      </CardTitle>
                       <CardDescription className="text-[10px]">
-                        En {purchaseCurrency} (devise d&apos;origine)
+                        {t("landedCost.costBreakdownDesc", { currency: purchaseCurrency })}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2 p-4">
-                      {breakdownRows.map((row) => (
+                      {breakdownRows.map((row, index) => (
                         <div
-                          key={row.label}
+                          key={BREAKDOWN_LABEL_KEYS[index]}
                           className="flex items-center justify-between border-b border-dashed py-2 text-sm last:border-0"
                         >
-                          <span className="text-muted-foreground">{row.label}</span>
+                          <span className="text-muted-foreground">
+                            {index === 2
+                              ? t(BREAKDOWN_LABEL_KEYS[index], { percent: customsPercent })
+                              : t(BREAKDOWN_LABEL_KEYS[index])}
+                          </span>
                           <StatusBadge
                             tone={row.additive ? "warning" : "slate"}
                             className="font-mono text-[10px]"
@@ -370,7 +390,7 @@ export default function LandedCostPage() {
                         </div>
                       ))}
                       <div className="flex items-center justify-between pt-2 font-bold">
-                        <span>Sous-total</span>
+                        <span>{t("landedCost.subtotal")}</span>
                         <span>
                           {result.totalLandedCostInOriginalCurrency.toFixed(2)} {purchaseCurrency}
                         </span>
@@ -388,17 +408,16 @@ export default function LandedCostPage() {
                     }}
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
-                    Nouveau calcul
+                    {t("landedCost.newCalculation")}
                   </Button>
                 </>
               ) : (
                 <Card className="rounded-2xl border border-dashed bg-card shadow-sm">
                   <CardContent className="flex flex-col items-center justify-center p-12 text-center">
                     <Calculator className="mb-4 h-12 w-12 text-muted-foreground/30" />
-                    <p className="font-semibold">En attente de calcul</p>
+                    <p className="font-semibold">{t("landedCost.awaitingTitle")}</p>
                     <p className="mt-2 max-w-[240px] text-xs text-muted-foreground">
-                      Renseignez les paramètres et lancez le calcul pour afficher le coût de
-                      revient détaillé.
+                      {t("landedCost.awaitingDesc")}
                     </p>
                   </CardContent>
                 </Card>

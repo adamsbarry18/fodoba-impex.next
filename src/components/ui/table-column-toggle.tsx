@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { TableColumnDef } from "@/lib/table-columns"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n/context"
 
 interface TableColumnToggleProps {
   columns: TableColumnDef[]
@@ -29,6 +30,7 @@ export function TableColumnToggle({
   onReset,
   className,
 }: TableColumnToggleProps) {
+  const t = useT()
   const toggleable = columns.filter((col) => !col.locked)
   if (toggleable.length === 0) return null
 
@@ -41,10 +43,10 @@ export function TableColumnToggle({
           variant="outline"
           size="sm"
           className={cn("h-8 gap-1.5 rounded-lg text-xs font-semibold", className)}
-          aria-label="Personnaliser les colonnes du tableau"
+          aria-label={t("table.columns.customizeAria")}
         >
           <Columns3 className="h-3.5 w-3.5" />
-          Colonnes
+          {t("table.columns.button")}
           {hiddenCount > 0 ? (
             <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
               {toggleable.length - hiddenCount}/{toggleable.length}
@@ -54,7 +56,7 @@ export function TableColumnToggle({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52 rounded-xl p-2">
         <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">
-          Colonnes affichées
+          {t("table.columns.shown")}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {toggleable.map((col) => (
@@ -84,7 +86,7 @@ export function TableColumnToggle({
           }}
         >
           <RotateCcw className="mr-2 h-3.5 w-3.5" />
-          Réinitialiser
+          {t("table.columns.reset")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

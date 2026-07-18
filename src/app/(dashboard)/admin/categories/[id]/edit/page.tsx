@@ -16,13 +16,15 @@ import { toast } from "sonner"
 import { ArrowLeft, Loader2, Save } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { useT } from "@/i18n/context"
 
 export default function EditCategoryPage() {
   const router = useRouter()
   const params = useParams()
+  const t = useT()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
-  
+
   const form = useForm<Category>({
     resolver: zodResolver(CategorySchema),
   })
@@ -32,32 +34,32 @@ export default function EditCategoryPage() {
       try {
         const [catData, allCats] = await Promise.all([
           CategoryService.getCategory(params.id as string),
-          CategoryService.listCategories()
+          CategoryService.listCategories(),
         ])
-        
+
         if (catData) {
           form.reset(catData)
         } else {
-          toast.error("Catégorie introuvable")
+          toast.error(t("categories.form.notFound"))
           router.push("/admin/categories")
         }
-        setCategories(allCats.filter(c => c.id !== params.id)) // Éviter de se choisir soi-même comme parent
-      } catch (error) {
-        toast.error("Erreur de chargement")
+        setCategories(allCats.filter((c) => c.id !== params.id))
+      } catch {
+        toast.error(t("common.errorLoading"))
       } finally {
         setLoading(false)
       }
     }
     init()
-  }, [params.id])
+  }, [params.id, form, router, t])
 
   const onSubmit = async (values: Category) => {
     try {
       await CategoryService.updateCategory(params.id as string, values)
-      toast.success("Catégorie mise à jour")
+      toast.success(t("categories.form.updated"))
       router.push("/admin/categories")
-    } catch (error) {
-      toast.error("Erreur lors de la mise à jour")
+    } catch {
+      toast.error(t("categories.form.updateError"))
     }
   }
 
@@ -77,13 +79,13 @@ export default function EditCategoryPage() {
             <ArrowLeft className="w-4 h-4" />
           </Link>
         </Button>
-        <h1 className="text-3xl font-bold tracking-tight">Modifier Catégorie</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t("categories.form.editTitle")}</h1>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>{form.getValues("name")}</CardTitle>
-          <CardDescription>Modifiez les informations de la catégorie.</CardDescription>
+          <CardDescription>{t("categories.form.editDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -93,7 +95,7 @@ export default function EditCategoryPage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Nom de la catégorie</FormLabel>
+                    <FormLabel required>{t("categories.form.name")}</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -107,18 +109,18 @@ export default function EditCategoryPage() {
                 name="parentId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Catégorie Parente</FormLabel>
-                    <Select 
-                      onValueChange={(value) => field.onChange(value === "none" ? null : value)} 
+                    <FormLabel>{t("categories.form.parent")}</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(value === "none" ? null : value)}
                       value={field.value || "none"}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Choisir un parent" />
+                          <SelectValue placeholder={t("categories.form.parentPlaceholder")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="none">Aucune (Racine)</SelectItem>
+                        <SelectItem value="none">{t("categories.form.parentNone")}</SelectItem>
                         {categories.map((cat) => (
                           <SelectItem key={cat.id} value={cat.id}>
                             {cat.name}
@@ -136,7 +138,7 @@ export default function EditCategoryPage() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>{t("common.description")}</FormLabel>
                     <FormControl>
                       <Textarea {...field} />
                     </FormControl>
@@ -151,9 +153,9 @@ export default function EditCategoryPage() {
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-base">Catégorie Active</FormLabel>
+                      <FormLabel className="text-base">{t("categories.form.active")}</FormLabel>
                       <FormDescription>
-                        Désactiver une catégorie la cache du catalogue de vente.
+                        {t("categories.form.activeDescEdit")}
                       </FormDescription>
                     </div>
                     <FormControl>
@@ -168,7 +170,7 @@ export default function EditCategoryPage() {
 
               <div className="flex justify-end gap-4 pt-4">
                 <Button variant="outline" type="button" onClick={() => router.back()}>
-                  Annuler
+                  {t("common.cancel")}
                 </Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>
                   {form.formState.isSubmitting ? (
@@ -176,7 +178,7 @@ export default function EditCategoryPage() {
                   ) : (
                     <Save className="w-4 h-4 mr-2" />
                   )}
-                  Enregistrer les modifications
+                  {t("categories.form.saveChanges")}
                 </Button>
               </div>
             </form>

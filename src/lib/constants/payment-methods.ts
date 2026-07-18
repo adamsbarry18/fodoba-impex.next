@@ -1,4 +1,8 @@
 import type { PaymentMethod } from "@/lib/types"
+import frMessages from "@/i18n/messages/fr.json"
+import { getNestedMessage, nestMessages } from "@/i18n/nest-messages"
+
+const nestedFrMessages = nestMessages(frMessages)
 
 export type PosPaymentMode = "comptant" | "partiel" | "credit" | "fractionne"
 
@@ -6,12 +10,12 @@ export const PAYMENT_METHOD_OPTIONS: {
   id: PaymentMethod
   label: string
 }[] = [
-  { id: "CASH", label: "Espèces" },
-  { id: "ORANGE_MONEY", label: "Orange Money" },
-  { id: "MOBILE_MONEY", label: "Mobile Money" },
-  { id: "CARD", label: "Carte bancaire" },
-  { id: "TRANSFER", label: "Virement" },
-  { id: "OTHER", label: "Autres" },
+  { id: "CASH", label: "payment.cash" },
+  { id: "ORANGE_MONEY", label: "payment.orangeMoney" },
+  { id: "MOBILE_MONEY", label: "payment.mobileMoney" },
+  { id: "CARD", label: "payment.card" },
+  { id: "TRANSFER", label: "payment.transfer" },
+  { id: "OTHER", label: "payment.other" },
 ]
 
 /** Modes standards (comptant, caisse, dépenses). */
@@ -22,8 +26,15 @@ export const POS_FRACTIONAL_METHODS = PAYMENT_METHOD_OPTIONS
 
 export const PAYMENT_METHOD_IDS = PAYMENT_METHOD_OPTIONS.map((m) => m.id)
 
+/** Retourne la clé i18n du mode de paiement (à passer à `t()`). */
 export function getPaymentMethodLabel(method: string): string {
   return PAYMENT_METHOD_OPTIONS.find((m) => m.id === method)?.label ?? method
+}
+
+/** Libellé FR pour exports PDF (hors composants React). */
+export function getPaymentMethodLabelFr(method: string): string {
+  const key = getPaymentMethodLabel(method)
+  return getNestedMessage(nestedFrMessages, key) ?? method
 }
 
 export const EMPTY_PAYMENT_AMOUNTS = (): Record<PaymentMethod, string> => ({

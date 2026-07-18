@@ -49,21 +49,33 @@ import { applyReturnSelection } from "@/hooks/use-return-selection"
 import { ENTITY_ROUTES } from "@/lib/navigation/return-to"
 import { BarcodeScanField } from "@/components/barcode/barcode-scan-field"
 import { StatusBadge } from "@/components/ui/status-badge"
-import { cn } from "@/lib/utils"
+import { useT } from "@/i18n/context"
 
-const TransferFormSchema = z.object({
-  productId: z.string().min(1, "Sélectionnez un produit"),
-  destinationStoreId: z.string().min(1, "Sélectionnez une boutique destination"),
-  quantity: z.coerce.number().min(1, "Quantité minimale : 1"),
-  reason: z.string().optional(),
-})
-
-type TransferFormValues = z.infer<typeof TransferFormSchema>
+type TransferFormValues = {
+  productId: string
+  destinationStoreId: string
+  quantity: number
+  reason?: string
+}
 
 export default function NewTransferPage() {
   const router = useRouter()
   const { activeStore } = useStore()
   const { userProfile } = useAuth()
+  const t = useT()
+
+  const transferFormSchema = useMemo(
+    () =>
+      z.object({
+        productId: z.string().min(1, t("stockTransfer.validation.productRequired")),
+        destinationStoreId: z
+          .string()
+          .min(1, t("stockTransfer.validation.destinationRequired")),
+        quantity: z.coerce.number().min(1, t("stockTransfer.validation.quantityMin")),
+        reason: z.string().optional(),
+      }),
+    [t]
+  )
 
   const [products, setProducts] = useState<Product[]>([])
   const [stores, setStores] = useState<Store[]>([])
@@ -74,7 +86,7 @@ export default function NewTransferPage() {
   const [loadingStock, setLoadingStock] = useState(false)
 
   const form = useForm<TransferFormValues>({
-    resolver: zodResolver(TransferFormSchema),
+    resolver: zodResolver(transferFormSchema),
     defaultValues: {
       productId: "",
       destinationStoreId: "",
@@ -112,7 +124,8 @@ export default function NewTransferPage() {
           ENTITY_ROUTES.product.param,
           (id) => form.setValue("productId", id),
           {
-            successMessage: ENTITY_ROUTES.product.createdMessage,
+            successMessage: t(ENTITY_ROUTES.product.createdMessageKey),
+            errorMessage: t("hooks.returnSelectionError"),
             reload: async () => {
               const result = await ProductService.listProducts()
               setProducts(result.products)
@@ -120,7 +133,7 @@ export default function NewTransferPage() {
           }
         )
       } catch {
-        if (!cancelled) toast.error("Erreur de chargement des données")
+        if (!cancelled) toast.error(t("stockTransfer.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -130,7 +143,7 @@ export default function NewTransferPage() {
     return () => {
       cancelled = true
     }
-  }, [form])
+  }, [form, t])
 
   useEffect(() => {
     if (!productId || !activeStore) {
@@ -155,7 +168,7 @@ export default function NewTransferPage() {
           setDestStock(null)
         }
       } catch {
-        if (!cancelled) toast.error("Erreur de lecture du stock")
+        if (!cancelled) toast.error(t("stockTransfer.stockError"))
       } finally {
         if (!cancelled) setLoadingStock(false)
       }
@@ -165,20 +178,20 @@ export default function NewTransferPage() {
     return () => {
       cancelled = true
     }
-  }, [productId, destinationStoreId, activeStore?.id])
+  }, [productId, destinationStoreId, activeStore?.id, t])
 
   const handleProductScan = async (code: string) => {
     setScanProcessing(true)
     try {
       const product = await ProductService.findProductByCode(code)
       if (!product) {
-        toast.error(`Produit introuvable : ${code}`)
+        toast.error(t("stockTransfer.productNotFound", { code }))
         return
       }
       form.setValue("productId", product.id)
-      toast.success(`${product.name} sélectionné`)
+      toast.success(t("stockTransfer.productSelected", { name: product.name }))
     } catch {
-      toast.error("Erreur lors du scan")
+      toast.error(t("stockTransfer.scanError"))
     } finally {
       setScanProcessing(false)
     }
@@ -189,7 +202,7 @@ export default function NewTransferPage() {
 
     if (values.quantity > sourceStock) {
       form.setError("quantity", {
-        message: `Stock insuffisant. Disponible : ${sourceStock}`,
+        message: t("stockTransfer.insufficientStock", { stock: sourceStock }),
       })
       return
     }
@@ -203,11 +216,11 @@ export default function NewTransferPage() {
         user: userProfile,
         reason: values.reason,
       })
-      toast.success("Transfert effectué avec succès")
+      toast.success(t("stockTransfer.transferSuccess"))
       router.push("/inventory/history")
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "Erreur lors du transfert"
+        error instanceof Error ? error.message : t("stockTransfer.transferError")
       toast.error(message)
     }
   }
@@ -224,7 +237,7 @@ export default function NewTransferPage() {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
         <ArrowRightLeft className="h-10 w-10 opacity-30" />
-        <p>Sélectionnez une boutique source pour initier un transfert.</p>
+        <p>{t("stockTransfer.selectStore")}</p>
       </div>
     )
   }
@@ -244,10 +257,14 @@ export default function NewTransferPage() {
             <ArrowRightLeft className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Nouveau transfert</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("stockTransfer.title")}</h1>
             <p className="text-sm text-muted-foreground">
-              Déplacement de stock depuis{" "}
-              <strong className="text-foreground">{activeStore.name}</strong>
+              {t.rich("stockTransfer.subtitleFrom", {
+                store: activeStore.name,
+                strong: (chunks) => (
+                  <strong className="text-foreground">{chunks}</strong>
+                ),
+              })}
             </p>
           </div>
         </div>
@@ -261,10 +278,10 @@ export default function NewTransferPage() {
                 <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Package className="h-4 w-4 text-primary" />
-                    Article à transférer
+                    {t("stockTransfer.productCardTitle")}
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Sélectionnez le produit ou scannez son code-barres.
+                    {t("stockTransfer.productCardDesc")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 p-4 sm:p-6">
@@ -273,12 +290,14 @@ export default function NewTransferPage() {
                     name="productId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Produit</FormLabel>
+                        <FormLabel required>{t("stockTransfer.product")}</FormLabel>
                         <FieldWithAdd entity="product" returnTo="/inventory/transfers/new">
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger className="h-10 rounded-xl">
-                                <SelectValue placeholder="Sélectionner un article" />
+                                <SelectValue
+                                  placeholder={t("stockTransfer.selectProductPlaceholder")}
+                                />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent className="rounded-xl max-h-64">
@@ -298,7 +317,7 @@ export default function NewTransferPage() {
                   <BarcodeScanField
                     onScan={handleProductScan}
                     processing={scanProcessing}
-                    placeholder="Scanner code-barres ou SKU [F2]…"
+                    placeholder={t("stockTransfer.scanPlaceholderSku")}
                     inputClassName="rounded-xl"
                   />
                 </CardContent>
@@ -308,10 +327,10 @@ export default function NewTransferPage() {
                 <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <StoreIcon className="h-4 w-4 text-primary" />
-                    Destination & quantité
+                    {t("stockTransfer.destinationCardTitle")}
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Boutique réceptrice et volume à déplacer.
+                    {t("stockTransfer.destinationCardDesc")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 p-4 sm:p-6">
@@ -321,11 +340,11 @@ export default function NewTransferPage() {
                       name="destinationStoreId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel required>Boutique destination</FormLabel>
+                          <FormLabel required>{t("stockTransfer.destinationStore")}</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger className="h-10 rounded-xl">
-                                <SelectValue placeholder="Choisir destination" />
+                                <SelectValue placeholder={t("stockTransfer.selectDestination")} />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent className="rounded-xl">
@@ -346,7 +365,7 @@ export default function NewTransferPage() {
                       name="quantity"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel required>Quantité à envoyer</FormLabel>
+                          <FormLabel required>{t("stockTransfer.quantityToSend")}</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
@@ -359,7 +378,7 @@ export default function NewTransferPage() {
                           </FormControl>
                           {selectedProduct && (
                             <FormDescription className="text-[11px]">
-                              Unité : {selectedProduct.unit}
+                              {t("stockTransfer.unitLabel", { unit: selectedProduct.unit })}
                             </FormDescription>
                           )}
                           <FormMessage />
@@ -373,10 +392,10 @@ export default function NewTransferPage() {
                     name="reason"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Motif (optionnel)</FormLabel>
+                        <FormLabel>{t("stockTransfer.reasonOptional")}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Ex. Réapprovisionnement urgent, commande client…"
+                            placeholder={t("stockTransfer.reasonPlaceholder")}
                             className="h-10 rounded-xl"
                             {...field}
                           />
@@ -392,13 +411,13 @@ export default function NewTransferPage() {
             <div className="space-y-4">
               <Card className="sticky top-4 overflow-hidden rounded-2xl border bg-card shadow-sm">
                 <CardHeader className="border-b bg-muted/20 p-4">
-                  <CardTitle className="text-sm font-bold">Récapitulatif</CardTitle>
+                  <CardTitle className="text-sm font-bold">{t("stockTransfer.summary")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 p-4">
                   <div className="flex items-center justify-between gap-2 rounded-xl border bg-muted/20 p-3">
                     <div className="min-w-0">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Source
+                        {t("stockTransfer.source")}
                       </p>
                       <p className="truncate text-sm font-semibold">{activeStore.name}</p>
                       <p className="text-[10px] text-muted-foreground">{activeStore.code}</p>
@@ -406,7 +425,7 @@ export default function NewTransferPage() {
                     <ArrowRightLeft className="h-4 w-4 shrink-0 text-primary" />
                     <div className="min-w-0 text-right">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Destination
+                        {t("stockTransfer.destination")}
                       </p>
                       <p className="truncate text-sm font-semibold">
                         {destinationStore?.name ?? "-"}
@@ -426,7 +445,9 @@ export default function NewTransferPage() {
 
                       <div className="grid grid-cols-2 gap-2">
                         <div className="rounded-lg bg-rose-50 p-2 dark:bg-rose-950/30">
-                          <p className="text-[10px] text-muted-foreground">Stock source</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {t("stockTransfer.sourceStock")}
+                          </p>
                           <p className="font-headline text-lg font-bold">
                             {loadingStock ? "…" : sourceStock}
                           </p>
@@ -435,14 +456,16 @@ export default function NewTransferPage() {
                           </p>
                         </div>
                         <div className="rounded-lg bg-emerald-50 p-2 dark:bg-emerald-950/30">
-                          <p className="text-[10px] text-muted-foreground">Stock destination</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {t("stockTransfer.destStock")}
+                          </p>
                           <p className="font-headline text-lg font-bold">
                             {loadingStock || destStock === null
                               ? "…"
                               : destStock + (quantity > 0 ? quantity : 0)}
                           </p>
                           <p className="text-[10px] text-muted-foreground">
-                            après transfert
+                            {t("stockTransfer.afterTransfer")}
                           </p>
                         </div>
                       </div>
@@ -452,30 +475,29 @@ export default function NewTransferPage() {
                           tone={stockInsufficient ? "destructive" : "info"}
                           className="w-full justify-center text-[10px]"
                         >
-                          −{quantity} {selectedProduct.unit} → +{quantity}{" "}
-                          {selectedProduct.unit}
+                          {t("stockTransfer.transferDelta", {
+                            quantity,
+                            unit: selectedProduct.unit,
+                          })}
                         </StatusBadge>
                       )}
                     </div>
                   ) : (
                     <p className="text-center text-xs text-muted-foreground py-4">
-                      Sélectionnez un produit pour voir les stocks.
+                      {t("stockTransfer.selectProductHint")}
                     </p>
                   )}
 
                   {stockInsufficient && (
                     <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                      Stock source insuffisant pour cette quantité.
+                      {t("stockTransfer.insufficientStockWarning")}
                     </div>
                   )}
 
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
                     <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <p>
-                      Opération irréversible. Le stock source est débité et la destination
-                      créditée immédiatement.
-                    </p>
+                    <p>{t("stockTransfer.irreversibleNote")}</p>
                   </div>
 
                   <Button
@@ -494,7 +516,7 @@ export default function NewTransferPage() {
                     ) : (
                       <Save className="mr-2 h-4 w-4" />
                     )}
-                    Confirmer le transfert
+                    {t("stockTransfer.confirmTransfer")}
                   </Button>
 
                   <Button
@@ -504,7 +526,7 @@ export default function NewTransferPage() {
                   >
                     <Link href="/inventory/history">
                       <History className="mr-2 h-4 w-4" />
-                      Voir l&apos;historique
+                      {t("stockTransfer.viewHistory")}
                     </Link>
                   </Button>
                 </CardContent>

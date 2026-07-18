@@ -42,6 +42,7 @@ import {
   formatNotificationTime,
   type NotificationTab,
 } from "@/lib/notification-utils"
+import { useT } from "@/i18n/context"
 
 interface NotificationPanelProps {
   open: boolean
@@ -49,6 +50,7 @@ interface NotificationPanelProps {
 }
 
 export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps) {
+  const t = useT()
   const { activeStore } = useStore()
   const {
     notifications,
@@ -70,9 +72,9 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
     setMarkingAll(true)
     try {
       await markAllAsRead()
-      toast.success("Toutes les notifications ont été marquées comme lues.")
+      toast.success(t("notifications.markAllSuccess"))
     } catch {
-      toast.error("Impossible de marquer les notifications comme lues.")
+      toast.error(t("notifications.markAllError"))
     } finally {
       setMarkingAll(false)
     }
@@ -82,9 +84,9 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
     setClearing(true)
     try {
       await clearAll()
-      toast.success("Historique des notifications effacé.")
+      toast.success(t("notifications.clearSuccess"))
     } catch {
-      toast.error("Impossible d'effacer l'historique.")
+      toast.error(t("notifications.clearError"))
     } finally {
       setClearing(false)
     }
@@ -101,18 +103,18 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
               </div>
               <div className="space-y-0.5 text-left">
                 <SheetTitle className="text-lg font-bold tracking-tight">
-                  Notifications
+                  {t("notifications.title")}
                 </SheetTitle>
                 <SheetDescription className="text-xs">
                   {activeStore?.name
-                    ? `Activité récente - ${activeStore.name}`
-                    : "Activité récente de la boutique"}
+                    ? t("notifications.subtitleWithStore", { store: activeStore.name })
+                    : t("notifications.subtitle")}
                 </SheetDescription>
               </div>
             </div>
             {unreadCount > 0 && (
               <StatusBadge tone="primary-soft" className="shrink-0 text-[10px]">
-                {unreadCount} non lue{unreadCount > 1 ? "s" : ""}
+                {t("notifications.unread", { count: unreadCount })}
               </StatusBadge>
             )}
           </div>
@@ -132,7 +134,7 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
                   ) : (
                     <CheckCheck className="mr-1.5 h-3.5 w-3.5" />
                   )}
-                  Tout marquer lu
+                  {t("notifications.markAllRead")}
                 </Button>
               )}
               {notifications.length > 0 && (
@@ -144,20 +146,20 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
                       className="h-8 rounded-lg text-xs font-semibold text-muted-foreground hover:text-destructive"
                     >
                       <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                      Tout effacer
+                      {t("notifications.clearAll")}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent className="rounded-2xl">
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Effacer l&apos;historique ?</AlertDialogTitle>
+                      <AlertDialogTitle>{t("notifications.clearTitle")}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Cette action supprime définitivement les {notifications.length}{" "}
-                        notification{notifications.length > 1 ? "s" : ""} affichées. Elle est
-                        irréversible.
+                        {t("notifications.clearDesc", { count: notifications.length })}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel className="rounded-xl">Annuler</AlertDialogCancel>
+                      <AlertDialogCancel className="rounded-xl">
+                        {t("common.cancel")}
+                      </AlertDialogCancel>
                       <AlertDialogAction
                         className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         disabled={clearing}
@@ -168,7 +170,7 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
                         ) : (
                           <Trash2 className="mr-2 h-4 w-4" />
                         )}
-                        Effacer
+                        {t("notifications.clearAll")}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -189,7 +191,7 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
                 value="all"
                 className="rounded-lg text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm"
               >
-                Toutes
+                {t("notifications.tabAll")}
                 <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
                   {notifications.length}
                 </span>
@@ -198,7 +200,7 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
                 value="unread"
                 className="rounded-lg text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm"
               >
-                Non lues
+                {t("notifications.tabUnread")}
                 {unreadCount > 0 && (
                   <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
                     {unreadCount}
@@ -233,6 +235,7 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
 }
 
 function NotificationEmptyState({ tab }: { tab: NotificationTab }) {
+  const t = useT()
   const isUnreadTab = tab === "unread"
 
   return (
@@ -245,12 +248,10 @@ function NotificationEmptyState({ tab }: { tab: NotificationTab }) {
         )}
       </div>
       <p className="text-sm font-semibold text-foreground">
-        {isUnreadTab ? "Aucune notification non lue" : "Aucune notification"}
+        {isUnreadTab ? t("notifications.emptyUnread") : t("notifications.emptyAll")}
       </p>
       <p className="mt-1 max-w-[240px] text-xs text-muted-foreground">
-        {isUnreadTab
-          ? "Vous êtes à jour. Les nouvelles alertes apparaîtront ici."
-          : "Les alertes stock, ventes et achats s'afficheront dans cet historique."}
+        {isUnreadTab ? t("notifications.emptyUnreadDesc") : t("notifications.emptyAllDesc")}
       </p>
     </div>
   )
@@ -265,6 +266,7 @@ function NotificationItem({
   onMarkAsRead: (id: string) => Promise<void>
   onDelete: (id: string) => Promise<void>
 }) {
+  const t = useT()
   const [deleting, setDeleting] = useState(false)
   const meta = NOTIFICATION_TYPE_META[notification.type] ?? NOTIFICATION_TYPE_META.INFO
   const Icon = meta.Icon
@@ -280,9 +282,9 @@ function NotificationItem({
     setDeleting(true)
     try {
       await onDelete(notification.id)
-      toast.success("Notification supprimée.")
+      toast.success(t("notifications.deleted"))
     } catch {
-      toast.error("Impossible de supprimer la notification.")
+      toast.error(t("notifications.deleteError"))
     } finally {
       setDeleting(false)
     }
@@ -344,7 +346,7 @@ function NotificationItem({
 
       <button
         type="button"
-        aria-label="Supprimer la notification"
+        aria-label={t("notifications.deleteAria")}
         disabled={deleting}
         className={cn(
           "absolute right-3 top-3 rounded-lg p-1.5 text-muted-foreground/40 transition-all",

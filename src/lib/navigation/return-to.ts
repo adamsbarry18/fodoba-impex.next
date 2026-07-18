@@ -64,26 +64,26 @@ export const ENTITY_ROUTES = {
   client: {
     create: "/clients/new",
     param: "clientId",
-    label: "Nouveau client",
-    createdMessage: "Client créé et sélectionné",
+    labelKey: "entity.client.new",
+    createdMessageKey: "entity.client.created",
   },
   supplier: {
     create: "/suppliers/new",
     param: "supplierId",
-    label: "Nouveau fournisseur",
-    createdMessage: "Fournisseur créé et sélectionné",
+    labelKey: "entity.supplier.new",
+    createdMessageKey: "entity.supplier.created",
   },
   category: {
     create: "/admin/categories/new",
     param: "categoryId",
-    label: "Nouvelle catégorie",
-    createdMessage: "Catégorie créée et sélectionnée",
+    labelKey: "entity.category.new",
+    createdMessageKey: "entity.category.created",
   },
   product: {
     create: "/inventory/new",
     param: "productId",
-    label: "Nouveau produit",
-    createdMessage: "Produit créé et sélectionné",
+    labelKey: "entity.product.new",
+    createdMessageKey: "entity.product.created",
   },
 } as const
 

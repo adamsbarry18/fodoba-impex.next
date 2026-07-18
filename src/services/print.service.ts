@@ -5,7 +5,8 @@ import QRCode from 'qrcode';
 import { format } from 'date-fns';
 import { Sale, Store, Purchase, StockMovement, Product, CashSession } from '@/lib/types';
 import { formatPdfNumber } from '@/lib/utils';
-import { getPaymentMethodLabel, PAYMENT_METHOD_IDS } from '@/lib/constants/payment-methods';
+import { getPaymentMethodLabelFr, PAYMENT_METHOD_IDS } from '@/lib/constants/payment-methods';
+import { getAppName } from '@/lib/constants/branding';
 
 /**
  * Service pour la génération et l'impression des documents PDF officiels.
@@ -26,7 +27,7 @@ export const PrintService = {
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('FODOBA IMPEX', pageWidth / 2, y, { align: 'center' });
+    doc.text(getAppName(), pageWidth / 2, y, { align: 'center' });
     y += 6;
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
@@ -138,7 +139,7 @@ export const PrintService = {
   async generateTransferNote(movement: StockMovement) {
     const doc = new jsPDF('p', 'mm', 'a4');
     doc.setFontSize(22);
-    doc.text('FODOBA IMPEX - BON DE TRANSFERT', 20, 20);
+    doc.text(`${getAppName()} - BON DE TRANSFERT`, 20, 20);
     
     let y = 40;
     doc.setFontSize(10);
@@ -307,7 +308,7 @@ export const PrintService = {
       body: PAYMENT_METHOD_IDS.map((method) => {
         const t = lineTotals[method];
         return [
-          getPaymentMethodLabel(method),
+          getPaymentMethodLabelFr(method),
           formatPdfNumber(t.expected),
           formatPdfNumber(t.actual),
           t.variance === 0
@@ -341,7 +342,7 @@ export const PrintService = {
       doc.setFontSize(20);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(29, 217, 124);
-      doc.text('FODOBA IMPEX', 20, 25);
+      doc.text(getAppName(), 20, 25);
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
       doc.text('FICHE PRODUIT', 20, 32);
@@ -424,7 +425,7 @@ export const PrintService = {
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(29, 217, 124);
-    doc.text('FODOBA IMPEX', 20, 25);
+    doc.text(getAppName(), 20, 25);
     
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);

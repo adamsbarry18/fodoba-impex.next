@@ -10,6 +10,7 @@ import {
   useBarcodeScannerShortcut,
 } from "@/hooks/use-barcode-scanner"
 import { BarcodeCameraDialog } from "@/components/barcode/barcode-camera-dialog"
+import { useT } from "@/i18n/context"
 
 interface BarcodeScanFieldProps {
   onScan: (code: string) => void | Promise<void>
@@ -25,7 +26,7 @@ interface BarcodeScanFieldProps {
 
 export function BarcodeScanField({
   onScan,
-  placeholder = "Scanner code-barres [F2]…",
+  placeholder,
   className,
   inputClassName,
   disabled = false,
@@ -34,10 +35,14 @@ export function BarcodeScanField({
   enableF2Shortcut = true,
   onFocusHint,
 }: BarcodeScanFieldProps) {
+  const t = useT()
   const inputRef = useRef<HTMLInputElement>(null)
   const [focused, setFocused] = useState(false)
   const [cameraOpen, setCameraOpen] = useState(false)
   const [value, setValue] = useState("")
+
+  const resolvedPlaceholder = placeholder ?? t("barcode.defaultPlaceholder")
+  const cameraLabel = t("barcode.cameraScan")
 
   const handleKeyDown = useBarcodeInputHandler(async (code) => {
     setValue("")
@@ -67,7 +72,7 @@ export function BarcodeScanField({
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
-            placeholder={placeholder}
+            placeholder={resolvedPlaceholder}
             disabled={disabled || processing}
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -90,8 +95,8 @@ export function BarcodeScanField({
             className="h-10 w-10 shrink-0 rounded-xl"
             disabled={disabled || processing}
             onClick={() => setCameraOpen(true)}
-            title="Scanner avec la caméra"
-            aria-label="Scanner avec la caméra"
+            title={cameraLabel}
+            aria-label={cameraLabel}
           >
             {processing ? (
               <Loader2 className="h-4 w-4 animate-spin" />

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2, Camera, AlertTriangle } from "lucide-react"
 import { Html5Qrcode } from "html5-qrcode"
 import { normalizeScanCode } from "@/hooks/use-barcode-scanner"
+import { useT } from "@/i18n/context"
 
 const SCANNER_ID = "barcode-camera-reader"
 
@@ -26,11 +27,14 @@ export function BarcodeCameraDialog({
   open,
   onOpenChange,
   onScan,
-  title = "Scanner avec la caméra",
+  title,
 }: BarcodeCameraDialogProps) {
+  const t = useT()
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const resolvedTitle = title ?? t("barcode.cameraTitle")
 
   useEffect(() => {
     if (!open) return
@@ -65,9 +69,7 @@ export function BarcodeCameraDialog({
       } catch (err) {
         if (!cancelled) {
           setError(
-            err instanceof Error
-              ? err.message
-              : "Impossible d'accéder à la caméra. Vérifiez les permissions."
+            err instanceof Error ? err.message : t("barcode.cameraAccessError")
           )
         }
       } finally {
@@ -84,7 +86,7 @@ export function BarcodeCameraDialog({
       }
       scannerRef.current = null
     }
-  }, [open, onOpenChange, onScan])
+  }, [open, onOpenChange, onScan, t])
 
   const handleClose = async () => {
     if (scannerRef.current?.isScanning) {
@@ -100,10 +102,10 @@ export function BarcodeCameraDialog({
         <DialogHeader className="border-b bg-muted/30 p-4">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Camera className="h-4 w-4" />
-            {title}
+            {resolvedTitle}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Pointez la caméra vers le code-barres ou le QR code du produit.
+            {t("barcode.cameraDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -125,7 +127,7 @@ export function BarcodeCameraDialog({
 
         <div className="border-t bg-muted/20 p-4">
           <Button variant="outline" className="w-full rounded-xl" onClick={handleClose}>
-            Fermer
+            {t("common.close")}
           </Button>
         </div>
       </DialogContent>

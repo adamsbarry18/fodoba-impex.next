@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -38,12 +38,9 @@ import {
   CheckCircle2,
 } from "lucide-react"
 import { toast } from "sonner"
-import { useState } from "react"
-import {
-  getRoleMeta,
-  getUserDisplayName,
-} from "@/lib/user-utils"
+import { getUserDisplayName } from "@/lib/user-utils"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n/context"
 
 const ProfileFormSchema = UserProfileSchema.pick({
   prenom: true,
@@ -51,21 +48,15 @@ const ProfileFormSchema = UserProfileSchema.pick({
   phone: true,
 })
 
-const PasswordFormSchema = z
-  .object({
-    current: z.string().min(1, "Le mot de passe actuel est requis"),
-    new: z.string().min(6, "Minimum 6 caractères"),
-    confirm: z.string().min(6, "Confirmez le nouveau mot de passe"),
-  })
-  .refine((data) => data.new === data.confirm, {
-    message: "La confirmation ne correspond pas",
-    path: ["confirm"],
-  })
-
 type ProfileFormValues = z.infer<typeof ProfileFormSchema>
-type PasswordFormValues = z.infer<typeof PasswordFormSchema>
+type PasswordFormValues = {
+  current: string
+  new: string
+  confirm: string
+}
 
 export default function ProfilePage() {
+  const t = useT()
   const { userProfile, loading: authLoading, refreshProfile, isAdmin } = useAuth()
   const { activeStore, availableStores } = useStore()
 
@@ -75,13 +66,28 @@ export default function ProfilePage() {
     confirm: false,
   })
 
+  const passwordFormSchema = useMemo(
+    () =>
+      z
+        .object({
+          current: z.string().min(1, t("profile.validation.currentRequired")),
+          new: z.string().min(6, t("profile.minChars")),
+          confirm: z.string().min(6, t("profile.confirmPassword")),
+        })
+        .refine((data) => data.new === data.confirm, {
+          message: t("profile.validation.confirmMismatch"),
+          path: ["confirm"],
+        }),
+    [t]
+  )
+
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(ProfileFormSchema),
     defaultValues: { prenom: "", nom: "", phone: "" },
   })
 
   const passwordForm = useForm<PasswordFormValues>({
-    resolver: zodResolver(PasswordFormSchema),
+    resolver: zodResolver(passwordFormSchema),
     defaultValues: { current: "", new: "", confirm: "" },
   })
 
@@ -100,10 +106,10 @@ export default function ProfilePage() {
     try {
       await UserService.updateOwnProfile(userProfile.uid, values)
       await refreshProfile()
-      toast.success("Profil mis à jour avec succès")
+      toast.success(t("profile.updateSuccess"))
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "Erreur lors de la mise à jour"
+        error instanceof Error ? error.message : t("profile.updateError")
       toast.error(message)
     }
   }
@@ -111,11 +117,11 @@ export default function ProfilePage() {
   const onUpdatePassword = async (values: PasswordFormValues) => {
     try {
       await AuthService.changePassword(values.current, values.new)
-      toast.success("Mot de passe mis à jour avec succès")
+      toast.success(t("profile.passwordSuccess"))
       passwordForm.reset()
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "Erreur lors du changement de mot de passe"
+        error instanceof Error ? error.message : t("profile.passwordError")
       toast.error(message)
     }
   }
@@ -130,24 +136,20 @@ export default function ProfilePage() {
 
   if (!userProfile) return null
 
-  const roleMeta = getRoleMeta(userProfile.role)
+  const roleDescription = t(`profile.roleDesc.${userProfile.role}` as "profile.roleDesc.admin")
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 pb-8">
-      {/* En-tête */}
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
           <UserCircle className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Mon profil</h1>
-          <p className="text-sm text-muted-foreground">
-            Informations personnelles et sécurité de votre compte.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("profile.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("profile.subtitle")}</p>
         </div>
       </div>
 
-      {/* Carte identité */}
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <CardContent className="p-4 sm:p-6">
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
@@ -182,26 +184,23 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* Boutiques */}
       <Card className="rounded-2xl border bg-card shadow-sm">
         <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
           <CardTitle className="flex items-center gap-2 text-base">
             <Building2 className="h-4 w-4 text-primary" />
-            Boutiques & contexte de travail
+            {t("profile.storesTitle")}
           </CardTitle>
-          <CardDescription className="text-xs">
-            {roleMeta.description}
-          </CardDescription>
+          <CardDescription className="text-xs">{roleDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 p-4 sm:p-6">
           <div className="rounded-xl border bg-primary/5 p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Boutique active
+              {t("profile.activeStore")}
             </p>
             <div className="mt-2 flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-primary" />
               <p className="font-semibold">
-                {activeStore?.name ?? "Aucune boutique sélectionnée"}
+                {activeStore?.name ?? t("profile.noStoreSelected")}
               </p>
               {activeStore && (
                 <StatusBadge hashFromLabel className="font-mono text-[9px]">
@@ -210,18 +209,18 @@ export default function ProfilePage() {
               )}
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              Changez de magasin via le sélecteur en haut de l&apos;écran.
+              {t("profile.changeStoreHint")}
             </p>
           </div>
 
           <div>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              {isAdmin ? "Boutiques du réseau" : "Boutiques autorisées"} (
+              {isAdmin ? t("profile.networkStores") : t("profile.authorizedStores")} (
               {availableStores.length})
             </p>
             {availableStores.length === 0 ? (
               <p className="text-sm italic text-muted-foreground">
-                Aucune boutique assignée.
+                {t("profile.noStoreAssigned")}
               </p>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -244,13 +243,10 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* Informations personnelles */}
       <Card className="rounded-2xl border bg-card shadow-sm">
         <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-          <CardTitle className="text-base">Informations personnelles</CardTitle>
-          <CardDescription className="text-xs">
-            Modifiables à tout moment. L&apos;email et le rôle sont gérés par un administrateur.
-          </CardDescription>
+          <CardTitle className="text-base">{t("profile.personalInfoTitle")}</CardTitle>
+          <CardDescription className="text-xs">{t("profile.personalInfoDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
           <Form {...profileForm}>
@@ -264,7 +260,7 @@ export default function ProfilePage() {
                   name="prenom"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Prénom</FormLabel>
+                      <FormLabel required>{t("profile.firstName")}</FormLabel>
                       <FormControl>
                         <Input className="h-10 rounded-xl" {...field} />
                       </FormControl>
@@ -277,7 +273,7 @@ export default function ProfilePage() {
                   name="nom"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Nom</FormLabel>
+                      <FormLabel required>{t("profile.lastName")}</FormLabel>
                       <FormControl>
                         <Input className="h-10 rounded-xl" {...field} />
                       </FormControl>
@@ -292,7 +288,7 @@ export default function ProfilePage() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Téléphone</FormLabel>
+                    <FormLabel>{t("profile.phone")}</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -317,7 +313,7 @@ export default function ProfilePage() {
                   {profileForm.formState.isSubmitting && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  Enregistrer les modifications
+                  {t("profile.saveChanges")}
                 </Button>
               </div>
             </form>
@@ -325,16 +321,13 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* Mot de passe */}
       <Card className="rounded-2xl border bg-card shadow-sm">
         <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
           <CardTitle className="flex items-center gap-2 text-base">
             <Key className="h-4 w-4 text-primary" />
-            Sécurité - mot de passe
+            {t("profile.securityTitle")}
           </CardTitle>
-          <CardDescription className="text-xs">
-            Votre mot de passe actuel est requis avant toute modification.
-          </CardDescription>
+          <CardDescription className="text-xs">{t("profile.securityDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
           <Form {...passwordForm}>
@@ -344,9 +337,9 @@ export default function ProfilePage() {
             >
               {(["current", "new", "confirm"] as const).map((fieldName) => {
                 const labels = {
-                  current: "Mot de passe actuel",
-                  new: "Nouveau mot de passe",
-                  confirm: "Confirmer le nouveau mot de passe",
+                  current: t("profile.currentPassword"),
+                  new: t("profile.newPassword"),
+                  confirm: t("profile.confirmPassword"),
                 }
                 return (
                   <FormField
@@ -374,8 +367,8 @@ export default function ProfilePage() {
                               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                               aria-label={
                                 showPass[fieldName]
-                                  ? "Masquer le mot de passe"
-                                  : "Afficher le mot de passe"
+                                  ? t("profile.hidePassword")
+                                  : t("profile.showPassword")
                               }
                             >
                               {showPass[fieldName] ? (
@@ -388,7 +381,7 @@ export default function ProfilePage() {
                         </FormControl>
                         {fieldName === "new" && (
                           <FormDescription className="text-[11px]">
-                            Minimum 6 caractères.
+                            {t("profile.minChars")}
                           </FormDescription>
                         )}
                         <FormMessage />
@@ -408,7 +401,7 @@ export default function ProfilePage() {
                 ) : (
                   <Key className="mr-2 h-4 w-4" />
                 )}
-                Mettre à jour le mot de passe
+                {t("profile.updatePassword")}
               </Button>
             </form>
           </Form>

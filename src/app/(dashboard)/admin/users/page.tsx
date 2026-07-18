@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
@@ -59,12 +58,21 @@ import {
   ROLE_ORDER,
 } from "@/lib/user-utils"
 import { cn } from "@/lib/utils"
-import { useTableColumns } from "@/hooks/use-table-columns"
+import { useTranslatedTableColumns } from "@/hooks/use-translated-table-columns"
 import { TableColumnToggle } from "@/components/ui/table-column-toggle"
 import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { USER_TABLE_COLUMNS } from "@/lib/table-column-presets"
+import { useT } from "@/i18n/context"
 
 const PAGE_SIZE = 50
+
+const USER_COLUMN_LABEL_KEYS: Record<string, string> = {
+  user: "users.colUser",
+  role: "users.colRole",
+  stores: "users.colStores",
+  status: "users.colStatus",
+  actions: "users.colActions",
+}
 
 type ToggleTarget = {
   uid: string
@@ -73,6 +81,8 @@ type ToggleTarget = {
 }
 
 export default function UsersAdminPage() {
+  const t = useT()
+
   const [users, setUsers] = useState<UserProfile[]>([])
   const [stores, setStores] = useState<Store[]>([])
   const [loading, setLoading] = useState(true)
@@ -115,7 +125,7 @@ export default function UsersAdminPage() {
       setLastDoc(usersResult.lastVisible)
       setHasMore(usersResult.users.length === PAGE_SIZE)
     } catch {
-      toast.error("Erreur lors du chargement des collaborateurs")
+      toast.error(t("users.errorLoading"))
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -138,7 +148,7 @@ export default function UsersAdminPage() {
         setLastDoc(usersResult.lastVisible)
         setHasMore(usersResult.users.length === PAGE_SIZE)
       } catch {
-        if (!cancelled) toast.error("Erreur lors du chargement des collaborateurs")
+        if (!cancelled) toast.error(t("users.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -148,7 +158,7 @@ export default function UsersAdminPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   const filteredUsers = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
@@ -177,7 +187,12 @@ export default function UsersAdminPage() {
   )
 
   const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
-    useTableColumns("users", USER_TABLE_COLUMNS)
+    useTranslatedTableColumns("users", USER_TABLE_COLUMNS, USER_COLUMN_LABEL_KEYS)
+
+  const listDescription =
+    searchTerm || roleFilter !== "all" || statusFilter !== "all"
+      ? t("users.listDescription", { filtered: filteredUsers.length, total: users.length })
+      : t("users.listDescriptionNoFilter", { filtered: filteredUsers.length, total: users.length })
 
   const handleRefresh = async () => {
     setLastDoc(undefined)
@@ -188,7 +203,7 @@ export default function UsersAdminPage() {
   const confirmToggleStatus = async () => {
     if (!toggleTarget) return
     if (toggleTarget.uid === currentUser?.uid) {
-      toast.error("Vous ne pouvez pas suspendre votre propre compte.")
+      toast.error(t("users.cannotSuspendSelf"))
       setToggleTarget(null)
       return
     }
@@ -198,13 +213,13 @@ export default function UsersAdminPage() {
       await UserService.toggleUserStatus(toggleTarget.uid, !toggleTarget.actif)
       toast.success(
         toggleTarget.actif
-          ? `${toggleTarget.name} a été suspendu`
-          : `${toggleTarget.name} a été réactivé`
+          ? t("users.suspended", { name: toggleTarget.name })
+          : t("users.reactivated", { name: toggleTarget.name })
       )
       setToggleTarget(null)
       await loadData({ reset: true })
     } catch {
-      toast.error("Erreur lors du changement de statut")
+      toast.error(t("users.statusError"))
     } finally {
       setToggling(false)
     }
@@ -212,17 +227,14 @@ export default function UsersAdminPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      {/* En-tête */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
             <Shield className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Contrôle d&apos;accès</h1>
-            <p className="text-sm text-muted-foreground">
-              Comptes collaborateurs, rôles et accès aux boutiques du réseau.
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight">{t("users.title")}</h1>
+            <p className="text-sm text-muted-foreground">{t("users.subtitle")}</p>
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -233,18 +245,17 @@ export default function UsersAdminPage() {
             disabled={loading}
           >
             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            Actualiser
+            {t("users.refresh")}
           </Button>
           <Button asChild className="rounded-xl font-semibold">
             <Link href="/admin/users/new">
               <UserPlus className="mr-2 h-4 w-4" />
-              Nouveau collaborateur
+              {t("users.newUser")}
             </Link>
           </Button>
         </div>
       </div>
 
-      {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card className="rounded-2xl border bg-card shadow-sm">
           <CardContent className="flex items-center gap-4 p-4">
@@ -253,7 +264,7 @@ export default function UsersAdminPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Collaborateurs
+                {t("users.statTotal")}
               </p>
               <p className="text-2xl font-bold">{stats.total}</p>
             </div>
@@ -267,7 +278,7 @@ export default function UsersAdminPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Actifs
+                {t("users.statActive")}
               </p>
               <p className="text-2xl font-bold">{stats.active}</p>
             </div>
@@ -281,7 +292,7 @@ export default function UsersAdminPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Suspendus
+                {t("users.statSuspended")}
               </p>
               <p className="text-2xl font-bold">{stats.suspended}</p>
             </div>
@@ -295,7 +306,7 @@ export default function UsersAdminPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Administrateurs
+                {t("users.statAdmins")}
               </p>
               <p className="text-2xl font-bold">{stats.admins}</p>
             </div>
@@ -303,13 +314,12 @@ export default function UsersAdminPage() {
         </Card>
       </div>
 
-      {/* Filtres */}
       <Card className="rounded-2xl border bg-card shadow-sm">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher par nom, email ou rôle…"
+              placeholder={t("users.searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="h-10 rounded-xl border-border pl-9"
@@ -320,13 +330,13 @@ export default function UsersAdminPage() {
             onValueChange={(v) => setRoleFilter(v as Role | "all")}
           >
             <SelectTrigger className="h-10 w-full rounded-xl sm:w-[180px]">
-              <SelectValue placeholder="Rôle" />
+              <SelectValue placeholder={t("users.filterRole")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Tous les rôles</SelectItem>
+              <SelectItem value="all">{t("users.filterRoleAll")}</SelectItem>
               {ROLE_ORDER.map((role) => (
                 <SelectItem key={role} value={role}>
-                  {getRoleMeta(role).label}
+                  {t(`badges.userRole.${role}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -338,29 +348,22 @@ export default function UsersAdminPage() {
             }
           >
             <SelectTrigger className="h-10 w-full rounded-xl sm:w-[160px]">
-              <SelectValue placeholder="Statut" />
+              <SelectValue placeholder={t("users.filterStatus")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Tous statuts</SelectItem>
-              <SelectItem value="active">Actifs</SelectItem>
-              <SelectItem value="inactive">Suspendus</SelectItem>
+              <SelectItem value="all">{t("users.filterStatusAll")}</SelectItem>
+              <SelectItem value="active">{t("users.filterStatusActive")}</SelectItem>
+              <SelectItem value="inactive">{t("users.filterStatusInactive")}</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
       </Card>
 
-      {/* Liste */}
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 p-4 sm:p-6">
           <div>
-            <CardTitle className="text-base">Liste des collaborateurs</CardTitle>
-            <CardDescription className="text-xs">
-              {filteredUsers.length} collaborateur{filteredUsers.length !== 1 ? "s" : ""}
-              {searchTerm || roleFilter !== "all" || statusFilter !== "all"
-                ? " (filtrés)"
-                : ""}{" "}
-              sur {users.length} chargé{users.length !== 1 ? "s" : ""}
-            </CardDescription>
+            <CardTitle className="text-base">{t("users.listTitle")}</CardTitle>
+            <CardDescription className="text-xs">{listDescription}</CardDescription>
           </div>
           <TableColumnToggle
             columns={tableColumns}
@@ -377,17 +380,17 @@ export default function UsersAdminPage() {
           ) : filteredUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 p-16 text-center text-muted-foreground">
               <UserRound className="h-10 w-10 opacity-30" />
-              <p className="font-medium">Aucun collaborateur trouvé</p>
+              <p className="font-medium">{t("users.noUsersFound")}</p>
               <p className="text-xs">
                 {users.length === 0
-                  ? "Créez le premier compte pour votre équipe."
-                  : "Modifiez vos filtres de recherche."}
+                  ? t("users.noUsersDesc")
+                  : t("users.noUsersFilterDesc")}
               </p>
               {users.length === 0 && (
                 <Button asChild className="mt-2 rounded-xl">
                   <Link href="/admin/users/new">
                     <UserPlus className="mr-2 h-4 w-4" />
-                    Nouveau collaborateur
+                    {t("users.newUser")}
                   </Link>
                 </Button>
               )}
@@ -398,19 +401,19 @@ export default function UsersAdminPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <VisibleTableColumn id="user" isVisible={isVisible}>
-                      <TableHead className="pl-4 sm:pl-6">Collaborateur</TableHead>
+                      <TableHead className="pl-4 sm:pl-6">{t("users.colUser")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="role" isVisible={isVisible}>
-                      <TableHead>Rôle</TableHead>
+                      <TableHead>{t("users.colRole")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="stores" isVisible={isVisible}>
-                      <TableHead>Boutiques</TableHead>
+                      <TableHead>{t("users.colStores")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="status" isVisible={isVisible}>
-                      <TableHead>Statut</TableHead>
+                      <TableHead>{t("users.colStatus")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="actions" isVisible={isVisible}>
-                      <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
+                      <TableHead className="pr-4 text-right sm:pr-6">{t("users.colActions")}</TableHead>
                     </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
@@ -437,7 +440,7 @@ export default function UsersAdminPage() {
                                   {getUserDisplayName(user)}
                                   {isSelf && (
                                     <span className="ml-2 text-[10px] font-normal text-muted-foreground">
-                                      (vous)
+                                      {t("users.you")}
                                     </span>
                                   )}
                                 </p>
@@ -466,7 +469,7 @@ export default function UsersAdminPage() {
                           <TableCell>
                             {user.role === "admin" ? (
                               <StatusBadge tone="slate" className="text-[10px]">
-                                Toutes les boutiques
+                                {t("users.allStores")}
                               </StatusBadge>
                             ) : assignedStores.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
@@ -487,7 +490,7 @@ export default function UsersAdminPage() {
                               </div>
                             ) : (
                               <span className="text-xs italic text-muted-foreground">
-                                Aucune boutique
+                                {t("users.noStoreAssigned")}
                               </span>
                             )}
                           </TableCell>
@@ -498,9 +501,7 @@ export default function UsersAdminPage() {
                               preset="activeState"
                               value={user.actif ? "active" : "inactive"}
                               className="text-[10px]"
-                            >
-                              {user.actif ? "Actif" : "Suspendu"}
-                            </StatusBadge>
+                            />
                           </TableCell>
                         </VisibleTableColumn>
                         <VisibleTableColumn id="actions" isVisible={isVisible}>
@@ -511,7 +512,7 @@ export default function UsersAdminPage() {
                                 size="icon"
                                 asChild
                                 className="h-8 w-8 rounded-lg"
-                                title="Modifier"
+                                title={t("users.edit")}
                               >
                                 <Link href={`/admin/users/${user.uid}/edit`}>
                                   <Edit className="h-4 w-4" />
@@ -533,7 +534,7 @@ export default function UsersAdminPage() {
                                     actif: user.actif,
                                   })
                                 }
-                                title={user.actif ? "Suspendre" : "Réactiver"}
+                                title={user.actif ? t("users.suspend") : t("users.reactivate")}
                                 disabled={isSelf}
                               >
                                 {user.actif ? (
@@ -562,7 +563,7 @@ export default function UsersAdminPage() {
                 className="rounded-xl font-semibold"
               >
                 {loadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Charger plus de collaborateurs
+                {t("users.loadMore")}
               </Button>
             </div>
           )}
@@ -576,17 +577,19 @@ export default function UsersAdminPage() {
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {toggleTarget?.actif ? "Suspendre le compte" : "Réactiver le compte"}
+              {toggleTarget?.actif
+                ? t("users.confirmSuspendTitle")
+                : t("users.confirmReactivateTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {toggleTarget?.actif
-                ? `Le collaborateur ${toggleTarget?.name} ne pourra plus se connecter. Vous pourrez le réactiver à tout moment.`
-                : `Le collaborateur ${toggleTarget?.name} retrouvera l'accès à l'application.`}
+                ? t("users.confirmSuspendDesc", { name: toggleTarget.name })
+                : t("users.confirmReactivateDesc", { name: toggleTarget?.name ?? "" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-xl" disabled={toggling}>
-              Annuler
+              {t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className={cn(
@@ -600,7 +603,7 @@ export default function UsersAdminPage() {
               disabled={toggling}
             >
               {toggling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirmer
+              {t("users.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

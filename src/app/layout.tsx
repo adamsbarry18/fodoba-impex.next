@@ -8,6 +8,8 @@ import { CurrencyProvider } from "@/lib/contexts/CurrencyContext";
 import { NotificationProvider } from "@/lib/contexts/NotificationContext";
 import { AuthLayoutWrapper } from "@/components/auth/auth-layout-wrapper";
 
+import { I18nProvider } from "@/i18n/context";
+
 export const metadata: Metadata = {
   title: 'Fodoba impex',
   description: 'Gestion Commerciale Multi-Boutiques',
@@ -48,18 +50,20 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased selection:bg-accent/30">
-        <AuthProvider>
-          <CurrencyProvider>
-            <StoreProvider>
-              <NotificationProvider>
-                <AuthLayoutWrapper>
-                  {children}
-                </AuthLayoutWrapper>
-                <Toaster position="top-right" richColors closeButton />
-              </NotificationProvider>
-            </StoreProvider>
-          </CurrencyProvider>
-        </AuthProvider>
+        <I18nProvider>
+          <AuthProvider>
+            <CurrencyProvider>
+              <StoreProvider>
+                <NotificationProvider>
+                  <AuthLayoutWrapper>
+                    {children}
+                  </AuthLayoutWrapper>
+                  <Toaster position="top-right" richColors closeButton />
+                </NotificationProvider>
+              </StoreProvider>
+            </CurrencyProvider>
+          </AuthProvider>
+        </I18nProvider>
       </body>
     </html>
   );

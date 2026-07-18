@@ -49,16 +49,27 @@ import {
 import { cn } from "@/lib/utils"
 import { useClientPagination } from "@/hooks/use-client-pagination"
 import { TablePagination } from "@/components/ui/table-pagination"
-import { useTableColumns } from "@/hooks/use-table-columns"
+import { useTranslatedTableColumns } from "@/hooks/use-translated-table-columns"
 import { TableColumnToggle } from "@/components/ui/table-column-toggle"
 import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { TableListToolbar } from "@/components/ui/table-list-toolbar"
 import { SUPPLIER_TABLE_COLUMNS } from "@/lib/table-column-presets"
+import { useT } from "@/i18n/context"
+
+const SUPPLIER_COLUMN_LABEL_KEYS: Record<string, string> = {
+  supplier: "suppliers.colSupplier",
+  location: "suppliers.colLocation",
+  type: "suppliers.colType",
+  currency: "suppliers.colCurrency",
+  debt: "suppliers.colDebt",
+  actions: "suppliers.colActions",
+}
 
 const PAGE_SIZE = 50
 
 export default function SuppliersPage() {
   const { formatAmount } = useCurrency()
+  const t = useT()
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -72,7 +83,7 @@ export default function SuppliersPage() {
       const data = await SupplierService.listSuppliers()
       setSuppliers(data)
     } catch {
-      toast.error("Erreur de chargement des fournisseurs")
+      toast.error(t("suppliers.errorLoading"))
     } finally {
       setLoading(false)
     }
@@ -89,7 +100,7 @@ export default function SuppliersPage() {
           setSuppliers(data)
         }
       } catch {
-        if (!cancelled) toast.error("Erreur de chargement des fournisseurs")
+        if (!cancelled) toast.error(t("suppliers.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -124,7 +135,7 @@ export default function SuppliersPage() {
   } = useClientPagination(filteredSuppliers, { pageSize: PAGE_SIZE, resetKey: filterKey })
 
   const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
-    useTableColumns("suppliers", SUPPLIER_TABLE_COLUMNS)
+    useTranslatedTableColumns("suppliers", SUPPLIER_TABLE_COLUMNS, SUPPLIER_COLUMN_LABEL_KEYS)
 
   const stats = useMemo(
     () => ({
@@ -144,9 +155,9 @@ export default function SuppliersPage() {
             <Truck className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Gestion des fournisseurs</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("suppliers.title")}</h1>
             <p className="text-sm text-muted-foreground">
-              Base globale des partenaires d&apos;approvisionnement FODOBA IMPEX.
+              {t("suppliers.subtitle")}
             </p>
           </div>
         </div>
@@ -158,12 +169,12 @@ export default function SuppliersPage() {
             disabled={loading}
           >
             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            Actualiser
+            {t("common.refresh")}
           </Button>
           <Button asChild className="rounded-xl font-semibold">
             <Link href="/suppliers/new">
               <Plus className="mr-2 h-4 w-4" />
-              Nouveau fournisseur
+              {t("entity.supplier.new")}
             </Link>
           </Button>
         </div>
@@ -177,7 +188,7 @@ export default function SuppliersPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Fournisseurs
+                {t("nav.suppliers")}
               </p>
               <p className="text-2xl font-bold">{stats.total}</p>
             </div>
@@ -191,7 +202,7 @@ export default function SuppliersPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Import
+                {t("suppliers.statImport")}
               </p>
               <p className="text-2xl font-bold">{stats.imports}</p>
             </div>
@@ -205,7 +216,7 @@ export default function SuppliersPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Avec encours
+                {t("suppliers.statWithDebt")}
               </p>
               <p className="text-2xl font-bold">{stats.withDebt}</p>
             </div>
@@ -219,7 +230,7 @@ export default function SuppliersPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Dette totale
+                {t("suppliers.statTotalDebt")}
               </p>
               <p className="text-sm font-bold">{formatAmount(stats.totalDebt, "FCFA")}</p>
             </div>
@@ -232,7 +243,7 @@ export default function SuppliersPage() {
           <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher par nom, pays ou ville…"
+              placeholder={t("suppliers.searchPlaceholder")}
               className="h-10 rounded-xl pl-9"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -243,12 +254,12 @@ export default function SuppliersPage() {
             onValueChange={(v) => setTypeFilter(v as SupplierTypeFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="Type" />
+              <SelectValue placeholder={t("suppliers.filterType")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Tous les types</SelectItem>
-              <SelectItem value="local">Local</SelectItem>
-              <SelectItem value="import">Import</SelectItem>
+              <SelectItem value="all">{t("suppliers.filterTypeAll")}</SelectItem>
+              <SelectItem value="local">{t("badges.supplierType.local")}</SelectItem>
+              <SelectItem value="import">{t("badges.supplierType.import")}</SelectItem>
             </SelectContent>
           </Select>
           <Select
@@ -256,10 +267,10 @@ export default function SuppliersPage() {
             onValueChange={(v) => setCurrencyFilter(v as CurrencyCode | "all")}
           >
             <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="Devise" />
+              <SelectValue placeholder={t("suppliers.filterCurrency")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Toutes devises</SelectItem>
+              <SelectItem value="all">{t("suppliers.filterCurrencyAll")}</SelectItem>
               {SUPPLIER_CURRENCIES.map((c) => (
                 <SelectItem key={c.value} value={c.value}>
                   {c.label}
@@ -272,12 +283,12 @@ export default function SuppliersPage() {
             onValueChange={(v) => setDebtFilter(v as SupplierDebtFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="Encours" />
+              <SelectValue placeholder={t("suppliers.filterDebt")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Tous les encours</SelectItem>
-              <SelectItem value="with_debt">Avec dette</SelectItem>
-              <SelectItem value="clear">Sans dette</SelectItem>
+              <SelectItem value="all">{t("suppliers.filterDebtAll")}</SelectItem>
+              <SelectItem value="with_debt">{t("suppliers.filterDebtWith")}</SelectItem>
+              <SelectItem value="clear">{t("suppliers.filterDebtClear")}</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
@@ -288,7 +299,7 @@ export default function SuppliersPage() {
           <TableListToolbar
             summary={
               !loading && filteredSuppliers.length > 0
-                ? `${filteredSuppliers.length} fournisseur${filteredSuppliers.length !== 1 ? "s" : ""}`
+                ? t("suppliers.countSummary", { count: filteredSuppliers.length })
                 : undefined
             }
             actions={
@@ -308,18 +319,18 @@ export default function SuppliersPage() {
             <div className="flex flex-col items-center justify-center gap-4 p-16 text-center">
               <Truck className="h-12 w-12 text-muted-foreground/30" />
               <div>
-                <p className="font-semibold">Aucun fournisseur trouvé</p>
+                <p className="font-semibold">{t("suppliers.noSuppliersFound")}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {suppliers.length === 0
-                    ? "Enregistrez votre premier partenaire d'approvisionnement."
-                    : "Ajustez les filtres ou la recherche."}
+                    ? t("suppliers.emptyStateDesc")
+                    : t("suppliers.emptyStateFilterDesc")}
                 </p>
               </div>
               {suppliers.length === 0 && (
                 <Button asChild className="rounded-xl font-semibold">
                   <Link href="/suppliers/new">
                     <Plus className="mr-2 h-4 w-4" />
-                    Nouveau fournisseur
+                    {t("entity.supplier.new")}
                   </Link>
                 </Button>
               )}
@@ -330,22 +341,22 @@ export default function SuppliersPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <VisibleTableColumn id="supplier" isVisible={isVisible}>
-                      <TableHead>Fournisseur</TableHead>
+                      <TableHead>{t("suppliers.colSupplier")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="location" isVisible={isVisible}>
-                      <TableHead>Localisation</TableHead>
+                      <TableHead>{t("suppliers.colLocation")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="type" isVisible={isVisible}>
-                      <TableHead>Type</TableHead>
+                      <TableHead>{t("suppliers.colType")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="currency" isVisible={isVisible}>
-                      <TableHead>Devise</TableHead>
+                      <TableHead>{t("suppliers.colCurrency")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="debt" isVisible={isVisible}>
-                      <TableHead className="text-right">Dette (encours)</TableHead>
+                      <TableHead className="text-right">{t("suppliers.colDebt")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="actions" isVisible={isVisible}>
-                      <TableHead className="text-right">Règlement</TableHead>
+                      <TableHead className="text-right">{t("suppliers.colActions")}</TableHead>
                     </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
@@ -379,7 +390,7 @@ export default function SuppliersPage() {
                               <div className="flex items-center text-[10px] text-muted-foreground">
                                 <Banknote className="mr-1 h-2.5 w-2.5 shrink-0" />
                                 <span className="truncate">
-                                  {supplier.paymentTerms || "Paiement comptant"}
+                                  {supplier.paymentTerms || t("suppliers.defaultPaymentTerms")}
                                 </span>
                               </div>
                             </div>
@@ -441,11 +452,11 @@ export default function SuppliersPage() {
                             >
                               <Link href={`/suppliers/${supplier.id}?tab=payments`}>
                                 <Wallet className="mr-1.5 h-3.5 w-3.5" />
-                                Régler
+                                {t("suppliers.payBtn")}
                               </Link>
                             </Button>
                           ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+                            <span className="text-xs text-muted-foreground">-</span>
                           )}
                         </TableCell>
                       </VisibleTableColumn>

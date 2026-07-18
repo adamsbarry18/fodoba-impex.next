@@ -97,7 +97,7 @@ export const PurchaseService = {
       if (!supplierSnap.exists()) throw new Error("Fournisseur introuvable");
       const supplier = supplierSnap.data() as Supplier;
 
-      // Phase 1 — toutes les lectures avant toute écriture (contrainte Firestore)
+      // Phase 1 - toutes les lectures avant toute écriture (contrainte Firestore)
       const itemContexts: Array<{
         item: Purchase["items"][number];
         productRef: ReturnType<typeof doc>;
@@ -117,7 +117,7 @@ export const PurchaseService = {
         itemContexts.push({ item, productRef, productSnap, stockRef, stockSnap });
       }
 
-      // Phase 2 — toutes les écritures
+      // Phase 2 - toutes les écritures
       for (const { item, productRef, productSnap, stockRef, stockSnap } of itemContexts) {
         if (!productSnap.exists() || item.quantity <= 0) continue;
 

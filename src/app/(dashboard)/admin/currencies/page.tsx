@@ -1,7 +1,6 @@
-
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useCurrency } from "@/hooks/use-currency"
 import { CurrencyService } from "@/services/currency.service"
 import { useAuth } from "@/lib/contexts/AuthContext"
@@ -41,7 +40,6 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import {
   CURRENCY_META,
   CURRENCY_ORDER,
@@ -50,6 +48,14 @@ import {
   validateRate,
 } from "@/lib/currency-utils"
 import { cn } from "@/lib/utils"
+import { useT, useLocale } from "@/i18n/context"
+import { getDateLocale } from "@/i18n/get-date-locale"
+
+const VALIDATION_I18N_KEYS: Record<string, string> = {
+  "Saisissez un nombre valide.": "currencies.validation.notFinite",
+  "Le taux doit être strictement positif.": "currencies.validation.positive",
+  "Le taux semble trop élevé. Vérifiez la valeur.": "currencies.validation.tooHigh",
+}
 
 function toDate(ts: ExchangeRate["lastUpdated"]): Date | null {
   if (!ts) return null
@@ -57,6 +63,10 @@ function toDate(ts: ExchangeRate["lastUpdated"]): Date | null {
 }
 
 export default function CurrenciesAdminPage() {
+  const t = useT()
+  const { locale } = useLocale()
+  const dateLocale = getDateLocale(locale)
+
   const { rates, refreshRates, loading: contextLoading, formatAmount, convertToRef, convertFromRef } =
     useCurrency()
   const { userProfile } = useAuth()
@@ -69,6 +79,14 @@ export default function CurrenciesAdminPage() {
   const [simAmount, setSimAmount] = useState("100")
   const [simCurrency, setSimCurrency] = useState<CurrencyCode>("USD")
 
+  const translateValidationError = useCallback(
+    (error: string) => {
+      const key = VALIDATION_I18N_KEYS[error]
+      return key ? t(key) : error
+    },
+    [t]
+  )
+
   const loadExchangeRates = async () => {
     setLoading(true)
     try {
@@ -76,7 +94,7 @@ export default function CurrenciesAdminPage() {
       setExchangeRates(data)
       await refreshRates()
     } catch {
-      toast.error("Erreur lors du chargement des taux de change")
+      toast.error(t("currencies.errorLoading"))
     } finally {
       setLoading(false)
     }
@@ -93,7 +111,7 @@ export default function CurrenciesAdminPage() {
         setExchangeRates(data)
         await refreshRates()
       } catch {
-        if (!cancelled) toast.error("Erreur lors du chargement des taux de change")
+        if (!cancelled) toast.error(t("currencies.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -103,7 +121,7 @@ export default function CurrenciesAdminPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   const lastUpdate = useMemo(() => {
     const dates = exchangeRates
@@ -130,18 +148,18 @@ export default function CurrenciesAdminPage() {
     const parsed = Number(newRate)
     const validationError = validateRate(parsed)
     if (validationError) {
-      toast.error(validationError)
+      toast.error(translateValidationError(validationError))
       return
     }
 
     setUpdating(true)
     try {
       await CurrencyService.updateRate(editCode, parsed, userProfile)
-      toast.success(`Taux ${editCode} mis à jour`)
+      toast.success(t("currencies.rateUpdatedSuccess", { code: editCode }))
       closeEdit()
       await loadExchangeRates()
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Erreur lors de la mise à jour"
+      const message = error instanceof Error ? error.message : t("currencies.updateError")
       toast.error(message)
     } finally {
       setUpdating(false)
@@ -152,7 +170,6 @@ export default function CurrenciesAdminPage() {
   const simInFcfa = convertToRef(simValue, simCurrency)
   const simReverse = convertFromRef(10_000, simCurrency)
 
-  const editingMeta = editCode ? CURRENCY_META[editCode] : null
   const currentEditRate = editCode
     ? exchangeRates.find((r) => r.code === editCode)?.rateToRef ?? rates[editCode]
     : 0
@@ -161,17 +178,14 @@ export default function CurrenciesAdminPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      {/* En-tête */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
             <Coins className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Gestion des devises</h1>
-            <p className="text-sm text-muted-foreground">
-              Taux officiels du réseau - le FCFA sert de devise pivot pour tous les rapports.
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight">{t("currencies.title")}</h1>
+            <p className="text-sm text-muted-foreground">{t("currencies.subtitle")}</p>
           </div>
         </div>
         <Button
@@ -181,11 +195,10 @@ export default function CurrenciesAdminPage() {
           disabled={isPageLoading}
         >
           <RefreshCw className={cn("mr-2 h-4 w-4", isPageLoading && "animate-spin")} />
-          Actualiser
+          {t("currencies.refresh")}
         </Button>
       </div>
 
-      {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card className="rounded-2xl border bg-card shadow-sm">
           <CardContent className="flex items-center gap-4 p-4">
@@ -194,7 +207,7 @@ export default function CurrenciesAdminPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Devise pivot
+                {t("currencies.statPivot")}
               </p>
               <p className="text-lg font-bold">FCFA</p>
             </div>
@@ -208,7 +221,7 @@ export default function CurrenciesAdminPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Devises actives
+                {t("currencies.statActive")}
               </p>
               <p className="text-2xl font-bold">{CURRENCY_ORDER.length}</p>
             </div>
@@ -222,7 +235,7 @@ export default function CurrenciesAdminPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Modifiables
+                {t("currencies.statEditable")}
               </p>
               <p className="text-2xl font-bold">{EDITABLE_CURRENCIES.length}</p>
             </div>
@@ -236,11 +249,11 @@ export default function CurrenciesAdminPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Dernière MAJ
+                {t("currencies.statLastUpdate")}
               </p>
               <p className="text-sm font-bold">
                 {lastUpdate
-                  ? format(lastUpdate, "dd MMM yyyy HH:mm", { locale: fr })
+                  ? format(lastUpdate, "dd MMM yyyy HH:mm", { locale: dateLocale })
                   : "-"}
               </p>
             </div>
@@ -249,16 +262,15 @@ export default function CurrenciesAdminPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-12">
-        {/* Tableau des taux */}
         <div className="space-y-6 lg:col-span-8">
           <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-base">
                 <TrendingUp className="h-4 w-4 text-primary" />
-                Taux de change actuels
+                {t("currencies.currentRates")}
               </CardTitle>
               <CardDescription className="text-xs">
-                Valeur de <strong>1 unité</strong> de chaque devise exprimée en FCFA.
+                {t("currencies.currentRatesDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -271,11 +283,11 @@ export default function CurrenciesAdminPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="hover:bg-transparent">
-                        <TableHead className="pl-4 sm:pl-6">Devise</TableHead>
-                        <TableHead className="text-right">Taux (→ FCFA)</TableHead>
-                        <TableHead className="hidden md:table-cell">Dernière MAJ</TableHead>
-                        <TableHead className="hidden sm:table-cell">Par</TableHead>
-                        <TableHead className="pr-4 text-right sm:pr-6">Action</TableHead>
+                        <TableHead className="pl-4 sm:pl-6">{t("currencies.colCurrency")}</TableHead>
+                        <TableHead className="text-right">{t("currencies.colRate")}</TableHead>
+                        <TableHead className="hidden md:table-cell">{t("currencies.colLastUpdate")}</TableHead>
+                        <TableHead className="hidden sm:table-cell">{t("currencies.colUpdatedBy")}</TableHead>
+                        <TableHead className="pr-4 text-right sm:pr-6">{t("currencies.colAction")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -315,18 +327,21 @@ export default function CurrenciesAdminPage() {
                             <TableCell className="text-right">
                               <p className="font-mono text-sm font-bold">
                                 {rate.code === "FCFA"
-                                  ? "1,00 (réf.)"
+                                  ? t("currencies.rateReference")
                                   : formatRate(rate.rateToRef, rate.code)}
                               </p>
                               {rate.code !== "FCFA" && rate.rateToRef > 0 && (
                                 <p className="mt-0.5 text-[10px] text-muted-foreground">
-                                  1 FCFA ≈ {formatRate(1 / rate.rateToRef, rate.code)} {rate.code}
+                                  {t("currencies.reverseRate", {
+                                    rate: formatRate(1 / rate.rateToRef, rate.code),
+                                    code: rate.code,
+                                  })}
                                 </p>
                               )}
                             </TableCell>
                             <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
                               {updatedAt
-                                ? format(updatedAt, "dd MMM yyyy HH:mm", { locale: fr })
+                                ? format(updatedAt, "dd MMM yyyy HH:mm", { locale: dateLocale })
                                 : "-"}
                             </TableCell>
                             <TableCell className="hidden sm:table-cell">
@@ -348,11 +363,11 @@ export default function CurrenciesAdminPage() {
                                   onClick={() => openEdit(rate.code)}
                                 >
                                   <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                                  Modifier
+                                  {t("currencies.edit")}
                                 </Button>
                               ) : (
                                 <StatusBadge tone="slate" className="text-[10px]">
-                                  Référence
+                                  {t("currencies.reference")}
                                 </StatusBadge>
                               )}
                             </TableCell>
@@ -370,43 +385,32 @@ export default function CurrenciesAdminPage() {
             <CardHeader className="p-4 pb-2">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <Info className="h-4 w-4 text-primary" />
-                Rappel de fonctionnement
+                {t("currencies.infoTitle")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 p-4 pt-0 text-xs leading-relaxed text-muted-foreground">
-              <p>
-                Le <strong className="text-foreground">FCFA</strong> est la devise pivot. Les ventes et
-                achats saisis dans une autre devise sont convertis et stockés en FCFA pour garantir
-                la cohérence des rapports consolidés.
-              </p>
-              <p>
-                La mise à jour d&apos;un taux impacte les <strong className="text-foreground">futures saisies</strong>{" "}
-                uniquement - l&apos;historique des transactions passées n&apos;est pas recalculé.
-              </p>
-              <p>
-                Chaque modification est tracée dans le{" "}
-                <strong className="text-foreground">journal d&apos;audit</strong>.
-              </p>
+              <p>{t("currencies.infoPivot")}</p>
+              <p>{t("currencies.infoImpact")}</p>
+              <p>{t("currencies.infoAudit")}</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Simulateur */}
         <div className="lg:col-span-4">
           <Card className="sticky top-4 rounded-2xl border bg-card shadow-sm">
             <CardHeader className="border-b bg-muted/20 p-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <ArrowRightLeft className="h-4 w-4 text-primary" />
-                Simulateur de conversion
+                {t("currencies.simulatorTitle")}
               </CardTitle>
               <CardDescription className="text-xs">
-                Testez un montant avec les taux en vigueur.
+                {t("currencies.simulatorDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-4">
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Montant
+                  {t("currencies.amount")}
                 </Label>
                 <Input
                   type="number"
@@ -421,7 +425,7 @@ export default function CurrenciesAdminPage() {
 
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Devise source
+                  {t("currencies.sourceCurrency")}
                 </Label>
                 <Select
                   value={simCurrency}
@@ -442,30 +446,31 @@ export default function CurrenciesAdminPage() {
 
               <div className="rounded-xl border bg-primary/5 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Équivalent FCFA
+                  {t("currencies.equivalentFcfa")}
                 </p>
                 <p className="mt-1 text-2xl font-bold text-primary">
                   {formatAmount(simInFcfa, "FCFA")}
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {simValue.toLocaleString("fr-FR")} {simCurrency} ×{" "}
-                  {formatRate(rates[simCurrency], simCurrency)} ={" "}
-                  {simInFcfa.toLocaleString("fr-FR")} FCFA
+                  {t("currencies.simFormula", {
+                    amount: simValue.toLocaleString(locale),
+                    code: simCurrency,
+                    rate: formatRate(rates[simCurrency], simCurrency),
+                    result: simInFcfa.toLocaleString(locale),
+                  })}
                 </p>
               </div>
 
               <div className="space-y-2">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Repères rapides (100 unités)
+                  {t("currencies.quickRefTitle")}
                 </p>
                 {EDITABLE_CURRENCIES.map((code) => (
                   <div
                     key={code}
                     className="flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-sm"
                   >
-                    <span className="text-muted-foreground">
-                      100 {code}
-                    </span>
+                    <span className="text-muted-foreground">100 {code}</span>
                     <span className="font-bold text-foreground">
                       {formatAmount(100 * rates[code], "FCFA")}
                     </span>
@@ -474,7 +479,8 @@ export default function CurrenciesAdminPage() {
               </div>
 
               <div className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                10 000 FCFA ≈ {simReverse.toLocaleString("fr-FR", {
+                {formatAmount(10_000, "FCFA")} ≈{" "}
+                {simReverse.toLocaleString(locale, {
                   maximumFractionDigits: CURRENCY_META[simCurrency].decimals,
                 })}{" "}
                 {simCurrency}
@@ -484,21 +490,20 @@ export default function CurrenciesAdminPage() {
         </div>
       </div>
 
-      {/* Dialog modification */}
       <Dialog open={editCode !== null} onOpenChange={(open) => !open && closeEdit()}>
         <DialogContent className="max-w-md gap-0 overflow-hidden rounded-2xl p-0">
           <DialogHeader className="border-b bg-muted/30 p-6">
             <DialogTitle className="text-xl font-bold">
-              Modifier le taux {editCode}
+              {t("currencies.editDialogTitle", { code: editCode ?? "" })}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              {editingMeta?.label} - valeur de 1 {editCode} en FCFA.
+              {t("currencies.editDialogDesc", { code: editCode ?? "" })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 p-6">
             <div className="rounded-xl border bg-muted/20 p-3 text-sm">
-              <p className="text-xs text-muted-foreground">Taux actuel</p>
+              <p className="text-xs text-muted-foreground">{t("currencies.currentRate")}</p>
               <p className="font-mono font-bold">
                 {formatRate(currentEditRate, editCode ?? "FCFA")} FCFA
               </p>
@@ -506,7 +511,7 @@ export default function CurrenciesAdminPage() {
 
             <div className="space-y-2">
               <Label required className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Nouveau taux (FCFA)
+                {t("currencies.newRate")}
               </Label>
               <Input
                 type="number"
@@ -515,11 +520,12 @@ export default function CurrenciesAdminPage() {
                 value={newRate}
                 onChange={(e) => setNewRate(e.target.value)}
                 className="h-10 rounded-xl font-mono font-bold"
+                placeholder={t("currencies.newRatePlaceholder")}
                 autoFocus
               />
               {newRate && !validateRate(Number(newRate)) && Number(newRate) !== currentEditRate && (
                 <p className="text-xs text-muted-foreground">
-                  Variation :{" "}
+                  {t("currencies.variation")}{" "}
                   <span
                     className={cn(
                       "font-semibold",
@@ -537,7 +543,7 @@ export default function CurrenciesAdminPage() {
 
           <DialogFooter className="border-t bg-muted/20 p-4 sm:p-6">
             <Button variant="outline" className="rounded-xl" onClick={closeEdit} disabled={updating}>
-              Annuler
+              {t("currencies.cancel")}
             </Button>
             <Button
               className="rounded-xl font-semibold"
@@ -554,7 +560,7 @@ export default function CurrenciesAdminPage() {
               ) : (
                 <ShieldCheck className="mr-2 h-4 w-4" />
               )}
-              Confirmer la mise à jour
+              {t("currencies.confirmUpdate")}
             </Button>
           </DialogFooter>
         </DialogContent>

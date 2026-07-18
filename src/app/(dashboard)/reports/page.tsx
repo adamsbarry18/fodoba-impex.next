@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,27 +18,83 @@ import Link from "next/link"
 import { usePermissions } from "@/hooks/use-permissions"
 import {
   REPORT_CARDS,
-  REPORT_CATEGORIES,
-  REPORT_CATEGORY_LABELS,
   countReportsByCategory,
   filterReports,
   type ReportCategory,
 } from "@/lib/report-utils"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n/context"
+
+const REPORT_CARD_KEYS: Record<
+  string,
+  { title: string; description: string }
+> = {
+  "/reports/sales": {
+    title: "reports.card.sales.title",
+    description: "reports.card.sales.desc",
+  },
+  "/reports/inventory": {
+    title: "reports.card.inventory.title",
+    description: "reports.card.inventory.desc",
+  },
+  "/reports/cash": {
+    title: "reports.card.cash.title",
+    description: "reports.card.cash.desc",
+  },
+  "/reports/clients": {
+    title: "reports.card.clients.title",
+    description: "reports.card.clients.desc",
+  },
+  "/reports/suppliers": {
+    title: "reports.card.suppliers.title",
+    description: "reports.card.suppliers.desc",
+  },
+}
+
+const CATEGORY_BADGE_KEYS: Record<ReportCategory, string> = {
+  finance: "reports.categoryFinanceBadge",
+  logistics: "reports.categoryLogisticsBadge",
+  clients: "reports.categoryClientsBadge",
+}
 
 export default function ReportsPage() {
+  const t = useT()
   const { can } = usePermissions()
   const [searchQuery, setSearchQuery] = useState("")
   const [activeCategory, setActiveCategory] = useState<"all" | ReportCategory>("all")
 
+  const reportCategories = useMemo(
+    () =>
+      [
+        { id: "all" as const, label: t("reports.categoryAll") },
+        { id: "finance" as const, label: t("reports.categoryFinance") },
+        { id: "logistics" as const, label: t("reports.categoryLogistics") },
+        { id: "clients" as const, label: t("reports.categoryClients") },
+      ],
+    [t]
+  )
+
+  const localizedCards = useMemo(
+    () =>
+      REPORT_CARDS.map((report) => {
+        const keys = REPORT_CARD_KEYS[report.href]
+        return {
+          ...report,
+          title: keys ? t(keys.title) : report.title,
+          description: keys ? t(keys.description) : report.description,
+        }
+      }),
+    [t]
+  )
+
   const allowedReports = useMemo(
     () =>
-      filterReports(REPORT_CARDS, {
+      filterReports(localizedCards, {
         search: searchQuery,
         category: activeCategory,
         can,
       }),
-    [searchQuery, activeCategory, can]
+    [searchQuery, activeCategory, can, localizedCards]
   )
 
   const stats = useMemo(() => countReportsByCategory(REPORT_CARDS, can), [can])
@@ -53,17 +109,15 @@ export default function ReportsPage() {
             <BarChart3 className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Centre de reporting et BI</h1>
-            <p className="text-sm text-muted-foreground">
-              Analyses consolidées et exports de conformité FODOBA IMPEX.
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight">{t("reports.title")}</h1>
+            <p className="text-sm text-muted-foreground">{t("reports.subtitle")}</p>
           </div>
         </div>
         {canAccessCash && (
           <Button variant="outline" asChild className="rounded-xl font-semibold">
             <Link href="/reconciliation">
               <Wallet className="mr-2 h-4 w-4" />
-              Trésorerie et caisse
+              {t("reports.treasuryLink")}
             </Link>
           </Button>
         )}
@@ -77,7 +131,7 @@ export default function ReportsPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Rapports accessibles
+                {t("reports.statAccessible")}
               </p>
               <p className="text-2xl font-bold">{stats.total}</p>
             </div>
@@ -91,7 +145,7 @@ export default function ReportsPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Finances & caisse
+                {t("reports.statFinance")}
               </p>
               <p className="text-2xl font-bold">{stats.finance}</p>
             </div>
@@ -105,7 +159,7 @@ export default function ReportsPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Stocks & achats
+                {t("reports.statLogistics")}
               </p>
               <p className="text-2xl font-bold">{stats.logistics}</p>
             </div>
@@ -119,7 +173,7 @@ export default function ReportsPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Clients & tiers
+                {t("reports.statClients")}
               </p>
               <p className="text-2xl font-bold">{stats.clients}</p>
             </div>
@@ -130,7 +184,7 @@ export default function ReportsPage() {
       <Card className="rounded-2xl border bg-card shadow-sm">
         <CardContent className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-1.5">
-            {REPORT_CATEGORIES.map((cat) => (
+            {reportCategories.map((cat) => (
               <button
                 key={cat.id}
                 type="button"
@@ -151,7 +205,7 @@ export default function ReportsPage() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Rechercher un rapport…"
+              placeholder={t("reports.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-10 rounded-xl pl-9"
@@ -185,7 +239,7 @@ export default function ReportsPage() {
                         {report.title}
                       </CardTitle>
                       <span className="inline-block rounded-md bg-muted px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        {REPORT_CATEGORY_LABELS[report.category]}
+                        {t(CATEGORY_BADGE_KEYS[report.category])}
                       </span>
                     </div>
                   </CardHeader>
@@ -195,7 +249,7 @@ export default function ReportsPage() {
                       {report.description}
                     </p>
                     <div className="mt-4 flex items-center justify-between border-t pt-4 text-xs font-semibold text-foreground group-hover:text-primary">
-                      <span>Consulter le rapport</span>
+                      <span>{t("reports.viewReport")}</span>
                       <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted group-hover:bg-primary/10">
                         <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                       </div>
@@ -210,9 +264,9 @@ export default function ReportsPage() {
         <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed p-16 text-center">
           <Search className="h-12 w-12 text-muted-foreground/30" />
           <div>
-            <p className="font-semibold">Aucun rapport trouvé</p>
+            <p className="font-semibold">{t("reports.noReportsFound")}</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Ajustez la recherche ou la catégorie, ou vérifiez vos droits d&apos;accès.
+              {t("reports.noReportsFilterHint")}
             </p>
           </div>
           <Button
@@ -223,7 +277,7 @@ export default function ReportsPage() {
               setActiveCategory("all")
             }}
           >
-            Réinitialiser les filtres
+            {t("reports.resetFilters")}
           </Button>
         </div>
       )}
@@ -235,11 +289,10 @@ export default function ReportsPage() {
           </div>
           <div className="space-y-1">
             <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
-              Conformité et synchronisation
+              {t("reports.complianceTitle")}
             </h4>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Les rapports sont recalculés en temps réel avec conversion automatique en FCFA.
-              Les exports PDF et CSV respectent les filtres de période et de boutique actifs.
+              {t("reports.complianceDesc")}
             </p>
           </div>
         </CardContent>

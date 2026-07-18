@@ -32,6 +32,7 @@ import {
 import { POS_PAYMENT_MODES } from "@/lib/pos-utils"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { useCurrency } from "@/hooks/use-currency"
+import { useT } from "@/i18n/context"
 
 interface PaymentDialogProps {
   open: boolean
@@ -55,6 +56,7 @@ export function PaymentDialog({
   onConfirm,
 }: PaymentDialogProps) {
   const { formatAmount } = useCurrency()
+  const t = useT()
   const [mode, setMode] = useState<PosPaymentMode>("comptant")
   const [comptantMethod, setComptantMethod] = useState<PaymentMethod>("CASH")
   const [amounts, setAmounts] = useState(EMPTY_PAYMENT_AMOUNTS())
@@ -128,10 +130,10 @@ export function PaymentDialog({
     const remaining = Math.max(
       0,
       total -
-        Object.entries(amounts).reduce((acc, [key, val]) => {
-          if (key === method) return acc
-          return acc + (Number(val) || 0)
-        }, 0)
+      Object.entries(amounts).reduce((acc, [key, val]) => {
+        if (key === method) return acc
+        return acc + (Number(val) || 0)
+      }, 0)
     )
     setAmounts((prev) => ({ ...prev, [method]: String(remaining) }))
   }
@@ -142,10 +144,10 @@ export function PaymentDialog({
         <DialogHeader className="shrink-0 border-b bg-muted/20 p-4 sm:p-6">
           <DialogTitle className="flex items-center gap-2 text-lg font-bold">
             <Receipt className="h-5 w-5 text-primary" />
-            Règlement de la vente
+            {t("pos.pay.title")}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Comptant, acompte + crédit, crédit total ou paiement multi-modes.
+            {t("pos.pay.subtitle")}
           </DialogDescription>
         </DialogHeader>
 
@@ -153,7 +155,7 @@ export function PaymentDialog({
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
             <div className="flex items-center justify-between gap-3">
               <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-                Net à encaisser
+                {t("pos.netAmount")}
               </span>
               <span className="font-headline text-2xl font-bold text-primary">
                 {formatAmount(total, "FCFA")}
@@ -162,7 +164,7 @@ export function PaymentDialog({
           </div>
 
           <div className="flex items-center justify-between gap-2 rounded-xl border bg-background p-3 text-xs">
-            <span className="text-muted-foreground">Client facturation</span>
+            <span className="text-muted-foreground">{t("pos.pay.billingClient")}</span>
             <StatusBadge
               tone={hasClient ? "info" : "slate"}
               className="max-w-[60%] truncate text-[10px]"
@@ -172,7 +174,7 @@ export function PaymentDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {POS_PAYMENT_MODES.map(({ id, label, shortLabel, description, icon: Icon, tone }) => {
+            {POS_PAYMENT_MODES.map(({ id, labelKey, shortLabelKey, descriptionKey, icon: Icon, tone }) => {
               const isDisabled = (id === "credit" || id === "partiel") && creditDisabled
               return (
                 <button
@@ -180,7 +182,7 @@ export function PaymentDialog({
                   type="button"
                   disabled={isDisabled}
                   onClick={() => !isDisabled && setMode(id)}
-                  title={isDisabled ? "Sélectionnez un client identifié" : description}
+                  title={isDisabled ? t("pos.pay.selectIdentifiedClient") : t(descriptionKey)}
                   className={cn(
                     "flex flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition-colors",
                     mode === id
@@ -191,9 +193,9 @@ export function PaymentDialog({
                 >
                   <StatusBadge tone={tone} className="text-[9px]">
                     <Icon className="mr-1 h-3 w-3" />
-                    {shortLabel}
+                    {t(shortLabelKey)}
                   </StatusBadge>
-                  <span className="text-[11px] font-bold leading-tight">{label}</span>
+                  <span className="text-[11px] font-bold leading-tight">{t(labelKey)}</span>
                 </button>
               )
             })}
@@ -203,8 +205,7 @@ export function PaymentDialog({
             <div className="flex items-start gap-2 rounded-xl border border-dashed bg-muted/30 p-3 text-[11px] text-muted-foreground">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
               <span>
-                Les modes <strong>Partiel</strong> et <strong>Crédit</strong> nécessitent un
-                client identifié dans le panier.
+                {t("pos.pay.creditNeedsClient")}
               </span>
             </div>
           )}
@@ -212,7 +213,7 @@ export function PaymentDialog({
           {mode === "comptant" && (
             <div className="space-y-3 rounded-xl border bg-card p-4">
               <Label required className="text-xs font-semibold">
-                Mode de paiement
+                {t("pos.pay.paymentMode")}
               </Label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {POS_PAYMENT_METHODS.map(({ id, label }) => (
@@ -227,13 +228,13 @@ export function PaymentDialog({
                         : "border-border hover:bg-muted"
                     )}
                   >
-                    {label}
+                    {t(label)}
                   </button>
                 ))}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="comptant-amount" required className="text-xs font-semibold">
-                  Montant reçu
+                  {t("pos.pay.amountReceived")}
                 </Label>
                 <Input
                   id="comptant-amount"
@@ -248,7 +249,7 @@ export function PaymentDialog({
               </div>
               {totalPaid < total && totalPaid > 0 && (
                 <p className="text-[11px] text-amber-600">
-                  Montant insuffisant - utilisez le mode <strong>Partiel</strong>.
+                  {t("pos.pay.insufficientAmount")}
                 </p>
               )}
             </div>
@@ -256,9 +257,9 @@ export function PaymentDialog({
 
           {mode === "partiel" && (
             <div className="space-y-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-              <p className="text-sm font-semibold">Acompte + solde en crédit</p>
+              <p className="text-sm font-semibold">{t("pos.pay.depositPlusCredit")}</p>
               <Label required className="text-xs font-semibold">
-                Mode de l&apos;acompte
+                {t("pos.pay.depositMode")}
               </Label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {POS_PAYMENT_METHODS.map(({ id, label }) => (
@@ -273,13 +274,13 @@ export function PaymentDialog({
                         : "border-border bg-background hover:bg-muted"
                     )}
                   >
-                    {label}
+                    {t(label)}
                   </button>
                 ))}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="partiel-amount" required className="text-xs font-semibold">
-                  Montant encaissé maintenant
+                  {t("pos.pay.amountNow")}
                 </Label>
                 <Input
                   id="partiel-amount"
@@ -294,7 +295,7 @@ export function PaymentDialog({
                 />
               </div>
               <div className="flex justify-between rounded-lg bg-background p-3 text-xs">
-                <span className="text-muted-foreground">Reste en crédit</span>
+                <span className="text-muted-foreground">{t("pos.pay.remainingCredit")}</span>
                 <span className="font-bold text-amber-600">{formatAmount(debtAmount, "FCFA")}</span>
               </div>
               {selectedClient && (
@@ -303,15 +304,15 @@ export function PaymentDialog({
             </div>
           )}
 
+
           {mode === "credit" && (
             <div className="space-y-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-              <p className="text-sm font-semibold">Vente à crédit intégrale</p>
+              <p className="text-sm font-semibold">{t("pos.pay.fullCredit")}</p>
               <p className="text-xs text-muted-foreground">
-                Aucun encaissement caisse. Dette augmentée de{" "}
-                <strong>{formatAmount(total, "FCFA")}</strong>.
+                {t("pos.pay.fullCreditDesc", { amount: formatAmount(total, "FCFA") })}
               </p>
               {!hasClient && (
-                <AlertBlock message="Sélectionnez un client dans le panier avant de valider." />
+                <AlertBlock message={t("pos.pay.selectClientFirst")} />
               )}
               {selectedClient && (
                 <ClientCreditSummary client={selectedClient} formatAmount={formatAmount} />
@@ -322,21 +323,21 @@ export function PaymentDialog({
           {mode === "fractionne" && (
             <div className="space-y-3 rounded-xl border bg-card p-4">
               <p className="text-xs text-muted-foreground">
-                Répartissez le paiement entre plusieurs modes. Le reste devient une dette client.
+                {t("pos.pay.splitDesc")}
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {POS_FRACTIONAL_METHODS.map(({ id, label }) => (
                   <div key={id} className="space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
                       <Label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                        {label}
+                        {t(label)}
                       </Label>
                       <button
                         type="button"
                         onClick={() => fillRemaining(id)}
                         className="text-[10px] font-semibold text-primary hover:underline"
                       >
-                        Solde
+                        {t("pos.pay.balance")}
                       </button>
                     </div>
                     <Input
@@ -354,7 +355,7 @@ export function PaymentDialog({
               </div>
               {!hasClient && debtAmount > 0 && (
                 <AlertBlock
-                  message={`Paiement partiel : sélectionnez un client pour la dette de ${formatAmount(debtAmount, "FCFA")}.`}
+                  message={t("pos.pay.partialNeedsClient", { amount: formatAmount(debtAmount, "FCFA") })}
                 />
               )}
             </div>
@@ -363,21 +364,21 @@ export function PaymentDialog({
           <div className="space-y-2 rounded-xl border bg-muted/20 p-4">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
               <Banknote className="h-3.5 w-3.5" />
-              Récapitulatif
+              {t("pos.pay.summary")}
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Encaissé caisse</span>
+              <span className="text-muted-foreground">{t("pos.pay.cashCollected")}</span>
               <span className="font-bold text-emerald-600">{formatAmount(totalPaid, "FCFA")}</span>
             </div>
             {debtAmount > 0 && (
               <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">À crédit</span>
+                <span className="text-muted-foreground">{t("pos.pay.onCredit")}</span>
                 <span className="font-bold text-amber-600">{formatAmount(debtAmount, "FCFA")}</span>
               </div>
             )}
             {change > 0 && (
               <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Rendu monnaie</span>
+                <span className="text-muted-foreground">{t("pos.pay.changeDue")}</span>
                 <span className="font-bold text-primary">{formatAmount(change, "FCFA")}</span>
               </div>
             )}
@@ -398,7 +399,7 @@ export function PaymentDialog({
           </div>
 
           {creditExceeded && (
-            <AlertBlock message="Plafond de crédit dépassé pour ce client." />
+            <AlertBlock message={t("pos.pay.creditExceeded")} />
           )}
         </div>
 
@@ -408,7 +409,7 @@ export function PaymentDialog({
             onClick={() => onOpenChange(false)}
             className="h-11 flex-1 rounded-xl font-semibold"
           >
-            Annuler
+            {t("common.cancel")}
           </Button>
           <Button
             className="h-11 flex-1 rounded-xl font-semibold"
@@ -420,7 +421,7 @@ export function PaymentDialog({
             ) : (
               <CheckCircle2 className="mr-2 h-4 w-4" />
             )}
-            Valider la vente
+            {t("pos.pay.validate")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -435,18 +436,19 @@ function ClientCreditSummary({
   client: Client
   formatAmount: (amount: number, code?: "FCFA") => string
 }) {
+  const t = useT()
   return (
     <div className="grid grid-cols-2 gap-2 text-xs">
       <div className="rounded-lg bg-background p-2.5">
-        <p className="text-muted-foreground">Dette actuelle</p>
+        <p className="text-muted-foreground">{t("pos.pay.currentDebt")}</p>
         <p className="font-bold">{formatAmount(client.currentDebt, "FCFA")}</p>
       </div>
       <div className="rounded-lg bg-background p-2.5">
-        <p className="text-muted-foreground">Plafond crédit</p>
+        <p className="text-muted-foreground">{t("pos.pay.creditCeiling")}</p>
         <p className="font-bold">
           {client.creditCeiling > 0
             ? formatAmount(client.creditCeiling, "FCFA")
-            : "Non limité"}
+            : t("pos.pay.unlimited")}
         </p>
       </div>
     </div>
@@ -461,3 +463,4 @@ function AlertBlock({ message }: { message: string }) {
     </div>
   )
 }
+

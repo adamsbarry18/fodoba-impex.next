@@ -22,13 +22,12 @@ import {
   ArrowLeft,
   Loader2,
   Save,
-  Store as StoreIcon,
   Hash,
   MapPin,
   Phone,
 } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useStore } from "@/lib/contexts/StoreContext"
 import { z } from "zod"
 import { StatusBadge } from "@/components/ui/status-badge"
@@ -37,24 +36,30 @@ import {
   STORE_CODE_HINT,
   validateStoreCodeFormat,
 } from "@/lib/store-utils"
-
-const EditSchema = StoreSchema.extend({
-  code: z
-    .string()
-    .min(2, "Le code est requis")
-    .refine((val) => !validateStoreCodeFormat(val), {
-      message: `Format attendu : ${STORE_CODE_HINT}`,
-    }),
-})
+import { useT } from "@/i18n/context"
 
 export default function EditStorePage() {
   const router = useRouter()
   const params = useParams()
   const { refreshStores } = useStore()
+  const t = useT()
   const [loading, setLoading] = useState(true)
 
+  const editSchema = useMemo(
+    () =>
+      StoreSchema.extend({
+        code: z
+          .string()
+          .min(2, t("stores.form.codeRequired"))
+          .refine((val) => !validateStoreCodeFormat(val), {
+            message: t("stores.form.codeFormat", { hint: STORE_CODE_HINT }),
+          }),
+      }),
+    [t]
+  )
+
   const form = useForm<Store>({
-    resolver: zodResolver(EditSchema),
+    resolver: zodResolver(editSchema),
   })
 
   useEffect(() => {
@@ -68,11 +73,11 @@ export default function EditStorePage() {
         if (data) {
           form.reset(data)
         } else {
-          toast.error("Boutique introuvable")
+          toast.error(t("stores.form.notFound"))
           router.push("/admin/stores")
         }
       } catch {
-        if (!cancelled) toast.error("Erreur de chargement")
+        if (!cancelled) toast.error(t("common.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -82,18 +87,18 @@ export default function EditStorePage() {
     return () => {
       cancelled = true
     }
-  }, [params.id, router, form])
+  }, [params.id, router, form, t])
 
   const onSubmit = async (values: Store) => {
     try {
       const { id: _id, createdAt: _createdAt, ...payload } = values
       await StoreService.updateStore(params.id as string, payload)
-      toast.success("Boutique mise à jour")
+      toast.success(t("stores.form.updated"))
       await refreshStores()
       router.push("/admin/stores")
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "Erreur lors de la mise à jour"
+        error instanceof Error ? error.message : t("common.errorLoading")
       toast.error(message)
     }
   }
@@ -121,7 +126,7 @@ export default function EditStorePage() {
             {getStoreInitials(storeValues)}
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Modifier la boutique</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("stores.form.editTitle")}</h1>
             <p className="text-sm text-muted-foreground">{storeValues.name}</p>
           </div>
         </div>
@@ -138,9 +143,7 @@ export default function EditStorePage() {
               preset="activeState"
               value={storeValues.active ? "active" : "inactive"}
               className="text-[10px]"
-            >
-              {storeValues.active ? "Active" : "Suspendue"}
-            </StatusBadge>
+            />
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
@@ -152,7 +155,7 @@ export default function EditStorePage() {
                   name="code"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Code boutique</FormLabel>
+                      <FormLabel required>{t("stores.form.code")}</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Hash className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -166,7 +169,7 @@ export default function EditStorePage() {
                         </div>
                       </FormControl>
                       <FormDescription className="text-[11px]">
-                        Modification rare - impacte les rapports et assignations.
+                        {t("stores.form.codeHintEdit")}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -177,7 +180,7 @@ export default function EditStorePage() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Nom de la boutique</FormLabel>
+                      <FormLabel required>{t("stores.form.name")}</FormLabel>
                       <FormControl>
                         <Input className="h-10 rounded-xl" {...field} />
                       </FormControl>
@@ -192,7 +195,7 @@ export default function EditStorePage() {
                 name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Adresse complète</FormLabel>
+                    <FormLabel required>{t("stores.form.address")}</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -209,7 +212,7 @@ export default function EditStorePage() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Téléphone de contact</FormLabel>
+                    <FormLabel required>{t("stores.form.phone")}</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -228,7 +231,7 @@ export default function EditStorePage() {
                   className="rounded-xl"
                   onClick={() => router.back()}
                 >
-                  Annuler
+                  {t("common.cancel")}
                 </Button>
                 <Button
                   type="submit"
@@ -240,7 +243,7 @@ export default function EditStorePage() {
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}
-                  Enregistrer les modifications
+                  {t("stores.form.saveChanges")}
                 </Button>
               </div>
             </form>

@@ -1,7 +1,10 @@
+"use client"
+
 import * as React from "react"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { BADGE_PRESETS, resolvePreset, toneFromString, type BadgeTone } from "@/lib/badge-tones"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n/context"
 
 type PresetKey = keyof typeof BADGE_PRESETS
 
@@ -24,6 +27,7 @@ function StatusBadge({
   className,
   ...props
 }: StatusBadgeProps) {
+  const t = useT()
   let resolvedTone: BadgeTone = tone ?? "outline"
   let label = children ?? value ?? ""
 
@@ -31,7 +35,7 @@ function StatusBadge({
     const config = resolvePreset(preset, value)
     if (config) {
       resolvedTone = config.tone
-      if (!children && config.label) label = config.label
+      if (!children && config.label) label = t(config.label)
     }
   }
 

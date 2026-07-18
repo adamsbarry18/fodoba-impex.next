@@ -3,6 +3,7 @@
 import { AppLogo } from "@/components/layout/app-logo"
 import { AUTH_HIGHLIGHTS } from "@/lib/auth-utils"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n/context"
 
 interface AuthPageShellProps {
   title: string
@@ -19,6 +20,8 @@ export function AuthPageShell({
   footer,
   className,
 }: AuthPageShellProps) {
+  const t = useT()
+
   return (
     <div className="flex min-h-screen w-full">
       <aside
@@ -39,35 +42,35 @@ export function AuthPageShell({
         <div className="relative flex items-center gap-3">
           <AppLogo size="md" className="ring-primary-foreground/20" />
           <div>
-            <p className="font-headline text-lg font-bold tracking-tight">FODOBA IMPEX</p>
-            <p className="text-xs text-primary-foreground/75">Gestion d&apos;Import-Export</p>
+            <p className="font-headline text-lg font-bold tracking-tight">{t("common.appName")}</p>
+            <p className="text-xs text-primary-foreground/75">{t("sidebar.importExport")}</p>
           </div>
         </div>
 
         <div className="relative space-y-6">
           <div className="space-y-2">
             <h2 className="font-headline text-2xl font-bold leading-tight xl:text-3xl">
-              Pilotez vos boutiques depuis un seul espace
+              {t("auth.heroTitle")}
             </h2>
             <p className="max-w-md text-sm leading-relaxed text-primary-foreground/80">
-              Ventes, stocks, achats et trésorerie - tout est centralisé pour vos équipes terrain.
+              {t("auth.heroDesc")}
             </p>
           </div>
 
           <ul className="space-y-3">
             {AUTH_HIGHLIGHTS.map(({ icon: Icon, label }) => (
               <li key={label} className="flex items-center gap-3 text-sm font-medium">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15">
+                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white/15">
                   <Icon className="h-4 w-4" aria-hidden />
                 </span>
-                {label}
+                {t(label)}
               </li>
             ))}
           </ul>
         </div>
 
         <p className="relative text-xs text-primary-foreground/60">
-          Accès réservé aux collaborateurs autorisés.
+          {t("auth.accessRestricted")}
         </p>
       </aside>
 
@@ -81,7 +84,7 @@ export function AuthPageShell({
           <div className="mb-6 flex flex-col items-center lg:hidden">
             <AppLogo size="lg" />
             <p className="mt-3 font-headline text-lg font-bold tracking-tight text-foreground">
-              FODOBA IMPEX
+              {t("common.appName")}
             </p>
           </div>
 

@@ -5,6 +5,7 @@ import { useStore } from "@/lib/contexts/StoreContext"
 import { LoadingScreen } from "@/components/ui/loading-screen"
 import { useRouter, usePathname } from "next/navigation"
 import { useEffect } from "react"
+import { useT } from "@/i18n/context"
 
 const PUBLIC_PATHS = ["/login"]
 
@@ -13,6 +14,7 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
   const { loading: storeLoading } = useStore()
   const router = useRouter()
   const pathname = usePathname()
+  const t = useT()
 
   const isPublicPath = PUBLIC_PATHS.includes(pathname)
   const isAuthenticated = Boolean(currentUser)
@@ -36,8 +38,8 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
       <LoadingScreen
         message={
           authLoading
-            ? "Vérification de votre session…"
-            : "Activation de votre boutique…"
+            ? t("loading.sessionCheck")
+            : t("loading.storeActivation")
         }
       />
     )
@@ -45,3 +47,4 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>
 }
+

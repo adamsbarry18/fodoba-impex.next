@@ -28,12 +28,14 @@ import { useStore } from "@/lib/contexts/StoreContext"
 import { formatPurchaseRef, getLandedCostUnit, PURCHASE_STATUS_ICONS } from "@/lib/purchase-utils"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { PurchaseReceptionDialog } from "@/components/purchases/purchase-reception-dialog"
+import { useT } from "@/i18n/context"
 
 export default function PurchaseDetailsPage() {
   const params = useParams()
   const router = useRouter()
   const { userProfile } = useAuth()
   const { activeStore } = useStore()
+  const t = useT()
   const [purchase, setPurchase] = useState<Purchase | null>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
@@ -51,11 +53,11 @@ export default function PurchaseDetailsPage() {
         if (data) {
           setPurchase(data)
         } else {
-          toast.error("Commande introuvable")
+          toast.error(t("purchases.notFound"))
           router.push("/purchases")
         }
       } catch {
-        if (!cancelled) toast.error("Erreur de chargement")
+        if (!cancelled) toast.error(t("common.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -65,7 +67,7 @@ export default function PurchaseDetailsPage() {
     return () => {
       cancelled = true
     }
-  }, [params.id, router])
+  }, [params.id, router, t])
 
   const reloadPurchase = useCallback(async () => {
     const data = await PurchaseService.getPurchase(params.id as string)
@@ -78,11 +80,11 @@ export default function PurchaseDetailsPage() {
     setProcessing(true)
     try {
       await PurchaseService.validateReception(purchase.id, userProfile)
-      toast.success("Marchandises réceptionnées avec succès")
+      toast.success(t("purchases.receptionSuccess"))
       setReceptionOpen(false)
       await reloadPurchase()
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Erreur lors de la réception")
+      toast.error(error instanceof Error ? error.message : t("purchases.receptionError"))
     } finally {
       setProcessing(false)
     }
@@ -99,14 +101,14 @@ export default function PurchaseDetailsPage() {
           : await StoreService.getStore(purchase.storeId)
 
       if (!store) {
-        toast.error("Boutique introuvable pour générer le bon de commande")
+        toast.error(t("purchases.storeNotFound"))
         return
       }
 
       await PrintService.generatePurchaseOrder(purchase, store)
-      toast.success("Bon de commande téléchargé")
+      toast.success(t("purchases.pdfSuccess"))
     } catch {
-      toast.error("Erreur lors de la génération du PDF")
+      toast.error(t("common.errorExportPdf"))
     } finally {
       setPrintingPdf(false)
     }
@@ -136,10 +138,10 @@ export default function PurchaseDetailsPage() {
           </Button>
           <div>
             <h1 className="font-headline text-3xl font-bold tracking-tight">
-              Commande {formatPurchaseRef(purchase.id)}
+              {t("purchases.orderTitle", { ref: formatPurchaseRef(purchase.id) })}
             </h1>
             <p className="text-muted-foreground">
-              Approvisionnement : {purchase.supplierName}
+              {t("purchases.supplyLabel", { supplier: purchase.supplierName })}
             </p>
           </div>
         </div>
@@ -155,7 +157,7 @@ export default function PurchaseDetailsPage() {
             ) : (
               <Printer className="mr-2 h-4 w-4" />
             )}
-            Bon de commande
+            {t("purchases.purchaseOrderBtn")}
           </Button>
           {canReceive && (
             <Button
@@ -164,7 +166,7 @@ export default function PurchaseDetailsPage() {
               disabled={processing}
             >
               <Package className="mr-2 h-4 w-4" />
-              Valider la réception
+              {t("purchases.validateReception")}
             </Button>
           )}
         </div>
@@ -173,9 +175,9 @@ export default function PurchaseDetailsPage() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm md:col-span-2">
           <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-            <CardTitle className="text-base">Liste des articles</CardTitle>
+            <CardTitle className="text-base">{t("purchases.itemsListTitle")}</CardTitle>
             <CardDescription className="text-xs">
-              Produits inclus dans cette expédition.
+              {t("purchases.itemsListDesc")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 p-4 sm:p-6">
@@ -190,9 +192,13 @@ export default function PurchaseDetailsPage() {
                   <div className="space-y-1">
                     <p className="font-bold">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.quantity} unités à {item.unitCost.toLocaleString("fr-FR")}{" "}
-                      {item.currency}
-                      {item.currency !== "FCFA" && ` (Taux : ${item.exchangeRate})`}
+                      {t("purchases.unitsAt", {
+                        quantity: item.quantity,
+                        cost: item.unitCost.toLocaleString("fr-FR"),
+                        currency: item.currency,
+                      })}
+                      {item.currency !== "FCFA" &&
+                        ` ${t("purchases.exchangeRateLabel", { rate: item.exchangeRate })}`}
                     </p>
                   </div>
                   <div className="text-right">
@@ -205,7 +211,9 @@ export default function PurchaseDetailsPage() {
                         variant="outline"
                         className="mt-1 border-emerald-200 text-[10px] text-emerald-600"
                       >
-                        Revient unit. : {Math.round(landedCostUnit).toLocaleString("fr-FR")} FCFA
+                        {t("purchases.landedCostUnit", {
+                          amount: Math.round(landedCostUnit).toLocaleString("fr-FR"),
+                        })}
                       </Badge>
                     )}
                   </div>
@@ -218,11 +226,11 @@ export default function PurchaseDetailsPage() {
         <div className="space-y-6">
           <Card className="rounded-2xl border bg-card shadow-sm">
             <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-              <CardTitle className="text-base">Statut et informations</CardTitle>
+              <CardTitle className="text-base">{t("purchases.statusInfoTitle")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Statut actuel</span>
+                <span className="text-sm text-muted-foreground">{t("purchases.currentStatus")}</span>
                 <StatusBadge
                   preset="purchaseStatus"
                   value={purchase.status}
@@ -232,27 +240,27 @@ export default function PurchaseDetailsPage() {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-1 text-muted-foreground">
-                  <Calendar className="h-3 w-3" /> Date création
+                  <Calendar className="h-3 w-3" /> {t("purchases.createdDate")}
                 </span>
                 <span>{format(purchase.timestamp.toDate(), "dd/MM/yyyy")}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-1 text-muted-foreground">
-                  <User className="h-3 w-3" /> Créé par
+                  <User className="h-3 w-3" /> {t("purchases.createdBy")}
                 </span>
                 <span className="font-medium">{purchase.performedByName}</span>
               </div>
               <div className="space-y-2 border-t pt-4">
                 <div className="flex justify-between text-sm">
-                  <span>Sous-total items</span>
+                  <span>{t("purchases.subtotalItems")}</span>
                   <span>{purchase.subtotalFCFA.toLocaleString("fr-FR")} FCFA</span>
                 </div>
                 <div className="flex justify-between text-sm text-destructive">
-                  <span>Frais annexes</span>
+                  <span>{t("purchases.extraFees")}</span>
                   <span>+{purchase.expensesTotalFCFA.toLocaleString("fr-FR")} FCFA</span>
                 </div>
                 <div className="flex justify-between border-t pt-2 text-lg font-bold">
-                  <span>TOTAL FINAL</span>
+                  <span>{t("purchases.totalFinal")}</span>
                   <span>{purchase.totalFCFA.toLocaleString("fr-FR")} FCFA</span>
                 </div>
               </div>
@@ -265,11 +273,10 @@ export default function PurchaseDetailsPage() {
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
                 <div className="space-y-1 text-xs text-muted-foreground">
                   <p className="font-bold text-amber-800 dark:text-amber-400">
-                    Réception en attente
+                    {t("purchases.receptionPendingTitle")}
                   </p>
                   <p>
-                    Validez la réception une fois la marchandise livrée pour mettre à jour le stock
-                    et recalculer les coûts de revient.
+                    {t("purchases.receptionPendingDesc")}
                   </p>
                 </div>
               </CardContent>
@@ -281,14 +288,12 @@ export default function PurchaseDetailsPage() {
               <CardContent className="flex items-start gap-3 p-4">
                 <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
                 <div className="space-y-1 text-xs text-emerald-800">
-                  <p className="font-bold">Stock mis à jour !</p>
+                  <p className="font-bold">{t("purchases.stockUpdatedTitle")}</p>
                   <p>
-                    Les produits ont été injectés dans l&apos;inventaire de{" "}
-                    <strong>{purchase.storeName}</strong>.
+                    {t("purchases.stockUpdatedDesc", { store: purchase.storeName })}
                   </p>
                   <p>
-                    Le prix moyen pondéré (PMP) a été recalculé pour tous les articles de cette
-                    commande.
+                    {t("purchases.stockUpdatedPmp")}
                   </p>
                 </div>
               </CardContent>
@@ -299,7 +304,7 @@ export default function PurchaseDetailsPage() {
             <Card className="rounded-2xl border bg-card shadow-sm">
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-xs uppercase text-muted-foreground">
-                  Notes de commande
+                  {t("purchases.orderNotes")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0 text-sm">{purchase.notes}</CardContent>

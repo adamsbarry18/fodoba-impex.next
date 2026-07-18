@@ -32,6 +32,8 @@ import {
   appDropdownItemClass,
   appDropdownItemDestructiveClass,
 } from "@/components/layout/nav-menu-items"
+import { useLocale, useT } from "@/i18n/context"
+import { LOCALE_CONFIGS } from "@/i18n/config"
 
 interface AppHeaderProps {
   onNotifOpen: () => void
@@ -41,6 +43,8 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
   const { activeStore, availableStores, setActiveStoreById } = useStore()
   const { userProfile, logout } = useAuth()
   const { unreadCount } = useNotifications()
+  const t = useT()
+  const { locale, setLocale } = useLocale()
 
   const role = userProfile?.role ?? "seller"
 
@@ -77,10 +81,10 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
                   "[&>svg]:size-3.5 [&>svg]:shrink-0",
                   "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
                 )}
-                aria-label="Boutique active"
+                aria-label={t("header.storeSelect")}
               >
                 <StoreIcon className="opacity-80" aria-hidden />
-                <SelectValue placeholder="Choisir une boutique" />
+                <SelectValue placeholder={t("header.storeSelect")} />
               </SelectTrigger>
               <SelectContent align="start" className="z-[200] rounded-xl">
                 {availableStores.map((store) => (
@@ -102,22 +106,60 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
               "rounded-lg border border-sidebar-border/40 px-2.5 text-[13px] font-semibold text-sidebar-foreground",
               "sm:h-9 sm:min-h-9"
             )}
-            title={`Boutique : ${activeStore.name}`}
+            title={t("header.store", { name: activeStore.name })}
           >
             <StoreIcon className="size-3.5 shrink-0 opacity-80" aria-hidden />
             <span className="min-w-0 truncate">{activeStore.name}</span>
           </div>
         ) : (
           <div className="text-[12px] font-medium italic text-muted-foreground group-data-[collapsible=icon]:hidden">
-            Aucune boutique assignée
+            {t("header.noStoreAssigned")}
           </div>
         )}
       </div>
 
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className={cn(
+                "h-9 gap-1.5 rounded-lg px-2 text-sidebar-foreground",
+                "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground",
+                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+              )}
+              aria-label={t("header.language")}
+            >
+              <span className="text-base">{LOCALE_CONFIGS.find(cfg => cfg.code === locale)?.flag}</span>
+              <span className="hidden text-xs font-semibold uppercase sm:inline-block">
+                {locale}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className={appDropdownContentClass} align="end">
+            <DropdownMenuLabel className="px-3 py-1.5 text-xs text-muted-foreground">
+              {t("header.language")}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {LOCALE_CONFIGS.map((cfg) => (
+              <DropdownMenuItem
+                key={cfg.code}
+                className={cn(
+                  appDropdownItemClass,
+                  locale === cfg.code && "bg-accent/60 font-medium"
+                )}
+                onClick={() => setLocale(cfg.code)}
+              >
+                <span className="mr-2 text-base">{cfg.flag}</span>
+                <span className="text-sm">{cfg.name}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <AppHeaderIconButton
           icon={Bell}
-          label="Notifications"
+          label={t("header.notifications")}
           onClick={onNotifOpen}
           badge={unreadCount}
         />
@@ -132,7 +174,7 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
                 "sm:pl-2 sm:pr-2.5",
                 "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
               )}
-              aria-label="Menu du compte"
+              aria-label={t("header.accountMenu")}
             >
               <UserAvatar
                 user={{
@@ -189,7 +231,7 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
                 <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted/60">
                   <UserCircle className="h-3.5 w-3.5 text-muted-foreground" />
                 </span>
-                Mon profil
+                {t("header.myProfile")}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -197,7 +239,7 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
               <span className="flex h-6 w-6 items-center justify-center rounded-md bg-destructive/10">
                 <LogOut className="h-3.5 w-3.5" />
               </span>
-              Se déconnecter
+              {t("header.logout")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

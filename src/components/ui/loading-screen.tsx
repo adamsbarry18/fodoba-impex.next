@@ -1,5 +1,8 @@
+"use client"
+
 import { AppLogo } from "@/components/layout/app-logo"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n/context"
 
 interface LoadingScreenProps {
   /** Titre affiché sous le logo */
@@ -12,17 +15,21 @@ interface LoadingScreenProps {
 }
 
 export function LoadingScreen({
-  title = "FODOBA IMPEX",
-  message = "Vérification de votre session…",
+  title,
+  message,
   fullScreen = true,
   className,
 }: LoadingScreenProps) {
+  const t = useT()
+  const resolvedTitle = title ?? t("common.appName")
+  const resolvedMessage = message ?? t("loading.sessionCheck")
+
   return (
     <div
       role="status"
       aria-live="polite"
       aria-busy="true"
-      aria-label={message}
+      aria-label={resolvedMessage}
       className={cn(
         "flex items-center justify-center",
         fullScreen
@@ -42,13 +49,13 @@ export function LoadingScreen({
 
         <div className="space-y-1.5 text-center">
           <h2 className="font-headline text-xl font-bold tracking-tight text-foreground">
-            {title}
+            {resolvedTitle}
           </h2>
-          <p className="text-xs font-medium text-muted-foreground">{message}</p>
+          <p className="text-xs font-medium text-muted-foreground">{resolvedMessage}</p>
         </div>
       </div>
 
-      <span className="sr-only">{message}</span>
+      <span className="sr-only">{resolvedMessage}</span>
     </div>
   )
 }

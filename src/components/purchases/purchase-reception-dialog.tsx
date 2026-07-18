@@ -14,6 +14,7 @@ import { Loader2, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Purchase } from "@/lib/types"
 import { formatPurchaseRef } from "@/lib/purchase-utils"
+import { useT } from "@/i18n/context"
 
 type PurchaseReceptionDialogProps = {
   open: boolean
@@ -30,19 +31,22 @@ export function PurchaseReceptionDialog({
   processing,
   onConfirm,
 }: PurchaseReceptionDialogProps) {
+  const t = useT()
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="rounded-2xl sm:max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle>Confirmer la réception ?</AlertDialogTitle>
+          <AlertDialogTitle>{t("purchases.receptionConfirmTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
-            Confirmer la réception de la commande{" "}
-            {purchase ? formatPurchaseRef(purchase.id) : ""} ? Les stocks seront mis à jour.
+            {t("purchases.receptionConfirmDesc", {
+              ref: purchase ? formatPurchaseRef(purchase.id) : "",
+            })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel className="rounded-xl" disabled={processing}>
-            Annuler
+            {t("common.cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             className={cn("rounded-xl bg-emerald-600 hover:bg-emerald-700")}
@@ -57,7 +61,7 @@ export function PurchaseReceptionDialog({
             ) : (
               <Package className="mr-2 h-4 w-4" />
             )}
-            Confirmer
+            {t("common.confirm")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

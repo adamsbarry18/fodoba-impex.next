@@ -17,42 +17,43 @@ export function applyCartDiscount(subtotal: number, discount: number): number {
 
 export const POS_PAYMENT_MODES: {
   id: PosPaymentMode
-  label: string
-  shortLabel: string
-  description: string
+  labelKey: string
+  shortLabelKey: string
+  descriptionKey: string
   icon: LucideIcon
   tone: "success" | "warning" | "info" | "violet"
 }[] = [
   {
     id: "comptant",
-    label: "Comptant",
-    shortLabel: "Intégral",
-    description: "Encaissement total en un seul mode",
+    labelKey: "pos.mode.comptant.label",
+    shortLabelKey: "pos.mode.comptant.short",
+    descriptionKey: "pos.mode.comptant.desc",
     icon: Wallet,
     tone: "success",
   },
   {
     id: "partiel",
-    label: "Partiel",
-    shortLabel: "Acompte + crédit",
-    description: "Partie encaissée, solde en dette client",
+    labelKey: "pos.mode.partiel.label",
+    shortLabelKey: "pos.mode.partiel.short",
+    descriptionKey: "pos.mode.partiel.desc",
     icon: HandCoins,
     tone: "warning",
   },
   {
     id: "credit",
-    label: "Crédit",
-    shortLabel: "100 % crédit",
-    description: "Aucun encaissement - dette client",
+    labelKey: "pos.mode.credit.label",
+    shortLabelKey: "pos.mode.credit.short",
+    descriptionKey: "pos.mode.credit.desc",
     icon: CreditCard,
     tone: "info",
   },
   {
     id: "fractionne",
-    label: "Fractionné",
-    shortLabel: "Multi-modes",
-    description: "Répartition sur plusieurs lignes de caisse",
+    labelKey: "pos.mode.fractionne.label",
+    shortLabelKey: "pos.mode.fractionne.short",
+    descriptionKey: "pos.mode.fractionne.desc",
     icon: Split,
     tone: "violet",
   },
 ]
+

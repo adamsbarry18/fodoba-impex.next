@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
@@ -55,13 +54,22 @@ import { useStore } from "@/lib/contexts/StoreContext"
 import { formatStoreCreatedAt, getStoreInitials } from "@/lib/store-utils"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
-import { fr } from "date-fns/locale"
-import { useTableColumns } from "@/hooks/use-table-columns"
+import { useTranslatedTableColumns } from "@/hooks/use-translated-table-columns"
 import { TableColumnToggle } from "@/components/ui/table-column-toggle"
 import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { STORE_TABLE_COLUMNS } from "@/lib/table-column-presets"
+import { useT, useLocale } from "@/i18n/context"
+import { getDateLocale } from "@/i18n/get-date-locale"
 
 const PAGE_SIZE = 50
+
+const STORE_COLUMN_LABEL_KEYS: Record<string, string> = {
+  store: "stores.colStore",
+  contact: "stores.colContact",
+  created: "stores.colCreated",
+  status: "stores.colStatus",
+  actions: "stores.colActions",
+}
 
 type ToggleTarget = {
   id: string
@@ -71,6 +79,10 @@ type ToggleTarget = {
 }
 
 export default function StoresAdminPage() {
+  const t = useT()
+  const { locale } = useLocale()
+  const dateLocale = getDateLocale(locale)
+
   const [stores, setStores] = useState<Store[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -102,7 +114,7 @@ export default function StoresAdminPage() {
       setLastDoc(result.lastVisible)
       setHasMore(result.stores.length === PAGE_SIZE)
     } catch {
-      toast.error("Erreur lors du chargement des boutiques")
+      toast.error(t("stores.errorLoading"))
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -121,7 +133,7 @@ export default function StoresAdminPage() {
         setLastDoc(result.lastVisible)
         setHasMore(result.stores.length === PAGE_SIZE)
       } catch {
-        if (!cancelled) toast.error("Erreur lors du chargement des boutiques")
+        if (!cancelled) toast.error(t("stores.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -131,7 +143,7 @@ export default function StoresAdminPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   const filteredStores = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
@@ -159,7 +171,12 @@ export default function StoresAdminPage() {
   )
 
   const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
-    useTableColumns("stores", STORE_TABLE_COLUMNS)
+    useTranslatedTableColumns("stores", STORE_TABLE_COLUMNS, STORE_COLUMN_LABEL_KEYS)
+
+  const listDescription =
+    searchTerm || statusFilter !== "all"
+      ? t("stores.listDescription", { filtered: filteredStores.length, total: stores.length })
+      : t("stores.listDescriptionNoFilter", { filtered: filteredStores.length, total: stores.length })
 
   const handleRefresh = async () => {
     setLastDoc(undefined)
@@ -176,14 +193,14 @@ export default function StoresAdminPage() {
       await StoreService.toggleStoreStatus(toggleTarget.id, !toggleTarget.active)
       toast.success(
         toggleTarget.active
-          ? `${toggleTarget.name} a été suspendue`
-          : `${toggleTarget.name} a été réactivée`
+          ? t("stores.suspended", { name: toggleTarget.name })
+          : t("stores.reactivated", { name: toggleTarget.name })
       )
       setToggleTarget(null)
       await loadStores({ reset: true })
       await refreshStores()
     } catch {
-      toast.error("Erreur lors du changement de statut")
+      toast.error(t("stores.statusError"))
     } finally {
       setToggling(false)
     }
@@ -191,17 +208,14 @@ export default function StoresAdminPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      {/* En-tête */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
             <StoreIcon className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Gestion des boutiques</h1>
-            <p className="text-sm text-muted-foreground">
-              Points de vente du réseau FODOBA IMPEX - codes, coordonnées et statuts.
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight">{t("stores.title")}</h1>
+            <p className="text-sm text-muted-foreground">{t("stores.subtitle")}</p>
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -212,18 +226,17 @@ export default function StoresAdminPage() {
             disabled={loading}
           >
             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            Actualiser
+            {t("stores.refresh")}
           </Button>
           <Button asChild className="rounded-xl font-semibold">
             <Link href="/admin/stores/new">
               <Plus className="mr-2 h-4 w-4" />
-              Nouvelle boutique
+              {t("stores.newStore")}
             </Link>
           </Button>
         </div>
       </div>
 
-      {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <Card className="rounded-2xl border bg-card shadow-sm">
           <CardContent className="flex items-center gap-4 p-4">
@@ -232,7 +245,7 @@ export default function StoresAdminPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Boutiques
+                {t("stores.statTotal")}
               </p>
               <p className="text-2xl font-bold">{stats.total}</p>
             </div>
@@ -246,7 +259,7 @@ export default function StoresAdminPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Actives
+                {t("stores.statActive")}
               </p>
               <p className="text-2xl font-bold">{stats.active}</p>
             </div>
@@ -260,7 +273,7 @@ export default function StoresAdminPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Suspendues
+                {t("stores.statInactive")}
               </p>
               <p className="text-2xl font-bold">{stats.inactive}</p>
             </div>
@@ -268,13 +281,12 @@ export default function StoresAdminPage() {
         </Card>
       </div>
 
-      {/* Filtres */}
       <Card className="rounded-2xl border bg-card shadow-sm">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher par code, nom, adresse ou téléphone…"
+              placeholder={t("stores.searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="h-10 rounded-xl border-border pl-9"
@@ -287,27 +299,22 @@ export default function StoresAdminPage() {
             }
           >
             <SelectTrigger className="h-10 w-full rounded-xl sm:w-[180px]">
-              <SelectValue placeholder="Statut" />
+              <SelectValue placeholder={t("stores.filterStatus")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Tous les statuts</SelectItem>
-              <SelectItem value="active">Actives</SelectItem>
-              <SelectItem value="inactive">Suspendues</SelectItem>
+              <SelectItem value="all">{t("stores.filterStatusAll")}</SelectItem>
+              <SelectItem value="active">{t("stores.filterStatusActive")}</SelectItem>
+              <SelectItem value="inactive">{t("stores.filterStatusInactive")}</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
       </Card>
 
-      {/* Liste */}
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 p-4 sm:p-6">
           <div>
-            <CardTitle className="text-base">Liste des points de vente</CardTitle>
-            <CardDescription className="text-xs">
-              {filteredStores.length} boutique{filteredStores.length !== 1 ? "s" : ""}
-              {searchTerm || statusFilter !== "all" ? " (filtrées)" : ""} sur{" "}
-              {stores.length} chargée{stores.length !== 1 ? "s" : ""}
-            </CardDescription>
+            <CardTitle className="text-base">{t("stores.listTitle")}</CardTitle>
+            <CardDescription className="text-xs">{listDescription}</CardDescription>
           </div>
           <TableColumnToggle
             columns={tableColumns}
@@ -324,17 +331,17 @@ export default function StoresAdminPage() {
           ) : filteredStores.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 p-16 text-center text-muted-foreground">
               <StoreIcon className="h-10 w-10 opacity-30" />
-              <p className="font-medium">Aucune boutique trouvée</p>
+              <p className="font-medium">{t("stores.noStoresFound")}</p>
               <p className="text-xs">
                 {stores.length === 0
-                  ? "Créez votre premier point de vente pour démarrer."
-                  : "Modifiez vos filtres de recherche."}
+                  ? t("stores.noStoresDesc")
+                  : t("stores.noStoresFilterDesc")}
               </p>
               {stores.length === 0 && (
                 <Button asChild className="mt-2 rounded-xl">
                   <Link href="/admin/stores/new">
                     <Plus className="mr-2 h-4 w-4" />
-                    Nouvelle boutique
+                    {t("stores.newStore")}
                   </Link>
                 </Button>
               )}
@@ -345,19 +352,19 @@ export default function StoresAdminPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <VisibleTableColumn id="store" isVisible={isVisible}>
-                      <TableHead className="pl-4 sm:pl-6">Boutique</TableHead>
+                      <TableHead className="pl-4 sm:pl-6">{t("stores.colStore")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="contact" isVisible={isVisible}>
-                      <TableHead>Contact</TableHead>
+                      <TableHead>{t("stores.colContact")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="created" isVisible={isVisible}>
-                      <TableHead>Création</TableHead>
+                      <TableHead>{t("stores.colCreated")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="status" isVisible={isVisible}>
-                      <TableHead>Statut</TableHead>
+                      <TableHead>{t("stores.colStatus")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="actions" isVisible={isVisible}>
-                      <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
+                      <TableHead className="pr-4 text-right sm:pr-6">{t("stores.colActions")}</TableHead>
                     </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
@@ -406,7 +413,7 @@ export default function StoresAdminPage() {
                         <VisibleTableColumn id="created" isVisible={isVisible}>
                           <TableCell className="text-xs text-muted-foreground">
                             {createdAt
-                              ? format(createdAt, "dd MMM yyyy", { locale: fr })
+                              ? format(createdAt, "dd MMM yyyy", { locale: dateLocale })
                               : "-"}
                           </TableCell>
                         </VisibleTableColumn>
@@ -416,9 +423,7 @@ export default function StoresAdminPage() {
                               preset="activeState"
                               value={store.active ? "active" : "inactive"}
                               className="text-[10px]"
-                            >
-                              {store.active ? "Active" : "Suspendue"}
-                            </StatusBadge>
+                            />
                           </TableCell>
                         </VisibleTableColumn>
                         <VisibleTableColumn id="actions" isVisible={isVisible}>
@@ -429,7 +434,7 @@ export default function StoresAdminPage() {
                                 size="icon"
                                 asChild
                                 className="h-8 w-8 rounded-lg"
-                                title="Modifier"
+                                title={t("stores.edit")}
                               >
                                 <Link href={`/admin/stores/${store.id}/edit`}>
                                   <Edit className="h-4 w-4" />
@@ -452,7 +457,7 @@ export default function StoresAdminPage() {
                                     active: store.active,
                                   })
                                 }
-                                title={store.active ? "Suspendre" : "Réactiver"}
+                                title={store.active ? t("stores.suspend") : t("stores.reactivate")}
                               >
                                 {store.active ? (
                                   <PowerOff className="h-4 w-4" />
@@ -480,7 +485,7 @@ export default function StoresAdminPage() {
                 className="rounded-xl font-semibold"
               >
                 {loadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Charger plus de boutiques
+                {t("stores.loadMore")}
               </Button>
             </div>
           )}
@@ -494,17 +499,25 @@ export default function StoresAdminPage() {
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {toggleTarget?.active ? "Suspendre la boutique" : "Réactiver la boutique"}
+              {toggleTarget?.active
+                ? t("stores.confirmSuspendTitle")
+                : t("stores.confirmReactivateTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {toggleTarget?.active
-                ? `La boutique ${toggleTarget?.name} (${toggleTarget?.code}) ne sera plus sélectionnable pour les opérations. Les données historiques sont conservées.`
-                : `La boutique ${toggleTarget?.name} (${toggleTarget?.code}) redeviendra disponible dans le réseau.`}
+                ? t("stores.confirmSuspendDesc", {
+                    name: toggleTarget.name,
+                    code: toggleTarget.code,
+                  })
+                : t("stores.confirmReactivateDesc", {
+                    name: toggleTarget?.name ?? "",
+                    code: toggleTarget?.code ?? "",
+                  })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-xl" disabled={toggling}>
-              Annuler
+              {t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className={cn(
@@ -518,7 +531,7 @@ export default function StoresAdminPage() {
               disabled={toggling}
             >
               {toggling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirmer
+              {t("stores.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

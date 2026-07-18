@@ -10,20 +10,24 @@ import { Loader2, Mail, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { AppLogo } from "@/components/layout/app-logo";
+import { useT } from "@/i18n/context";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const { resetPassword } = useAuth();
+  const t = useT();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       await resetPassword(email);
-      toast.success("Email de réinitialisation envoyé !");
+      toast.success(t("auth.resetSuccess"));
     } catch (error: any) {
-      toast.error(error.message);
+      const rawMessage = error?.message || "auth.error.generic"
+      const displayMessage = t.has(rawMessage) ? t(rawMessage) : t("auth.error.resetFailed")
+      toast.error(displayMessage);
     } finally {
       setLoading(false);
     }
@@ -36,25 +40,25 @@ export default function ForgotPasswordPage() {
           {/* Logo Section */}
           <div className="flex items-center justify-center gap-3 mb-12">
             <AppLogo size="md" />
-            <span className="font-headline font-bold text-2xl tracking-tight text-[#111827]">FODOBA IMPEX</span>
+            <span className="font-headline font-bold text-2xl tracking-tight text-[#111827]">{t("common.appName")}</span>
           </div>
 
           <div className="mb-10">
-            <h1 className="text-[28px] font-bold text-[#111827] mb-2 leading-tight">Réinitialisation</h1>
+            <h1 className="text-[28px] font-bold text-[#111827] mb-2 leading-tight">{t("auth.resetTitle")}</h1>
             <p className="text-[15px] text-gray-500 leading-relaxed">
-              Saisissez votre email professionnel pour recevoir un lien sécurisé.
+              {t("auth.resetDesc")}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2.5">
-              <Label htmlFor="email" required className="text-[14px] font-semibold text-[#374151] ml-0.5">Email professionnel</Label>
+              <Label htmlFor="email" required className="text-[14px] font-semibold text-[#374151] ml-0.5">{t("auth.email")}</Label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="nom@fodoba.com" 
+                  placeholder={t("auth.emailPlaceholder")} 
                   className="pl-12 h-12 bg-white border-[#e5e7eb] rounded-xl focus-visible:ring-4 focus-visible:ring-primary/10 focus-visible:border-primary transition-all text-[15px]"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -67,14 +71,14 @@ export default function ForgotPasswordPage() {
               type="submit" 
               disabled={loading}
             >
-              {loading ? <Loader2 className="h-5 v-5 animate-spin mr-2" /> : "Envoyer le lien"}
+              {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : t("auth.sendLink")}
             </Button>
           </form>
 
           <div className="mt-10 text-center">
             <Button variant="link" asChild className="text-gray-500 hover:text-primary text-[14px] font-medium transition-colors">
               <Link href="/login" className="flex items-center gap-2">
-                <ArrowLeft className="w-4 h-4" /> Retour à la connexion
+                <ArrowLeft className="w-4 h-4" /> {t("auth.backToLogin")}
               </Link>
             </Button>
           </div>

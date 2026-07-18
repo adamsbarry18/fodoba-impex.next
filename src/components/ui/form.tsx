@@ -14,6 +14,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
+import { useT } from "@/i18n/context"
 
 const Form = FormProvider
 
@@ -150,7 +151,20 @@ const FormMessage = React.forwardRef<
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, children, ...props }, ref) => {
   const { error, formMessageId } = useFormField()
-  const body = error ? String(error?.message ?? "") : children
+  const t = useT()
+  const errorMsg = error ? String(error?.message ?? "") : ""
+  
+  let body: React.ReactNode = children
+  if (errorMsg) {
+    body = errorMsg
+    try {
+      if (t.has(errorMsg)) {
+        body = t(errorMsg)
+      }
+    } catch {
+      // fallback to errorMsg
+    }
+  }
 
   if (!body) {
     return null

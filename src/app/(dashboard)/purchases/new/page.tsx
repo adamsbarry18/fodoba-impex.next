@@ -40,6 +40,7 @@ import {
   getPurchaseSubtotal,
   getExpensesTotal,
 } from "@/lib/purchase-utils"
+import { useT } from "@/i18n/context"
 
 const EMPTY_ITEM = (): PurchaseItem => ({
   productId: "",
@@ -62,6 +63,7 @@ export default function NewPurchasePage() {
   const { activeStore } = useStore()
   const { userProfile } = useAuth()
   const { rates } = useCurrency()
+  const t = useT()
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -90,7 +92,8 @@ export default function NewPurchasePage() {
         setProducts(prodResult.products)
 
         await applyReturnSelection(ENTITY_ROUTES.supplier.param, setSupplierId, {
-          successMessage: ENTITY_ROUTES.supplier.createdMessage,
+          successMessage: t(ENTITY_ROUTES.supplier.createdMessageKey),
+          errorMessage: t("hooks.returnSelectionError"),
           reload: async () => {
             const data = await SupplierService.listSuppliers()
             setSuppliers(data)
@@ -108,7 +111,7 @@ export default function NewPurchasePage() {
                 const next = [...prev]
                 next[existingIndex] = {
                   ...next[existingIndex],
-                  quantity: next[existingIndex].quantity + 1,
+                  quantity: next[existingIndex]!.quantity + 1,
                 }
                 return next
               }
@@ -126,7 +129,8 @@ export default function NewPurchasePage() {
             })
           },
           {
-            successMessage: ENTITY_ROUTES.product.createdMessage,
+            successMessage: t(ENTITY_ROUTES.product.createdMessageKey),
+            errorMessage: t("hooks.returnSelectionError"),
             reload: async () => {
               const result = await ProductService.listProducts({ active: true }, 200)
               setProducts(result.products)
@@ -134,13 +138,13 @@ export default function NewPurchasePage() {
           }
         )
       } catch {
-        toast.error("Erreur de chargement des données")
+        toast.error(t("purchases.form.errorLoading"))
       } finally {
         setLoading(false)
       }
     }
     init()
-  }, [])
+  }, [t])
 
   const updateItem = (index: number, field: keyof PurchaseItem, value: string | number) => {
     setItems((prev) => {
@@ -193,7 +197,7 @@ export default function NewPurchasePage() {
       try {
         const product = await ProductService.findProductByCode(code)
         if (!product) {
-          toast.error(`Produit introuvable : ${code}`)
+          toast.error(t("purchases.form.toast.productNotFound", { code }))
           return
         }
 
@@ -205,10 +209,15 @@ export default function NewPurchasePage() {
               ...next[existingIndex]!,
               quantity: next[existingIndex]!.quantity + 1,
             }
-            toast.success(`${product.name} - qté ${next[existingIndex]!.quantity}`)
+            toast.success(
+              t("purchases.form.toast.productQty", {
+                name: product.name,
+                quantity: next[existingIndex]!.quantity,
+              })
+            )
             return next
           }
-          toast.success(`${product.name} ajouté`)
+          toast.success(t("purchases.form.toast.productAdded", { name: product.name }))
           return [
             ...prev,
             {
@@ -222,12 +231,12 @@ export default function NewPurchasePage() {
           ]
         })
       } catch {
-        toast.error("Erreur lors du scan")
+        toast.error(t("purchases.form.toast.scanError"))
       } finally {
         setScanProcessing(false)
       }
     },
-    []
+    [t]
   )
 
   const subtotalFCFA = useMemo(() => getPurchaseSubtotal(items), [items])
@@ -236,18 +245,24 @@ export default function NewPurchasePage() {
 
   const selectedSupplier = suppliers.find((s) => s.id === supplierId)
 
+  const summaryDescription = useMemo(() => {
+    const itemsPart = t("purchases.form.summaryItems", { count: items.length })
+    if (expenses.length === 0) return itemsPart
+    return `${itemsPart}${t("purchases.form.summaryFees", { count: expenses.length })}`
+  }, [t, items.length, expenses.length])
+
   const handleSubmit = async (status: "DRAFT" | "ORDERED") => {
     if (!activeStore || !userProfile) return
-    if (!supplierId) return toast.error("Veuillez choisir un fournisseur")
-    if (items.length === 0) return toast.error("Ajoutez au moins un article")
+    if (!supplierId) return toast.error(t("purchases.form.toast.supplierRequired"))
+    if (items.length === 0) return toast.error(t("purchases.form.toast.itemsRequired"))
     if (items.some((i) => !i.productId || i.quantity <= 0))
-      return toast.error("Détails d'articles invalides")
+      return toast.error(t("purchases.form.toast.invalidItems"))
 
     setSubmitting(true)
     try {
       await PurchaseService.createPurchase({
         supplierId,
-        supplierName: selectedSupplier?.name || "Inconnu",
+        supplierName: selectedSupplier?.name || t("purchases.form.unknownSupplier"),
         storeId: activeStore.id,
         storeName: activeStore.name,
         items,
@@ -260,10 +275,14 @@ export default function NewPurchasePage() {
         performedBy: userProfile.uid,
         performedByName: `${userProfile.prenom} ${userProfile.nom}`,
       })
-      toast.success(status === "DRAFT" ? "Brouillon enregistré" : "Commande validée")
+      toast.success(
+        status === "DRAFT"
+          ? t("purchases.form.toast.draftSaved")
+          : t("purchases.form.toast.orderValidated")
+      )
       router.push("/purchases")
     } catch {
-      toast.error("Erreur lors de l'enregistrement")
+      toast.error(t("purchases.form.toast.saveError"))
     } finally {
       setSubmitting(false)
     }
@@ -273,7 +292,7 @@ export default function NewPurchasePage() {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
         <Truck className="h-10 w-10 opacity-30" />
-        <p>Sélectionnez une boutique pour créer un approvisionnement.</p>
+        <p>{t("purchases.form.selectStore")}</p>
       </div>
     )
   }
@@ -300,11 +319,10 @@ export default function NewPurchasePage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight font-headline">
-              Nouvel approvisionnement
+              {t("purchases.form.title")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Commande fournisseur pour{" "}
-              <strong className="text-foreground">{activeStore.name}</strong>
+              {t("purchases.form.subtitle", { store: activeStore.name })}
             </p>
           </div>
         </div>
@@ -312,21 +330,20 @@ export default function NewPurchasePage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          {/* Articles */}
           <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <CardHeader className="flex flex-col gap-4 border-b bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
               <div>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Package className="h-4 w-4 text-primary" />
-                  Articles commandés
+                  {t("purchases.form.articlesTitle")}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Scannez ou sélectionnez les produits à réceptionner.
+                  {t("purchases.form.articlesDesc")}
                 </CardDescription>
               </div>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[280px]">
                 <BarcodeScanField
-                  placeholder="Scanner pour ajouter… (F2)"
+                  placeholder={t("purchases.form.scanPlaceholder")}
                   onScan={handleProductScan}
                   processing={scanProcessing}
                 />
@@ -337,14 +354,14 @@ export default function NewPurchasePage() {
                   className="w-full rounded-xl"
                 >
                   <Plus className="mr-1 h-4 w-4" />
-                  Ajouter manuellement
+                  {t("purchases.form.addManually")}
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">
               {items.length === 0 ? (
                 <div className="rounded-xl border border-dashed py-12 text-center text-sm text-muted-foreground">
-                  Scannez un code-barres ou ajoutez un article manuellement.
+                  {t("purchases.form.emptyItems")}
                 </div>
               ) : (
                 items.map((item, index) => (
@@ -355,7 +372,7 @@ export default function NewPurchasePage() {
                     <div className="grid grid-cols-12 gap-3 items-end">
                       <div className="col-span-12 sm:col-span-5 space-y-1.5">
                         <Label required className="text-xs">
-                          Produit
+                          {t("purchases.form.product")}
                         </Label>
                         <FieldWithAdd entity="product" returnTo="/purchases/new">
                           <Select
@@ -363,7 +380,7 @@ export default function NewPurchasePage() {
                             onValueChange={(v) => updateItem(index, "productId", v)}
                           >
                             <SelectTrigger className="h-10 rounded-xl">
-                              <SelectValue placeholder="Choisir un produit" />
+                              <SelectValue placeholder={t("purchases.form.selectProduct")} />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
                               {products.map((p) => (
@@ -377,7 +394,7 @@ export default function NewPurchasePage() {
                       </div>
                       <div className="col-span-4 sm:col-span-2 space-y-1.5">
                         <Label required className="text-xs">
-                          Qté
+                          {t("purchases.form.quantity")}
                         </Label>
                         <Input
                           type="number"
@@ -392,7 +409,7 @@ export default function NewPurchasePage() {
                       </div>
                       <div className="col-span-4 sm:col-span-2 space-y-1.5">
                         <Label required className="text-xs">
-                          Prix unit.
+                          {t("purchases.form.unitPrice")}
                         </Label>
                         <Input
                           type="number"
@@ -407,7 +424,7 @@ export default function NewPurchasePage() {
                       </div>
                       <div className="col-span-11 sm:col-span-2 space-y-1.5">
                         <Label required className="text-xs">
-                          Devise / taux
+                          {t("purchases.form.currencyRate")}
                         </Label>
                         <div className="flex gap-1">
                           <Select
@@ -449,10 +466,9 @@ export default function NewPurchasePage() {
                       </div>
                     </div>
                     <p className="text-right text-xs text-muted-foreground">
-                      Ligne :{" "}
-                      <span className="font-bold text-foreground">
-                        {getPurchaseLineTotal(item).toLocaleString("fr-FR")} FCFA
-                      </span>
+                      {t("purchases.form.lineTotal", {
+                        amount: getPurchaseLineTotal(item).toLocaleString("fr-FR"),
+                      })}
                     </p>
                   </div>
                 ))
@@ -460,16 +476,15 @@ export default function NewPurchasePage() {
             </CardContent>
           </Card>
 
-          {/* Frais annexes */}
           <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 p-4 sm:p-6">
               <div>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Receipt className="h-4 w-4 text-primary" />
-                  Frais annexes
+                  {t("purchases.form.expensesTitle")}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Transport, douane, logistique - impactent le coût de revient.
+                  {t("purchases.form.expensesDesc")}
                 </CardDescription>
               </div>
               <Button
@@ -479,28 +494,28 @@ export default function NewPurchasePage() {
                 className="rounded-xl"
               >
                 <Plus className="mr-1 h-4 w-4" />
-                Ajouter
+                {t("purchases.form.add")}
               </Button>
             </CardHeader>
             <CardContent className="space-y-3 p-4 sm:p-6">
               {expenses.length === 0 ? (
                 <p className="text-center text-sm italic text-muted-foreground py-4">
-                  Aucun frais annexes (optionnel).
+                  {t("purchases.form.noExpenses")}
                 </p>
               ) : (
                 expenses.map((exp, index) => (
                   <div key={index} className="flex flex-wrap items-end gap-3 rounded-xl border p-3">
                     <div className="min-w-[140px] flex-1">
-                      <Label className="text-xs">Libellé</Label>
+                      <Label className="text-xs">{t("purchases.form.label")}</Label>
                       <Input
-                        placeholder="Ex. Transport"
+                        placeholder={t("purchases.form.labelPlaceholder")}
                         className="mt-1 h-10 rounded-xl"
                         value={exp.label}
                         onChange={(e) => updateExpense(index, "label", e.target.value)}
                       />
                     </div>
                     <div className="w-28">
-                      <Label className="text-xs">Montant</Label>
+                      <Label className="text-xs">{t("purchases.form.amount")}</Label>
                       <Input
                         type="number"
                         min="0"
@@ -512,7 +527,7 @@ export default function NewPurchasePage() {
                       />
                     </div>
                     <div className="w-24">
-                      <Label className="text-xs">Devise</Label>
+                      <Label className="text-xs">{t("purchases.form.currency")}</Label>
                       <Select
                         value={exp.currency}
                         onValueChange={(v) => updateExpense(index, "currency", v)}
@@ -546,24 +561,19 @@ export default function NewPurchasePage() {
           </Card>
         </div>
 
-        {/* Récapitulatif */}
         <div className="space-y-6 lg:sticky lg:top-4 lg:self-start">
           <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-              <CardTitle className="text-base">Récapitulatif</CardTitle>
-              <CardDescription className="text-xs">
-                {items.length} article{items.length !== 1 ? "s" : ""}
-                {expenses.length > 0 &&
-                  ` · ${expenses.length} frais`}
-              </CardDescription>
+              <CardTitle className="text-base">{t("purchases.form.summary")}</CardTitle>
+              <CardDescription className="text-xs">{summaryDescription}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">
               <div className="space-y-1.5">
-                <Label required>Fournisseur</Label>
+                <Label required>{t("purchases.form.supplier")}</Label>
                 <FieldWithAdd entity="supplier" returnTo="/purchases/new">
                   <Select value={supplierId} onValueChange={setSupplierId}>
                     <SelectTrigger className="h-10 rounded-xl">
-                      <SelectValue placeholder="Sélectionner le partenaire" />
+                      <SelectValue placeholder={t("purchases.form.selectSupplier")} />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
                       {suppliers.map((s) => (
@@ -585,29 +595,29 @@ export default function NewPurchasePage() {
 
               <div className="space-y-2 border-t pt-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Sous-total marchandises</span>
+                  <span className="text-muted-foreground">{t("purchases.form.subtotal")}</span>
                   <span className="font-medium">
                     {subtotalFCFA.toLocaleString("fr-FR")} FCFA
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Frais annexes</span>
+                  <span className="text-muted-foreground">{t("purchases.extraFees")}</span>
                   <span className="font-medium text-destructive">
                     +{expensesTotalFCFA.toLocaleString("fr-FR")} FCFA
                   </span>
                 </div>
                 <div className="flex justify-between border-t pt-2 text-lg font-bold font-headline text-primary">
-                  <span>Total estimé</span>
+                  <span>{t("purchases.form.estimatedTotal")}</span>
                   <span>{totalFCFA.toLocaleString("fr-FR")} FCFA</span>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label>Notes internes</Label>
+                <Label>{t("purchases.form.internalNotes")}</Label>
                 <Input
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Ex. Livraison prévue lundi…"
+                  placeholder={t("purchases.form.notesPlaceholder")}
                   className="h-10 rounded-xl"
                 />
               </div>
@@ -623,7 +633,7 @@ export default function NewPurchasePage() {
                 ) : (
                   <Truck className="mr-2 h-4 w-4" />
                 )}
-                Valider la commande
+                {t("purchases.form.validateOrder")}
               </Button>
               <Button
                 variant="outline"
@@ -632,7 +642,7 @@ export default function NewPurchasePage() {
                 disabled={submitting}
               >
                 <Save className="mr-2 h-4 w-4" />
-                Enregistrer brouillon
+                {t("purchases.form.saveDraft")}
               </Button>
             </CardFooter>
           </Card>
@@ -641,19 +651,15 @@ export default function NewPurchasePage() {
             <CardHeader className="p-4 pb-2">
               <CardTitle className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
                 <AlertTriangle className="h-4 w-4" />
-                À savoir
+                {t("purchases.form.knowTitle")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 p-4 pt-0 text-xs leading-relaxed text-muted-foreground">
-              <p>
-                La validation de la commande <strong className="text-foreground">n&apos;incrémente pas encore le stock</strong>.
-              </p>
-              <p>
-                Une fois les marchandises livrées, validez la réception depuis le détail de la commande pour mettre à jour l&apos;inventaire et recalculer le PMP.
-              </p>
+              <p>{t("purchases.form.knowNoStock")}</p>
+              <p>{t("purchases.form.knowReception")}</p>
               <p className="flex items-start gap-1.5">
                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                Les taux de change sont préremplis depuis la gestion des devises.
+                {t("purchases.form.knowRates")}
               </p>
             </CardContent>
           </Card>

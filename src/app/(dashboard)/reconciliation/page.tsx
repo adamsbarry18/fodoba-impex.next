@@ -30,21 +30,16 @@ import {
 import { useStore } from "@/lib/contexts/StoreContext"
 import { useAuth } from "@/lib/contexts/AuthContext"
 import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { toast } from "sonner"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { runTransaction } from "firebase/firestore"
 import { db } from "@/lib/firebase/client"
-import {
-  PAYMENT_METHOD_IDS,
-  getPaymentMethodLabel,
-} from "@/lib/constants/payment-methods"
+import { PAYMENT_METHOD_IDS } from "@/lib/constants/payment-methods"
+import { usePaymentMethodLabel } from "@/hooks/use-payment-method-label"
 import {
   getSessionTotals,
   getMovementStats,
   getCashAuditSummary,
-  MOVEMENT_SOURCE_LABELS,
 } from "@/lib/cash-session-utils"
 import {
   CashFundDialog,
@@ -53,19 +48,30 @@ import {
 import { useCurrency } from "@/hooks/use-currency"
 import { useClientPagination } from "@/hooks/use-client-pagination"
 import { TablePagination } from "@/components/ui/table-pagination"
+import { useT, useLocale } from "@/i18n/context"
+import { getDateLocale } from "@/i18n/get-date-locale"
 
 const MOVEMENTS_PAGE_SIZE = 25
 const HISTORY_PAGE_SIZE = 25
 
-function formatTimestamp(ts: { toDate?: () => Date } | undefined) {
-  if (!ts?.toDate) return "-"
-  return format(ts.toDate(), "dd MMM yyyy HH:mm", { locale: fr })
-}
+const MOVEMENT_SOURCE_KEYS = [
+  "SALE",
+  "EXPENSE",
+  "PURCHASE_PAYMENT",
+  "CLIENT_PAYMENT",
+  "ADJUSTMENT",
+  "FUND_ENTRY",
+  "FUND_WITHDRAWAL",
+] as const
 
 export default function ReconciliationPage() {
+  const t = useT()
+  const { locale } = useLocale()
+  const dateLocale = useMemo(() => getDateLocale(locale), [locale])
   const { activeStore } = useStore()
   const { userProfile } = useAuth()
   const { formatAmount } = useCurrency()
+  const paymentMethodLabel = usePaymentMethodLabel()
 
   const [activeSession, setActiveSession] = useState<CashSession | null>(null)
   const [movements, setMovements] = useState<CashMovement[]>([])
@@ -78,6 +84,25 @@ export default function ReconciliationPage() {
   const [notes, setNotes] = useState("")
 
   const [isFundDialogOpen, setIsFundDialogOpen] = useState(false)
+
+  const movementSourceLabel = useCallback(
+    (source: CashMovement["source"]) => {
+      const key = `reconciliation.movementSource.${source}` as const
+      if (MOVEMENT_SOURCE_KEYS.includes(source as (typeof MOVEMENT_SOURCE_KEYS)[number])) {
+        return t(key)
+      }
+      return source
+    },
+    [t]
+  )
+
+  const formatTimestamp = useCallback(
+    (ts: { toDate?: () => Date } | undefined) => {
+      if (!ts?.toDate) return "-"
+      return format(ts.toDate(), "dd MMM yyyy HH:mm", { locale: dateLocale })
+    },
+    [dateLocale]
+  )
 
   const loadData = useCallback(async () => {
     if (!activeStore) {
@@ -109,13 +134,12 @@ export default function ReconciliationPage() {
       }
     } catch (error: unknown) {
       console.error("Reconciliation load error:", error)
-      const message =
-        error instanceof Error ? error.message : "Erreur de chargement"
+      const message = error instanceof Error ? error.message : t("common.errorLoading")
       toast.error(message)
     } finally {
       setLoading(false)
     }
-  }, [activeStore])
+  }, [activeStore, t])
 
   useEffect(() => {
     loadData()
@@ -179,11 +203,11 @@ export default function ReconciliationPage() {
     setProcessing(true)
     try {
       await CashService.openSession(activeStore.id, userProfile, initialBalances)
-      toast.success("Caisse ouverte avec succès")
+      toast.success(t("reconciliation.openSuccess"))
       setNotes("")
       await loadData()
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Erreur à l'ouverture")
+      toast.error(error instanceof Error ? error.message : t("reconciliation.openError"))
     } finally {
       setProcessing(false)
     }
@@ -192,7 +216,7 @@ export default function ReconciliationPage() {
   const handleCloseCash = async () => {
     if (!activeSession || !userProfile) return
     if (!allBalancesFilled) {
-      toast.error("Comptez toutes les lignes de caisse avant la clôture.")
+      toast.error(t("reconciliation.fillAllBeforeClose"))
       return
     }
 
@@ -204,11 +228,11 @@ export default function ReconciliationPage() {
     setProcessing(true)
     try {
       await CashService.closeSession(activeSession.id, userProfile, formattedActual, notes)
-      toast.success("Caisse clôturée. Rapport de session enregistré.")
+      toast.success(t("reconciliation.closeSuccess"))
       setNotes("")
       await loadData()
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Erreur à la clôture")
+      toast.error(error instanceof Error ? error.message : t("reconciliation.closeError"))
     } finally {
       setProcessing(false)
     }
@@ -231,7 +255,7 @@ export default function ReconciliationPage() {
           description: values.reason,
         })
       })
-      toast.success("Mouvement de fonds enregistré")
+      toast.success(t("reconciliation.fundSuccess"))
       await loadData()
     } finally {
       setProcessing(false)
@@ -245,7 +269,7 @@ export default function ReconciliationPage() {
       next[m] = String(activeSession.expectedBalances[m] ?? 0)
     })
     setActualBalances(next)
-    toast.info("Montants théoriques appliqués")
+    toast.info(t("reconciliation.expectedApplied"))
   }
 
   const handleExportPdf = async () => {
@@ -254,7 +278,7 @@ export default function ReconciliationPage() {
     try {
       const sessions = await CashService.listSessions(activeStore.id, 50)
       if (sessions.length === 0) {
-        toast.error("Aucune session à exporter")
+        toast.error(t("reconciliation.noSessionsToExport"))
         return
       }
       const summary = getCashAuditSummary(sessions)
@@ -262,9 +286,9 @@ export default function ReconciliationPage() {
         totalVariance: summary.totalVariance,
         reliabilityPercent: summary.reliabilityPercent,
       })
-      toast.success("PDF consolidé téléchargé")
+      toast.success(t("reconciliation.exportSuccess"))
     } catch {
-      toast.error("Erreur lors de l'export PDF")
+      toast.error(t("reconciliation.exportError"))
     } finally {
       setExportingPdf(false)
     }
@@ -274,7 +298,7 @@ export default function ReconciliationPage() {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Synchronisation des flux financiers…</p>
+        <p className="text-sm text-muted-foreground">{t("reconciliation.syncing")}</p>
       </div>
     )
   }
@@ -283,7 +307,7 @@ export default function ReconciliationPage() {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
         <Wallet className="h-10 w-10 opacity-30" />
-        <p>Sélectionnez une boutique pour gérer la trésorerie.</p>
+        <p>{t("reconciliation.selectStore")}</p>
       </div>
     )
   }
@@ -297,18 +321,17 @@ export default function ReconciliationPage() {
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight">Trésorerie et caisse</h1>
+              <h1 className="text-3xl font-bold tracking-tight">{t("reconciliation.title")}</h1>
               <StatusBadge
                 preset="cashSessionStatus"
                 value={activeSession ? "OPEN" : "CLOSED"}
                 className="text-[10px] font-bold uppercase"
               >
-                {activeSession ? "Session ouverte" : "Caisse fermée"}
+                {activeSession ? t("reconciliation.sessionOpen") : t("reconciliation.sessionClosed")}
               </StatusBadge>
             </div>
             <p className="text-sm text-muted-foreground">
-              Cycle quotidien et rapprochement pour{" "}
-              <strong className="text-foreground">{activeStore.name}</strong>
+              {t("reconciliation.subtitle", { store: activeStore.name })}
             </p>
           </div>
         </div>
@@ -321,12 +344,12 @@ export default function ReconciliationPage() {
             disabled={loading}
           >
             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            Actualiser
+            {t("reconciliation.refresh")}
           </Button>
           <Button variant="outline" className="rounded-xl font-semibold" asChild>
             <Link href="/reports/cash">
               <FileText className="mr-2 h-4 w-4" />
-              Rapport d&apos;audit
+              {t("reconciliation.auditReport")}
             </Link>
           </Button>
 
@@ -338,7 +361,7 @@ export default function ReconciliationPage() {
                 onClick={() => setIsFundDialogOpen(true)}
               >
                 <ArrowRightLeft className="mr-2 h-4 w-4" />
-                Alimentation / Retrait
+                {t("reconciliation.fundMovement")}
               </Button>
               <CashFundDialog
                 open={isFundDialogOpen}
@@ -357,7 +380,7 @@ export default function ReconciliationPage() {
               ) : (
                 <Unlock className="mr-2 h-4 w-4" />
               )}
-              Ouvrir la caisse
+              {t("reconciliation.openCash")}
             </Button>
           )}
         </div>
@@ -369,9 +392,9 @@ export default function ReconciliationPage() {
             <div className="mb-4 rounded-2xl border bg-muted/30 p-5">
               <Lock className="h-12 w-12 text-muted-foreground/40" />
             </div>
-            <h3 className="text-xl font-bold">Caisse fermée</h3>
+            <h3 className="text-xl font-bold">{t("reconciliation.cashClosed")}</h3>
             <p className="mt-2 max-w-md text-sm text-muted-foreground">
-              Ouvrez une session pour enregistrer des ventes, dépenses et mouvements de fonds.
+              {t("reconciliation.cashClosedDesc")}
             </p>
             <Button
               onClick={handleOpenCash}
@@ -379,7 +402,7 @@ export default function ReconciliationPage() {
               className="mt-6 rounded-xl font-semibold"
             >
               <Unlock className="mr-2 h-4 w-4" />
-              Ouvrir la caisse
+              {t("reconciliation.openCash")}
             </Button>
           </CardContent>
         </Card>
@@ -389,16 +412,18 @@ export default function ReconciliationPage() {
             <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1">
                 <p className="text-xs font-bold uppercase tracking-wider text-primary">
-                  Session en cours
+                  {t("reconciliation.currentSession")}
                 </p>
                 <p className="text-sm text-foreground">
-                  Ouverte par <strong>{activeSession.openedByName}</strong> le{" "}
-                  {formatTimestamp(activeSession.openedAt)}
+                  {t("reconciliation.openedBy", {
+                    name: activeSession.openedByName,
+                    date: formatTimestamp(activeSession.openedAt),
+                  })}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Total théorique
+                  {t("reconciliation.totalExpected")}
                 </p>
                 <p className="text-2xl font-bold font-headline text-foreground">
                   {formatAmount(sessionTotalExpected, "FCFA")}
@@ -415,7 +440,7 @@ export default function ReconciliationPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Entrées
+                    {t("reconciliation.statEntries")}
                   </p>
                   <p className="text-sm font-bold text-emerald-600">
                     +{formatAmount(movementStats.totalIn, "FCFA")}
@@ -431,7 +456,7 @@ export default function ReconciliationPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Sorties
+                    {t("reconciliation.statExits")}
                   </p>
                   <p className="text-sm font-bold text-destructive">
                     −{formatAmount(movementStats.totalOut, "FCFA")}
@@ -447,7 +472,7 @@ export default function ReconciliationPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Mouvements
+                    {t("reconciliation.statMovements")}
                   </p>
                   <p className="text-2xl font-bold">{movementStats.count}</p>
                 </div>
@@ -461,7 +486,7 @@ export default function ReconciliationPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Lignes actives
+                    {t("reconciliation.statActiveLines")}
                   </p>
                   <p className="text-2xl font-bold">{PAYMENT_METHOD_IDS.length}</p>
                 </div>
@@ -469,46 +494,58 @@ export default function ReconciliationPage() {
             </Card>
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-12">
-            <div className="space-y-6 xl:col-span-8">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {PAYMENT_METHOD_IDS.map((method) => (
-                  <Card key={method} className="rounded-2xl border bg-card shadow-sm">
-                    <CardHeader className="p-3 pb-1">
-                      <CardTitle className="truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        {getPaymentMethodLabel(method)}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-3 pt-0">
-                      <p className="text-lg font-bold font-headline sm:text-xl">
-                        {formatAmount(activeSession.expectedBalances[method] || 0, "FCFA")}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">théorique</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+          <div>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              {t("reconciliation.expectedBalances")}
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {PAYMENT_METHOD_IDS.map((method) => (
+                <Card key={method} className="rounded-2xl border bg-card shadow-sm">
+                  <CardHeader className="p-3 pb-1">
+                    <CardTitle className="truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {paymentMethodLabel(method)}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0">
+                    <p className="text-lg font-bold font-headline sm:text-xl">
+                      {formatAmount(activeSession.expectedBalances[method] || 0, "FCFA")}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {t("reconciliation.expectedShort")}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
 
-              <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-                <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <History className="h-5 w-5 text-primary" />
-                    Journal de session
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Flux enregistrés depuis l&apos;ouverture.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <ScrollArea className="h-[min(420px,50vh)]">
-                    <Table>
+          <div className="grid gap-6 xl:grid-cols-12 xl:items-stretch">
+            <Card className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border bg-card shadow-sm xl:col-span-8">
+              <CardHeader className="shrink-0 border-b bg-muted/20 p-4 sm:p-6">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <History className="h-5 w-5 text-primary" />
+                  {t("reconciliation.movementsTitle")}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {t("reconciliation.movementsDesc")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex min-h-0 flex-1 flex-col p-0">
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
-                          <TableHead className="pl-4 text-xs uppercase sm:pl-6">Heure</TableHead>
-                          <TableHead className="text-xs uppercase">Source</TableHead>
-                          <TableHead className="hidden text-xs uppercase sm:table-cell">Mode</TableHead>
+                          <TableHead className="pl-4 text-xs uppercase sm:pl-6">
+                            {t("reconciliation.colTime")}
+                          </TableHead>
+                          <TableHead className="text-xs uppercase">
+                            {t("reconciliation.colSource")}
+                          </TableHead>
+                          <TableHead className="hidden text-xs uppercase sm:table-cell">
+                            {t("reconciliation.colMethod")}
+                          </TableHead>
                           <TableHead className="pr-4 text-right text-xs uppercase sm:pr-6">
-                            Montant
+                            {t("common.amount")}
                           </TableHead>
                         </TableRow>
                       </TableHeader>
@@ -519,7 +556,7 @@ export default function ReconciliationPage() {
                               colSpan={4}
                               className="py-16 text-center text-muted-foreground"
                             >
-                              Aucun mouvement enregistré pour cette session.
+                              {t("reconciliation.noMovements")}
                             </TableCell>
                           </TableRow>
                         ) : (
@@ -533,7 +570,7 @@ export default function ReconciliationPage() {
                               <TableCell>
                                 <div className="min-w-[120px]">
                                   <p className="text-xs font-semibold">
-                                    {MOVEMENT_SOURCE_LABELS[m.source] ?? m.source}
+                                    {movementSourceLabel(m.source)}
                                   </p>
                                   {m.description && (
                                     <p className="line-clamp-1 text-[11px] text-muted-foreground">
@@ -541,14 +578,16 @@ export default function ReconciliationPage() {
                                     </p>
                                   )}
                                   <p className="text-[10px] text-muted-foreground sm:hidden">
-                                    {getPaymentMethodLabel(m.method)}
+                                    {paymentMethodLabel(m.method)}
                                   </p>
                                 </div>
                               </TableCell>
                               <TableCell className="hidden sm:table-cell">
-                                <StatusBadge preset="paymentMethod" value={m.method} className="text-[9px]">
-                                  {getPaymentMethodLabel(m.method)}
-                                </StatusBadge>
+                                <StatusBadge
+                                  preset="paymentMethod"
+                                  value={m.method}
+                                  className="text-[9px]"
+                                />
                               </TableCell>
                               <TableCell
                                 className={cn(
@@ -564,7 +603,8 @@ export default function ReconciliationPage() {
                         )}
                       </TableBody>
                     </Table>
-                  </ScrollArea>
+                </div>
+                <div className="mt-auto shrink-0 border-t">
                   <TablePagination
                     page={movementsPage}
                     totalPages={movementsTotalPages}
@@ -573,21 +613,21 @@ export default function ReconciliationPage() {
                     rangeEnd={movementsRangeEnd}
                     onPageChange={setMovementsPage}
                   />
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
 
-            <Card className="h-fit rounded-2xl border border-primary/20 bg-primary/5 shadow-sm xl:col-span-4 xl:sticky xl:top-6">
-              <CardHeader className="p-4 sm:p-6">
+            <Card className="flex h-full min-h-0 flex-col rounded-2xl border border-primary/20 bg-primary/5 shadow-sm xl:col-span-4 xl:sticky xl:top-6">
+              <CardHeader className="shrink-0 p-4 sm:p-6">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Lock className="h-5 w-5 text-primary" />
-                  Clôture de session
+                  {t("reconciliation.sessionClosure")}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Saisissez les montants réellement comptés par ligne.
+                  {t("reconciliation.closeCashDesc")}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4 p-4 pt-0 sm:p-6">
+              <CardContent className="flex min-h-0 flex-1 flex-col space-y-4 p-4 pt-0 sm:p-6">
                 <Button
                   type="button"
                   variant="outline"
@@ -596,8 +636,12 @@ export default function ReconciliationPage() {
                   onClick={fillWithExpected}
                 >
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                  Remplir = théorique
+                  {t("reconciliation.fillExpected")}
                 </Button>
+
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {t("reconciliation.actualBalances")}
+                </p>
 
                 {PAYMENT_METHOD_IDS.map((method) => {
                   const expected = activeSession.expectedBalances[method] || 0
@@ -615,17 +659,18 @@ export default function ReconciliationPage() {
                           required
                           className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
                         >
-                          {getPaymentMethodLabel(method)}
+                          {paymentMethodLabel(method)}
                         </Label>
                         <span className="shrink-0 text-[9px] font-semibold text-primary/80">
-                          Théor. {formatAmount(expected, "FCFA")}
+                          {t("reconciliation.expectedAbbrev")}{" "}
+                          {formatAmount(expected, "FCFA")}
                         </span>
                       </div>
                       <div className="relative">
                         <Input
                           type="number"
                           min={0}
-                          placeholder="Compter…"
+                          placeholder={t("reconciliation.countPlaceholder")}
                           className="h-10 rounded-xl pr-16 font-bold"
                           value={actualBalances[method]}
                           onChange={(e) =>
@@ -645,8 +690,8 @@ export default function ReconciliationPage() {
                             )}
                           >
                             {variance === 0
-                              ? "OK"
-                              : `${variance > 0 ? "+" : ""}${variance.toLocaleString("fr-FR")}`}
+                              ? t("reconciliation.varianceOk")
+                              : `${variance > 0 ? "+" : ""}${variance.toLocaleString(locale)}`}
                           </div>
                         )}
                       </div>
@@ -656,12 +701,12 @@ export default function ReconciliationPage() {
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Notes de clôture
+                    {t("reconciliation.closureNotes")}
                   </Label>
                   <Input
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Observations, écarts…"
+                    placeholder={t("reconciliation.notesPlaceholder")}
                     className="h-10 rounded-xl"
                   />
                 </div>
@@ -681,18 +726,22 @@ export default function ReconciliationPage() {
                       <AlertCircle className="h-4 w-4 shrink-0" />
                     )}
                     <span>
-                      Écart total :{" "}
+                      {t("reconciliation.totalVarianceLabel")}{" "}
                       <strong>
                         {closureVariance > 0 ? "+" : ""}
                         {formatAmount(Math.abs(closureVariance), "FCFA")}
-                        {closureVariance < 0 ? " (manquant)" : closureVariance > 0 ? " (excédent)" : ""}
+                        {closureVariance < 0
+                          ? t("reconciliation.varianceShortage")
+                          : closureVariance > 0
+                            ? t("reconciliation.varianceExcess")
+                            : ""}
                       </strong>
                     </span>
                   </div>
                 )}
 
                 <Button
-                  className="h-11 w-full rounded-xl font-bold"
+                  className="mt-auto h-11 w-full shrink-0 rounded-xl font-bold"
                   onClick={handleCloseCash}
                   disabled={processing || !allBalancesFilled}
                 >
@@ -701,7 +750,7 @@ export default function ReconciliationPage() {
                   ) : (
                     <Lock className="mr-2 h-4 w-4" />
                   )}
-                  Clôturer la journée
+                  {t("reconciliation.closeDay")}
                 </Button>
               </CardContent>
             </Card>
@@ -712,9 +761,9 @@ export default function ReconciliationPage() {
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <CardHeader className="flex flex-col gap-3 border-b bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div>
-            <CardTitle className="text-base">Historique des sessions</CardTitle>
+            <CardTitle className="text-base">{t("reconciliation.historyTitle")}</CardTitle>
             <CardDescription className="text-xs">
-              Dernières ouvertures et clôtures de caisse.
+              {t("reconciliation.historyDesc")}
             </CardDescription>
           </div>
           <Button
@@ -729,21 +778,31 @@ export default function ReconciliationPage() {
             ) : (
               <ArrowDownToLine className="mr-2 h-4 w-4" />
             )}
-            PDF consolidé
+            {t("reconciliation.exportPdf")}
           </Button>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-4 text-xs uppercase sm:pl-6">Période</TableHead>
-                <TableHead className="text-xs uppercase">Caissier</TableHead>
-                <TableHead className="text-right text-xs uppercase">Attendu</TableHead>
-                <TableHead className="hidden text-right text-xs uppercase md:table-cell">
-                  Réel
+                <TableHead className="pl-4 text-xs uppercase sm:pl-6">
+                  {t("reconciliation.colPeriod")}
                 </TableHead>
-                <TableHead className="text-center text-xs uppercase">Écart</TableHead>
-                <TableHead className="pr-4 text-xs uppercase sm:pr-6">Statut</TableHead>
+                <TableHead className="text-xs uppercase">
+                  {t("reconciliation.colCashier")}
+                </TableHead>
+                <TableHead className="text-right text-xs uppercase">
+                  {t("reconciliation.expectedBalances")}
+                </TableHead>
+                <TableHead className="hidden text-right text-xs uppercase md:table-cell">
+                  {t("reconciliation.actualBalances")}
+                </TableHead>
+                <TableHead className="text-center text-xs uppercase">
+                  {t("reconciliation.variance")}
+                </TableHead>
+                <TableHead className="pr-4 text-xs uppercase sm:pr-6">
+                  {t("common.status")}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -753,7 +812,7 @@ export default function ReconciliationPage() {
                     colSpan={6}
                     className="py-12 text-center text-muted-foreground"
                   >
-                    Aucune session enregistrée.
+                    {t("reconciliation.noHistory")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -766,13 +825,13 @@ export default function ReconciliationPage() {
                       <TableCell className="pl-4 sm:pl-6">
                         <div>
                           <p className="text-xs font-semibold">
-                            {format(openedAt, "dd MMM yyyy", { locale: fr })}
+                            {format(openedAt, "dd MMM yyyy", { locale: dateLocale })}
                           </p>
                           <p className="text-[10px] text-muted-foreground">
                             {format(openedAt, "HH:mm")}
                             {session.closedAt
                               ? ` → ${format(session.closedAt.toDate(), "HH:mm")}`
-                              : " → en cours"}
+                              : ` → ${t("reconciliation.sessionOngoing")}`}
                           </p>
                         </div>
                       </TableCell>
@@ -792,8 +851,8 @@ export default function ReconciliationPage() {
                           className="text-[9px] uppercase"
                         >
                           {totalVar === 0
-                            ? "Conforme"
-                            : `${totalVar > 0 ? "+" : ""}${totalVar.toLocaleString("fr-FR")}`}
+                            ? undefined
+                            : `${totalVar > 0 ? "+" : ""}${totalVar.toLocaleString(locale)}`}
                         </StatusBadge>
                       </TableCell>
                       <TableCell className="pr-4 sm:pr-6">

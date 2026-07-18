@@ -2,7 +2,7 @@
 
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { UserProfileSchema, UserProfile, Store, Role } from "@/lib/types"
+import { UserProfileSchema, UserProfile, Store } from "@/lib/types"
 import { UserService } from "@/services/user.service"
 import { StoreService } from "@/services/store.service"
 import { Button } from "@/components/ui/button"
@@ -23,35 +23,41 @@ import { useRouter, useParams } from "next/navigation"
 import { toast } from "sonner"
 import { ArrowLeft, Loader2, Save, Mail, Shield, Store as StoreIcon, Info } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useAuth } from "@/lib/contexts/AuthContext"
-import { getRoleMeta, getUserDisplayName, getUserInitials, ROLE_ORDER } from "@/lib/user-utils"
+import { getUserDisplayName, getUserInitials, ROLE_ORDER } from "@/lib/user-utils"
 import { StatusBadge } from "@/components/ui/status-badge"
-
-const EditSchema = UserProfileSchema.refine(
-  (data) => data.role === "admin" || (data.boutiqueIds?.length ?? 0) > 0,
-  {
-    message: "Sélectionnez au moins une boutique pour ce rôle.",
-    path: ["boutiqueIds"],
-  }
-)
+import { useT } from "@/i18n/context"
 
 export default function EditUserPage() {
   const router = useRouter()
   const params = useParams()
   const { userProfile: currentUser, isAdmin } = useAuth()
+  const t = useT()
   const [stores, setStores] = useState<Store[]>([])
   const [loading, setLoading] = useState(true)
 
+  const editSchema = useMemo(
+    () =>
+      UserProfileSchema.refine(
+        (data) => data.role === "admin" || (data.boutiqueIds?.length ?? 0) > 0,
+        {
+          message: t("users.form.storesRequired"),
+          path: ["boutiqueIds"],
+        }
+      ),
+    [t]
+  )
+
   const form = useForm<UserProfile>({
-    resolver: zodResolver(EditSchema),
+    resolver: zodResolver(editSchema),
   })
 
   const selectedRole = form.watch("role")
 
   useEffect(() => {
     if (!isAdmin) {
-      toast.error("Accès refusé. Droits administrateur requis.")
+      toast.error(t("users.form.accessDenied"))
       router.push("/dashboard")
       return
     }
@@ -70,13 +76,13 @@ export default function EditUserPage() {
         if (userData) {
           form.reset(userData)
         } else {
-          toast.error("Utilisateur introuvable")
+          toast.error(t("users.form.notFound"))
           router.push("/admin/users")
           return
         }
         setStores(storesData.stores)
       } catch {
-        if (!cancelled) toast.error("Erreur de chargement")
+        if (!cancelled) toast.error(t("common.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -86,17 +92,17 @@ export default function EditUserPage() {
     return () => {
       cancelled = true
     }
-  }, [params.id, isAdmin, router, form])
+  }, [params.id, isAdmin, router, form, t])
 
   const onSubmit = async (values: UserProfile) => {
     try {
       const { uid, ...profileData } = values
       await UserService.updateUserProfile(uid, profileData)
-      toast.success("Profil mis à jour")
+      toast.success(t("users.form.updated"))
       router.push("/admin/users")
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "Erreur lors de la mise à jour"
+        error instanceof Error ? error.message : t("common.errorLoading")
       toast.error(message)
     }
   }
@@ -125,7 +131,7 @@ export default function EditUserPage() {
             {getUserInitials(form.getValues())}
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Modifier le profil</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("users.form.editTitle")}</h1>
             <p className="flex items-center gap-1 text-sm text-muted-foreground">
               <Mail className="h-3.5 w-3.5" />
               {form.getValues("email")}
@@ -143,9 +149,7 @@ export default function EditUserPage() {
               preset="activeState"
               value={form.getValues("actif") ? "active" : "inactive"}
               className="text-[10px]"
-            >
-              {form.getValues("actif") ? "Actif" : "Suspendu"}
-            </StatusBadge>
+            />
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
@@ -157,7 +161,7 @@ export default function EditUserPage() {
                   name="prenom"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Prénom</FormLabel>
+                      <FormLabel required>{t("users.form.firstName")}</FormLabel>
                       <FormControl>
                         <Input className="h-10 rounded-xl" {...field} />
                       </FormControl>
@@ -170,7 +174,7 @@ export default function EditUserPage() {
                   name="nom"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Nom</FormLabel>
+                      <FormLabel required>{t("users.form.lastName")}</FormLabel>
                       <FormControl>
                         <Input className="h-10 rounded-xl" {...field} />
                       </FormControl>
@@ -185,7 +189,7 @@ export default function EditUserPage() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Téléphone</FormLabel>
+                    <FormLabel>{t("profile.phone")}</FormLabel>
                     <FormControl>
                       <Input className="h-10 rounded-xl" {...field} />
                     </FormControl>
@@ -201,7 +205,7 @@ export default function EditUserPage() {
                   <FormItem>
                     <FormLabel required className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-primary" />
-                      Rôle du système
+                      {t("users.form.systemRole")}
                     </FormLabel>
                     <Select
                       onValueChange={field.onChange}
@@ -210,21 +214,20 @@ export default function EditUserPage() {
                     >
                       <FormControl>
                         <SelectTrigger className="h-10 rounded-xl">
-                          <SelectValue placeholder="Sélectionner un rôle" />
+                          <SelectValue placeholder={t("users.form.selectRole")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent className="rounded-xl">
                         {ROLE_ORDER.map((role) => (
                           <SelectItem key={role} value={role}>
-                            {getRoleMeta(role).label}
+                            {t(`users.roles.${role}.label`)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     {isSelf && (
                       <FormDescription>
-                        Vous ne pouvez pas modifier votre propre rôle pour des raisons de
-                        sécurité.
+                        {t("users.form.cannotEditOwnRole")}
                       </FormDescription>
                     )}
                     <FormMessage />
@@ -238,13 +241,13 @@ export default function EditUserPage() {
                   className="flex items-center gap-2"
                 >
                   <StoreIcon className="h-4 w-4 text-primary" />
-                  Boutiques autorisées
+                  {t("users.form.storesTitle")}
                 </FormLabel>
 
                 {selectedRole === "admin" ? (
                   <div className="flex items-start gap-3 rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
                     <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <p>Accès réseau complet - aucune restriction par boutique.</p>
+                    <p>{t("users.form.storesNetworkHint")}</p>
                   </div>
                 ) : (
                   <div className="grid gap-2 rounded-xl border bg-muted/10 p-4 sm:grid-cols-2">
@@ -295,7 +298,7 @@ export default function EditUserPage() {
                   className="rounded-xl"
                   onClick={() => router.back()}
                 >
-                  Annuler
+                  {t("common.cancel")}
                 </Button>
                 <Button
                   type="submit"
@@ -307,7 +310,7 @@ export default function EditUserPage() {
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}
-                  Sauvegarder les modifications
+                  {t("users.form.saveChanges")}
                 </Button>
               </div>
             </form>

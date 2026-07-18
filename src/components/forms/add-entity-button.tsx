@@ -9,6 +9,7 @@ import {
   EntityType,
   buildCreateEntityUrl,
 } from "@/lib/navigation/return-to"
+import { useT } from "@/i18n/context"
 
 interface AddEntityButtonProps {
   entity: EntityType
@@ -25,6 +26,8 @@ export function AddEntityButton({
 }: AddEntityButtonProps) {
   const route = ENTITY_ROUTES[entity]
   const href = buildCreateEntityUrl(route.create, returnTo, route.param)
+  const t = useT()
+  const label = t(route.labelKey)
 
   if (size === "sm") {
     return (
@@ -36,7 +39,7 @@ export function AddEntityButton({
       >
         <Link href={href}>
           <Plus className="mr-1.5 h-3.5 w-3.5" />
-          {route.label}
+          {label}
         </Link>
       </Button>
     )
@@ -48,8 +51,8 @@ export function AddEntityButton({
       size="icon"
       className={cn("h-10 w-10 shrink-0 rounded-xl", className)}
       asChild
-      title={route.label}
-      aria-label={route.label}
+      title={label}
+      aria-label={label}
     >
       <Link href={href}>
         <Plus className="h-4 w-4" />
@@ -57,3 +60,4 @@ export function AddEntityButton({
     </Button>
   )
 }
+

@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect, useMemo, Fragment } from "react"
+import { useState, useEffect, useMemo, Fragment, useCallback } from "react"
 import { DocumentSnapshot } from "firebase/firestore"
 import { AuditService } from "@/services/audit.service"
 import { AuditLog, AuditCategory } from "@/lib/types"
@@ -29,20 +29,28 @@ import {
   Coins,
 } from "lucide-react"
 import { format, isToday, startOfDay } from "date-fns"
-import { fr } from "date-fns/locale"
 import { toast } from "sonner"
 import Papa from "papaparse"
-import {
-  AUDIT_CATEGORY_LABELS,
-  getAuditActionConfig,
-} from "@/lib/audit-utils"
+import { getAuditActionConfig } from "@/lib/audit-utils"
 import { cn } from "@/lib/utils"
-import { useTableColumns } from "@/hooks/use-table-columns"
+import { useTranslatedTableColumns } from "@/hooks/use-translated-table-columns"
 import { TableColumnToggle } from "@/components/ui/table-column-toggle"
 import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { AUDIT_TABLE_COLUMNS } from "@/lib/table-column-presets"
+import { useT, useLocale } from "@/i18n/context"
+import { getDateLocale } from "@/i18n/get-date-locale"
 
 const PAGE_SIZE = 50
+
+const AUDIT_COLUMN_LABEL_KEYS: Record<string, string> = {
+  date: "audit.colDate",
+  action: "audit.colAction",
+  user: "audit.colUser",
+  details: "audit.colDetails",
+  target: "audit.colTarget",
+}
+
+const AUDIT_CATEGORIES: AuditCategory[] = ["user", "currency", "system"]
 
 function toDate(ts: AuditLog["timestamp"]): Date | null {
   if (!ts) return null
@@ -50,6 +58,10 @@ function toDate(ts: AuditLog["timestamp"]): Date | null {
 }
 
 export default function AuditLogsPage() {
+  const t = useT()
+  const { locale } = useLocale()
+  const dateLocale = getDateLocale(locale)
+
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -57,6 +69,18 @@ export default function AuditLogsPage() {
   const [hasMore, setHasMore] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<AuditCategory | "all">("all")
+
+  const getActionLabel = useCallback(
+    (action: AuditLog["action"]) => {
+      const key = `badges.auditAction.${action}` as const
+      try {
+        return t(key)
+      } catch {
+        return action.replace(/_/g, " ").toLowerCase()
+      }
+    },
+    [t]
+  )
 
   const loadMoreLogs = async () => {
     if (!lastDoc) return
@@ -67,7 +91,7 @@ export default function AuditLogsPage() {
       setLastDoc(result.lastVisible)
       setHasMore(result.logs.length === PAGE_SIZE)
     } catch {
-      toast.error("Erreur lors du chargement du journal d'audit")
+      toast.error(t("audit.errorLoading"))
     } finally {
       setLoadingMore(false)
     }
@@ -85,7 +109,7 @@ export default function AuditLogsPage() {
         setLastDoc(result.lastVisible)
         setHasMore(result.logs.length === PAGE_SIZE)
       } catch {
-        if (!cancelled) toast.error("Erreur lors du chargement du journal d'audit")
+        if (!cancelled) toast.error(t("audit.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -95,24 +119,25 @@ export default function AuditLogsPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   const filteredLogs = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
     return logs.filter((log) => {
       const config = getAuditActionConfig(log.action)
+      const actionLabel = getActionLabel(log.action)
       const matchesCategory =
         categoryFilter === "all" || config.category === categoryFilter
       const matchesSearch =
         !term ||
         log.details.toLowerCase().includes(term) ||
         log.action.toLowerCase().includes(term) ||
-        config.label.toLowerCase().includes(term) ||
+        actionLabel.toLowerCase().includes(term) ||
         (log.performedByName ?? "").toLowerCase().includes(term) ||
         (log.targetId ?? "").toLowerCase().includes(term)
       return matchesCategory && matchesSearch
     })
-  }, [logs, searchTerm, categoryFilter])
+  }, [logs, searchTerm, categoryFilter, getActionLabel])
 
   const stats = useMemo(() => {
     const todayStart = startOfDay(new Date())
@@ -144,11 +169,16 @@ export default function AuditLogsPage() {
     resetColumns,
     columns: tableColumns,
     visibleColumnCount,
-  } = useTableColumns("audit", AUDIT_TABLE_COLUMNS)
+  } = useTranslatedTableColumns("audit", AUDIT_TABLE_COLUMNS, AUDIT_COLUMN_LABEL_KEYS)
+
+  const listDescription =
+    searchTerm || categoryFilter !== "all"
+      ? t("audit.listDescription", { filtered: filteredLogs.length, total: logs.length })
+      : t("audit.listDescriptionNoFilter", { filtered: filteredLogs.length, total: logs.length })
 
   const handleExportCsv = () => {
     if (filteredLogs.length === 0) {
-      toast.error("Aucune entrée à exporter")
+      toast.error(t("audit.exportError"))
       return
     }
 
@@ -156,12 +186,12 @@ export default function AuditLogsPage() {
       const config = getAuditActionConfig(log.action)
       const date = toDate(log.timestamp)
       return {
-        Date: date ? format(date, "dd/MM/yyyy HH:mm:ss") : "-",
-        Action: config.label,
-        Categorie: AUDIT_CATEGORY_LABELS[config.category],
-        Utilisateur: log.performedByName ?? log.performedBy,
-        Details: log.details,
-        Cible: log.targetId ?? "",
+        [t("audit.csvDate")]: date ? format(date, "dd/MM/yyyy HH:mm:ss") : "-",
+        [t("audit.csvAction")]: getActionLabel(log.action),
+        [t("audit.csvCategory")]: t(`audit.category.${config.category}`),
+        [t("audit.csvUser")]: log.performedByName ?? log.performedBy,
+        [t("audit.csvDetails")]: log.details,
+        [t("audit.csvTarget")]: log.targetId ?? "",
       }
     })
 
@@ -179,7 +209,7 @@ export default function AuditLogsPage() {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-    toast.success("Export CSV téléchargé")
+    toast.success(t("audit.exportSuccess"))
   }
 
   const handleRefresh = async () => {
@@ -192,7 +222,7 @@ export default function AuditLogsPage() {
       setLastDoc(result.lastVisible)
       setHasMore(result.logs.length === PAGE_SIZE)
     } catch {
-      toast.error("Erreur lors du chargement du journal d'audit")
+      toast.error(t("audit.errorLoading"))
     } finally {
       setLoading(false)
     }
@@ -200,7 +230,6 @@ export default function AuditLogsPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      {/* En-tête */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
@@ -208,10 +237,8 @@ export default function AuditLogsPage() {
               <ShieldCheck className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Journal d&apos;audit</h1>
-              <p className="text-sm text-muted-foreground">
-                Traçabilité des actions sensibles : utilisateurs, rôles et taux de change.
-              </p>
+              <h1 className="text-3xl font-bold tracking-tight">{t("audit.title")}</h1>
+              <p className="text-sm text-muted-foreground">{t("audit.subtitle")}</p>
             </div>
           </div>
         </div>
@@ -224,7 +251,7 @@ export default function AuditLogsPage() {
             disabled={loading}
           >
             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            Actualiser
+            {t("audit.refresh")}
           </Button>
           <Button
             variant="outline"
@@ -233,12 +260,11 @@ export default function AuditLogsPage() {
             disabled={filteredLogs.length === 0}
           >
             <Download className="mr-2 h-4 w-4" />
-            Export CSV
+            {t("audit.exportCsv")}
           </Button>
         </div>
       </div>
 
-      {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card className="rounded-2xl border bg-card shadow-sm">
           <CardContent className="flex items-center gap-4 p-4">
@@ -247,7 +273,7 @@ export default function AuditLogsPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Événements chargés
+                {t("audit.statTotal")}
               </p>
               <p className="text-2xl font-bold">{stats.total}</p>
             </div>
@@ -261,7 +287,7 @@ export default function AuditLogsPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Aujourd&apos;hui
+                {t("audit.statToday")}
               </p>
               <p className="text-2xl font-bold">{stats.today}</p>
             </div>
@@ -275,7 +301,7 @@ export default function AuditLogsPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Accès & utilisateurs
+                {t("audit.statUserActions")}
               </p>
               <p className="text-2xl font-bold">{stats.userActions}</p>
             </div>
@@ -289,7 +315,7 @@ export default function AuditLogsPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Devises & taux
+                {t("audit.statCurrencyActions")}
               </p>
               <p className="text-2xl font-bold">{stats.currencyActions}</p>
             </div>
@@ -297,13 +323,12 @@ export default function AuditLogsPage() {
         </Card>
       </div>
 
-      {/* Filtres */}
       <Card className="rounded-2xl border bg-card shadow-sm">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher par action, détail, utilisateur…"
+              placeholder={t("audit.searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="h-10 rounded-xl border-border pl-9"
@@ -314,31 +339,25 @@ export default function AuditLogsPage() {
             onValueChange={(v) => setCategoryFilter(v as AuditCategory | "all")}
           >
             <SelectTrigger className="h-10 w-full rounded-xl sm:w-[220px]">
-              <SelectValue placeholder="Catégorie" />
+              <SelectValue placeholder={t("audit.filterCategory")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Toutes les catégories</SelectItem>
-              {(Object.entries(AUDIT_CATEGORY_LABELS) as [AuditCategory, string][]).map(
-                ([key, label]) => (
-                  <SelectItem key={key} value={key}>
-                    {label}
-                  </SelectItem>
-                )
-              )}
+              <SelectItem value="all">{t("audit.filterCategoryAll")}</SelectItem>
+              {AUDIT_CATEGORIES.map((key) => (
+                <SelectItem key={key} value={key}>
+                  {t(`audit.category.${key}`)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </CardContent>
       </Card>
 
-      {/* Tableau */}
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 p-4 sm:p-6">
           <div>
-            <CardTitle className="text-base">Historique des événements</CardTitle>
-            <CardDescription className="text-xs">
-              {filteredLogs.length} entrée{filteredLogs.length !== 1 ? "s" : ""}
-              {searchTerm || categoryFilter !== "all" ? " (filtrées)" : ""} sur {logs.length} chargée{logs.length !== 1 ? "s" : ""}
-            </CardDescription>
+            <CardTitle className="text-base">{t("audit.listTitle")}</CardTitle>
+            <CardDescription className="text-xs">{listDescription}</CardDescription>
           </div>
           <TableColumnToggle
             columns={tableColumns}
@@ -355,11 +374,11 @@ export default function AuditLogsPage() {
           ) : filteredLogs.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 p-16 text-center text-muted-foreground">
               <ShieldCheck className="h-10 w-10 opacity-30" />
-              <p className="font-medium">Aucun événement trouvé</p>
+              <p className="font-medium">{t("audit.noEventsFound")}</p>
               <p className="text-xs">
                 {logs.length === 0
-                  ? "Les actions sensibles apparaîtront ici automatiquement."
-                  : "Essayez de modifier vos filtres de recherche."}
+                  ? t("audit.noEventsDesc")
+                  : t("audit.noEventsFilterDesc")}
               </p>
             </div>
           ) : (
@@ -368,19 +387,19 @@ export default function AuditLogsPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <VisibleTableColumn id="date" isVisible={isVisible}>
-                      <TableHead className="pl-4 sm:pl-6">Date & heure</TableHead>
+                      <TableHead className="pl-4 sm:pl-6">{t("audit.colDate")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="action" isVisible={isVisible}>
-                      <TableHead>Action</TableHead>
+                      <TableHead>{t("audit.colAction")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="user" isVisible={isVisible}>
-                      <TableHead>Utilisateur</TableHead>
+                      <TableHead>{t("audit.colUser")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="details" isVisible={isVisible}>
-                      <TableHead>Détails</TableHead>
+                      <TableHead>{t("audit.colDetails")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="target" isVisible={isVisible}>
-                      <TableHead className="pr-4 sm:pr-6">Cible</TableHead>
+                      <TableHead className="pr-4 sm:pr-6">{t("audit.colTarget")}</TableHead>
                     </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
@@ -395,6 +414,7 @@ export default function AuditLogsPage() {
                     const config = getAuditActionConfig(log.action)
                     const ActionIcon = config.icon
                     const performer = log.performedByName ?? log.performedBy
+                    const isSystem = log.performedBy === "system"
 
                     return (
                       <Fragment key={log.id}>
@@ -405,8 +425,8 @@ export default function AuditLogsPage() {
                               className="py-2 pl-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:pl-6"
                             >
                               {isToday(date)
-                                ? "Aujourd'hui"
-                                : format(date, "EEEE d MMMM yyyy", { locale: fr })}
+                                ? t("audit.today")
+                                : format(date, "EEEE d MMMM yyyy", { locale: dateLocale })}
                             </TableCell>
                           </TableRow>
                         )}
@@ -416,7 +436,7 @@ export default function AuditLogsPage() {
                               {date ? (
                                 <div>
                                   <p className="text-xs font-semibold">
-                                    {format(date, "dd MMM yyyy", { locale: fr })}
+                                    {format(date, "dd MMM yyyy", { locale: dateLocale })}
                                   </p>
                                   <p className="text-[10px] text-muted-foreground">
                                     {format(date, "HH:mm:ss")}
@@ -435,24 +455,24 @@ export default function AuditLogsPage() {
                                 tone={config.tone}
                                 icon={<ActionIcon className="h-3 w-3" />}
                                 className="text-[10px]"
-                              >
-                                {config.label}
-                              </StatusBadge>
+                              />
                             </TableCell>
                           </VisibleTableColumn>
                           <VisibleTableColumn id="user" isVisible={isVisible}>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold uppercase text-muted-foreground">
-                                  {performer === "Système" ? (
+                                  {isSystem ? (
                                     <ShieldCheck className="h-3.5 w-3.5" />
                                   ) : (
                                     performer.charAt(0)
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="truncate text-xs font-medium">{performer}</p>
-                                  {log.performedBy !== "system" && log.performedByName && (
+                                  <p className="truncate text-xs font-medium">
+                                    {isSystem ? t("audit.systemPerformer") : performer}
+                                  </p>
+                                  {!isSystem && log.performedByName && (
                                     <p className="truncate font-mono text-[9px] text-muted-foreground">
                                       {log.performedBy.slice(0, 8)}…
                                     </p>
@@ -497,7 +517,7 @@ export default function AuditLogsPage() {
                 {loadingMore ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : null}
-                Charger plus d&apos;événements
+                {t("audit.loadMore")}
               </Button>
             </div>
           )}

@@ -43,9 +43,11 @@ import { ENTITY_ROUTES, readReturnContext } from "@/lib/navigation/return-to"
 import { SUPPLIER_CURRENCIES, SUPPLIER_TYPES } from "@/lib/supplier-utils"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n/context"
 
 export default function NewSupplierPage() {
   const router = useRouter()
+  const t = useT()
   const { redirectAfterCreate, cancelHref } = useCreateReturn(
     "/suppliers",
     ENTITY_ROUTES.supplier.param
@@ -71,12 +73,12 @@ export default function NewSupplierPage() {
     try {
       const supplier = await SupplierService.createSupplier(values)
       if (!readReturnContext(ENTITY_ROUTES.supplier.param).returnTo) {
-        toast.success("Fournisseur ajouté avec succès")
+        toast.success(t("suppliers.addSuccess"))
       }
       redirectAfterCreate(supplier.id)
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "Erreur lors de la création"
+        error instanceof Error ? error.message : t("common.errorCreation")
       toast.error(message)
     }
   }
@@ -94,9 +96,9 @@ export default function NewSupplierPage() {
             <Truck className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Nouveau fournisseur</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("entity.supplier.new")}</h1>
             <p className="text-sm text-muted-foreground">
-              Enregistrement d&apos;un partenaire d&apos;approvisionnement dans la base globale.
+              {t("suppliers.newSubtitle")}
             </p>
           </div>
         </div>
@@ -108,10 +110,10 @@ export default function NewSupplierPage() {
             <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Building2 className="h-4 w-4 text-primary" />
-                Identification
+                {t("suppliers.sectionIdentification")}
               </CardTitle>
               <CardDescription className="text-xs">
-                Raison sociale et type de partenariat commercial.
+                {t("suppliers.sectionIdentificationDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">
@@ -120,10 +122,10 @@ export default function NewSupplierPage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Raison sociale / Nom</FormLabel>
+                    <FormLabel required>{t("suppliers.nameLabel")}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Ex. SOGUIPAH, Nestlé International…"
+                        placeholder={t("suppliers.namePlaceholder")}
                         className="h-10 rounded-xl"
                         {...field}
                       />
@@ -138,25 +140,25 @@ export default function NewSupplierPage() {
                 name="type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Type de fournisseur</FormLabel>
+                    <FormLabel required>{t("suppliers.typeLabel")}</FormLabel>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {SUPPLIER_TYPES.map((t) => (
+                      {SUPPLIER_TYPES.map((typeOption) => (
                         <button
-                          key={t.value}
+                          key={typeOption.value}
                           type="button"
-                          onClick={() => field.onChange(t.value)}
+                          onClick={() => field.onChange(typeOption.value)}
                           className={cn(
                             "flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition-colors",
-                            selectedType === t.value
+                            selectedType === typeOption.value
                               ? "border-primary bg-primary/5 ring-1 ring-primary"
                               : "hover:bg-muted/50"
                           )}
                         >
                           <StatusBadge
                             preset="supplierType"
-                            value={t.value}
+                            value={typeOption.value}
                             icon={
-                              t.value === "import" ? (
+                              typeOption.value === "import" ? (
                                 <Globe className="h-3 w-3" />
                               ) : (
                                 <Truck className="h-3 w-3" />
@@ -164,8 +166,8 @@ export default function NewSupplierPage() {
                             }
                             className="text-[10px]"
                           />
-                          <span className="text-sm font-semibold">{t.label}</span>
-                          <span className="text-[11px] text-muted-foreground">{t.description}</span>
+                          <span className="text-sm font-semibold">{typeOption.label}</span>
+                          <span className="text-[11px] text-muted-foreground">{typeOption.description}</span>
                         </button>
                       ))}
                     </div>
@@ -180,10 +182,10 @@ export default function NewSupplierPage() {
             <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-base">
                 <MapPin className="h-4 w-4 text-primary" />
-                Localisation
+                {t("suppliers.sectionLocation")}
               </CardTitle>
               <CardDescription className="text-xs">
-                Pays et ville du siège ou du point de contact principal.
+                {t("suppliers.sectionLocationDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">
@@ -193,10 +195,10 @@ export default function NewSupplierPage() {
                   name="country"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Pays</FormLabel>
+                      <FormLabel required>{t("suppliers.countryLabel")}</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Ex. Guinée, France…"
+                          placeholder={t("suppliers.countryPlaceholder")}
                           className="h-10 rounded-xl"
                           {...field}
                         />
@@ -210,10 +212,10 @@ export default function NewSupplierPage() {
                   name="city"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Ville</FormLabel>
+                      <FormLabel>{t("suppliers.cityLabel")}</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Ex. Conakry, Lyon…"
+                          placeholder={t("suppliers.cityPlaceholder")}
                           className="h-10 rounded-xl"
                           {...field}
                         />
@@ -230,10 +232,10 @@ export default function NewSupplierPage() {
             <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Coins className="h-4 w-4 text-primary" />
-                Paramètres commerciaux
+                {t("suppliers.sectionCommercial")}
               </CardTitle>
               <CardDescription className="text-xs">
-                Devise habituelle et conditions de paiement par défaut pour les achats.
+                {t("suppliers.sectionCommercialDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">
@@ -243,11 +245,11 @@ export default function NewSupplierPage() {
                   name="defaultCurrency"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Devise habituelle</FormLabel>
+                      <FormLabel required>{t("suppliers.defaultCurrencyLabel")}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger className="h-10 rounded-xl">
-                            <SelectValue placeholder="Devise" />
+                            <SelectValue placeholder={t("suppliers.filterCurrency")} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent className="rounded-xl">
@@ -259,7 +261,7 @@ export default function NewSupplierPage() {
                         </SelectContent>
                       </Select>
                       <FormDescription className="text-[11px]">
-                        Pré-remplie lors de la création d&apos;un achat.
+                        {t("suppliers.currencyHint")}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -270,10 +272,10 @@ export default function NewSupplierPage() {
                   name="paymentTerms"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Conditions de paiement</FormLabel>
+                      <FormLabel>{t("suppliers.paymentTermsLabel")}</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Ex. Comptant, 30 jours fin de mois…"
+                          placeholder={t("suppliers.paymentTermsPlaceholder")}
                           className="h-10 rounded-xl"
                           {...field}
                         />
@@ -287,8 +289,9 @@ export default function NewSupplierPage() {
               <div className="flex items-start gap-3 rounded-xl border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <p>
-                  L&apos;encours initial est à <strong className="text-foreground">0 FCFA</strong>.
-                  Il sera mis à jour automatiquement lors des réceptions d&apos;achat non soldées.
+                  {t("suppliers.initialDebtHintPrefix")}{" "}
+                  <strong className="text-foreground">0 FCFA</strong>.{" "}
+                  {t("suppliers.initialDebtHintSuffix")}
                 </p>
               </div>
             </CardContent>
@@ -301,7 +304,7 @@ export default function NewSupplierPage() {
               className="rounded-xl font-semibold"
               onClick={() => router.back()}
             >
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button
               type="submit"
@@ -313,7 +316,7 @@ export default function NewSupplierPage() {
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              Enregistrer le fournisseur
+              {t("suppliers.saveSupplier")}
             </Button>
           </div>
         </form>

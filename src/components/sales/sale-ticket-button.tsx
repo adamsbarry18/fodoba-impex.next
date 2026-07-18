@@ -5,6 +5,7 @@ import { Loader2, Printer } from "lucide-react"
 import type { Sale, Store } from "@/lib/types"
 import { useSaleTicket } from "@/hooks/use-sale-ticket"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n/context"
 
 type SaleTicketButtonProps = {
   sale: Sale
@@ -23,6 +24,7 @@ export function SaleTicketButton({
   variant = "outline",
   className,
 }: SaleTicketButtonProps) {
+  const t = useT()
   const { printTicket, printingId } = useSaleTicket(stores)
   const isPrinting = printingId === sale.id
 
@@ -38,15 +40,15 @@ export function SaleTicketButton({
       )}
       onClick={() => printTicket(sale)}
       disabled={isPrinting}
-      title="Télécharger le ticket"
+      title={t("pos.ticket.download")}
     >
       {isPrinting ? (
         <Loader2 className={cn("animate-spin", showLabel ? "mr-1.5 h-3.5 w-3.5" : "h-4 w-4")} />
       ) : (
         <Printer className={cn(showLabel ? "mr-1.5 h-3.5 w-3.5" : "h-4 w-4")} />
       )}
-      {showLabel && size !== "icon" ? "Ticket" : null}
-      {size === "icon" && <span className="sr-only">Télécharger le ticket</span>}
+      {showLabel && size !== "icon" ? t("pos.ticket.label") : null}
+      {size === "icon" && <span className="sr-only">{t("pos.ticket.download")}</span>}
     </Button>
   )
 }

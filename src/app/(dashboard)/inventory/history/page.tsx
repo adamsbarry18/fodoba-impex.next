@@ -40,7 +40,6 @@ import {
 } from "lucide-react"
 import { useStore } from "@/lib/contexts/StoreContext"
 import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { toast } from "sonner"
 import Link from "next/link"
 import {
@@ -52,16 +51,31 @@ import {
   type MovementTypeFilter,
 } from "@/lib/stock-movement-utils"
 import { cn } from "@/lib/utils"
-import { useTableColumns } from "@/hooks/use-table-columns"
+import { useTranslatedTableColumns } from "@/hooks/use-translated-table-columns"
 import { TableColumnToggle } from "@/components/ui/table-column-toggle"
 import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { TableListToolbar } from "@/components/ui/table-list-toolbar"
 import { STOCK_HISTORY_TABLE_COLUMNS } from "@/lib/table-column-presets"
+import { useT, useLocale } from "@/i18n/context"
+import { getDateLocale } from "@/i18n/get-date-locale"
 
 const PAGE_SIZE = 50
 
+const STOCK_HISTORY_COLUMN_LABEL_KEYS: Record<string, string> = {
+  date: "stockHistory.colDateTime",
+  product: "stockHistory.colProduct",
+  type: "stockHistory.colType",
+  variation: "stockHistory.colVariation",
+  finalStock: "stockHistory.colFinalStock",
+  author: "stockHistory.colAuthor",
+}
+
 export default function StockHistoryPage() {
   const { activeStore } = useStore()
+  const t = useT()
+  const { locale } = useLocale()
+  const dateLocale = useMemo(() => getDateLocale(locale), [locale])
+
   const [movements, setMovements] = useState<StockMovement[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -70,6 +84,13 @@ export default function StockHistoryPage() {
   const [hasMore, setHasMore] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState<MovementTypeFilter>("all")
+
+  const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
+    useTranslatedTableColumns(
+      "stock-history",
+      STOCK_HISTORY_TABLE_COLUMNS,
+      STOCK_HISTORY_COLUMN_LABEL_KEYS
+    )
 
   const loadMovements = async (options?: { loadMore?: boolean; reset?: boolean }) => {
     if (!activeStore) return
@@ -93,7 +114,7 @@ export default function StockHistoryPage() {
       setLastDoc(result.lastVisible)
       setHasMore(result.movements.length === PAGE_SIZE)
     } catch {
-      toast.error("Erreur de chargement de l'historique")
+      toast.error(t("stockHistory.errorLoading"))
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -121,7 +142,7 @@ export default function StockHistoryPage() {
         setLastDoc(result.lastVisible)
         setHasMore(result.movements.length === PAGE_SIZE)
       } catch {
-        if (!cancelled) toast.error("Erreur de chargement de l'historique")
+        if (!cancelled) toast.error(t("stockHistory.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -131,7 +152,7 @@ export default function StockHistoryPage() {
     return () => {
       cancelled = true
     }
-  }, [activeStore?.id])
+  }, [activeStore?.id, t])
 
   const filteredMovements = useMemo(
     () => filterMovements(movements, { search: searchTerm, type: typeFilter }),
@@ -139,9 +160,6 @@ export default function StockHistoryPage() {
   )
 
   const stats = useMemo(() => getMovementStats(movements), [movements])
-
-  const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
-    useTableColumns("stock-history", STOCK_HISTORY_TABLE_COLUMNS)
 
   const handleExportPdf = async () => {
     if (!activeStore) return
@@ -152,13 +170,13 @@ export default function StockHistoryPage() {
         500
       )
       if (result.movements.length === 0) {
-        toast.error("Aucun mouvement à exporter")
+        toast.error(t("stockHistory.noMovementsToExport"))
         return
       }
       await PrintService.generateStockHistoryReport(result.movements, activeStore)
-      toast.success("Export PDF téléchargé")
+      toast.success(t("stockHistory.exportSuccess"))
     } catch {
-      toast.error("Erreur lors de l'export PDF")
+      toast.error(t("stockHistory.exportError"))
     } finally {
       setExporting(false)
     }
@@ -168,7 +186,7 @@ export default function StockHistoryPage() {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
         <History className="h-10 w-10 opacity-30" />
-        <p>Sélectionnez une boutique pour consulter l&apos;historique des flux.</p>
+        <p>{t("stockHistory.selectStore")}</p>
       </div>
     )
   }
@@ -181,10 +199,14 @@ export default function StockHistoryPage() {
             <History className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Historique des flux</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("stockHistory.title")}</h1>
             <p className="text-sm text-muted-foreground">
-              Traçabilité des mouvements de stock pour{" "}
-              <strong className="text-foreground">{activeStore.name}</strong>
+              {t.rich("stockHistory.subtitle", {
+                store: activeStore.name,
+                strong: (chunks) => (
+                  <strong className="text-foreground">{chunks}</strong>
+                ),
+              })}
             </p>
           </div>
         </div>
@@ -196,7 +218,7 @@ export default function StockHistoryPage() {
             disabled={loading}
           >
             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            Actualiser
+            {t("stockHistory.refresh")}
           </Button>
           <Button
             variant="outline"
@@ -209,12 +231,12 @@ export default function StockHistoryPage() {
             ) : (
               <ArrowDownToLine className="mr-2 h-4 w-4" />
             )}
-            Export PDF
+            {t("stockHistory.exportPdf")}
           </Button>
           <Button asChild className="rounded-xl font-semibold">
             <Link href="/inventory/transfers/new">
               <Plus className="mr-2 h-4 w-4" />
-              Nouveau transfert
+              {t("stockHistory.newTransfer")}
             </Link>
           </Button>
         </div>
@@ -228,11 +250,11 @@ export default function StockHistoryPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Mouvements
+                {t("stockHistory.statTotal")}
               </p>
               <p className="text-2xl font-bold">{stats.total}</p>
               <p className="text-[10px] text-muted-foreground">
-                {stats.monthCount} ce mois
+                {stats.monthCount} {t("stockHistory.statMonth")}
               </p>
             </div>
           </CardContent>
@@ -245,7 +267,7 @@ export default function StockHistoryPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Entrées
+                {t("stockHistory.statEntries")}
               </p>
               <p className="text-2xl font-bold">{stats.entries}</p>
             </div>
@@ -259,7 +281,7 @@ export default function StockHistoryPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Sorties
+                {t("stockHistory.statExits")}
               </p>
               <p className="text-2xl font-bold">{stats.exits}</p>
             </div>
@@ -273,7 +295,7 @@ export default function StockHistoryPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Variation nette
+                {t("stockHistory.statNetDelta")}
               </p>
               <p
                 className={cn(
@@ -285,7 +307,7 @@ export default function StockHistoryPage() {
                 {stats.netDelta}
               </p>
               <p className="text-[10px] text-muted-foreground">
-                {stats.transfers} transfert{stats.transfers > 1 ? "s" : ""}
+                {t("stockHistory.statTransfers", { count: stats.transfers })}
               </p>
             </div>
           </CardContent>
@@ -297,7 +319,7 @@ export default function StockHistoryPage() {
           <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher par produit, motif ou auteur…"
+              placeholder={t("stockHistory.searchPlaceholderExtended")}
               className="h-10 rounded-xl pl-9"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -308,13 +330,13 @@ export default function StockHistoryPage() {
             onValueChange={(v) => setTypeFilter(v as MovementTypeFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="Type de mouvement" />
+              <SelectValue placeholder={t("stockHistory.filterTypePlaceholder")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Tous les types</SelectItem>
+              <SelectItem value="all">{t("stockHistory.filterTypeAll")}</SelectItem>
               {MOVEMENT_TYPE_ORDER.map((type) => (
                 <SelectItem key={type} value={type}>
-                  {MOVEMENT_META[type].label}
+                  {t(`badges.stockMovement.${type}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -332,18 +354,18 @@ export default function StockHistoryPage() {
             <div className="flex flex-col items-center justify-center gap-4 p-16 text-center">
               <PackageSearch className="h-12 w-12 text-muted-foreground/30" />
               <div>
-                <p className="font-semibold">Aucun mouvement trouvé</p>
+                <p className="font-semibold">{t("stockHistory.noMovementsFound")}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {movements.length === 0
-                    ? "Les opérations de stock apparaîtront ici (achats, ventes, transferts…)."
-                    : "Ajustez les filtres ou la recherche."}
+                    ? t("stockHistory.noMovementsEmptyDesc")
+                    : t("stockHistory.noMovementsFilterDescShort")}
                 </p>
               </div>
               {movements.length === 0 && (
                 <Button asChild className="rounded-xl font-semibold">
                   <Link href="/inventory/transfers/new">
                     <ArrowRightLeft className="mr-2 h-4 w-4" />
-                    Nouveau transfert
+                    {t("stockHistory.newTransfer")}
                   </Link>
                 </Button>
               )}
@@ -353,7 +375,7 @@ export default function StockHistoryPage() {
               <TableListToolbar
                 summary={
                   !loading && filteredMovements.length > 0
-                    ? `${filteredMovements.length} mouvement${filteredMovements.length !== 1 ? "s" : ""}`
+                    ? t("stockHistory.movementSummary", { count: filteredMovements.length })
                     : undefined
                 }
                 actions={
@@ -369,22 +391,22 @@ export default function StockHistoryPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <VisibleTableColumn id="date" isVisible={isVisible}>
-                      <TableHead>Date & heure</TableHead>
+                      <TableHead>{t("stockHistory.colDateTime")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="product" isVisible={isVisible}>
-                      <TableHead>Produit</TableHead>
+                      <TableHead>{t("stockHistory.colProduct")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="type" isVisible={isVisible}>
-                      <TableHead>Type</TableHead>
+                      <TableHead>{t("stockHistory.colType")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="variation" isVisible={isVisible}>
-                      <TableHead className="text-center">Variation</TableHead>
+                      <TableHead className="text-center">{t("stockHistory.colVariation")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="finalStock" isVisible={isVisible}>
-                      <TableHead className="text-center">Stock final</TableHead>
+                      <TableHead className="text-center">{t("stockHistory.colFinalStock")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="author" isVisible={isVisible}>
-                      <TableHead>Auteur / Motif</TableHead>
+                      <TableHead>{t("stockHistory.colAuthor")}</TableHead>
                     </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
@@ -398,7 +420,7 @@ export default function StockHistoryPage() {
                         <VisibleTableColumn id="date" isVisible={isVisible}>
                           <TableCell className="font-mono text-xs text-muted-foreground">
                             {date
-                              ? format(date, "dd/MM/yyyy HH:mm", { locale: fr })
+                              ? format(date, "dd/MM/yyyy HH:mm", { locale: dateLocale })
                               : "-"}
                           </TableCell>
                         </VisibleTableColumn>
@@ -424,7 +446,7 @@ export default function StockHistoryPage() {
                             <StatusBadge
                               preset="stockDelta"
                               value={move.delta > 0 ? "positive" : "negative"}
-                              className="font-bold text-[10px]"
+                              className="text-[10px] font-bold"
                             >
                               {move.delta > 0 ? `+${move.delta}` : move.delta}
                             </StatusBadge>
@@ -462,7 +484,7 @@ export default function StockHistoryPage() {
                     {loadingMore ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : null}
-                    Charger plus
+                    {t("stockHistory.loadMoreShort")}
                   </Button>
                 </div>
               )}

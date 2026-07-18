@@ -1,6 +1,6 @@
-
 "use client"
 
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -32,28 +32,19 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import { Loader2, Save, ArrowRightLeft, ArrowDownToLine, ArrowUpFromLine, AlertTriangle } from "lucide-react"
-import {
-  PAYMENT_METHOD_OPTIONS,
-} from "@/lib/constants/payment-methods"
-import { FUND_OPERATION_TYPES, type FundOperationType } from "@/lib/cash-session-utils"
+import { PAYMENT_METHOD_OPTIONS } from "@/lib/constants/payment-methods"
+import { type FundOperationType } from "@/lib/cash-session-utils"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { cn } from "@/lib/utils"
+import { useT } from "@/i18n/context"
+import { useMemo } from "react"
 
-const CashFundFormSchema = z.object({
-  type: z.enum(["IN", "OUT"]),
-  method: z.enum([
-    "CASH",
-    "ORANGE_MONEY",
-    "MOBILE_MONEY",
-    "CARD",
-    "TRANSFER",
-    "OTHER",
-  ]),
-  amount: z.coerce.number().min(1, "Le montant doit être supérieur à 0"),
-  reason: z.string().min(3, "Motif requis (min. 3 caractères)"),
-})
-
-type CashFundFormValues = z.infer<typeof CashFundFormSchema>
+type CashFundFormValues = {
+  type: FundOperationType
+  method: "CASH" | "ORANGE_MONEY" | "MOBILE_MONEY" | "CARD" | "TRANSFER" | "OTHER"
+  amount: number
+  reason: string
+}
 
 type CashFundDialogProps = {
   open: boolean
@@ -61,9 +52,42 @@ type CashFundDialogProps = {
   onSubmit: (values: CashFundFormValues) => Promise<void>
 }
 
+const FUND_TYPE_KEYS: Record<FundOperationType, { label: string; description: string; hint: string }> = {
+  IN: {
+    label: "cashFund.typeIn.label",
+    description: "cashFund.typeIn.description",
+    hint: "cashFund.typeIn.hint",
+  },
+  OUT: {
+    label: "cashFund.typeOut.label",
+    description: "cashFund.typeOut.description",
+    hint: "cashFund.typeOut.hint",
+  },
+}
+
 export function CashFundDialog({ open, onOpenChange, onSubmit }: CashFundDialogProps) {
+  const t = useT()
+
+  const schema = useMemo(
+    () =>
+      z.object({
+        type: z.enum(["IN", "OUT"]),
+        method: z.enum([
+          "CASH",
+          "ORANGE_MONEY",
+          "MOBILE_MONEY",
+          "CARD",
+          "TRANSFER",
+          "OTHER",
+        ]),
+        amount: z.coerce.number().min(1, t("cashFund.validation.amountMin")),
+        reason: z.string().min(3, t("cashFund.validation.reasonMin")),
+      }),
+    [t]
+  )
+
   const form = useForm<CashFundFormValues>({
-    resolver: zodResolver(CashFundFormSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       type: "IN",
       method: "CASH",
@@ -85,11 +109,17 @@ export function CashFundDialog({ open, onOpenChange, onSubmit }: CashFundDialogP
       form.reset()
       onOpenChange(false)
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Erreur lors du mouvement"
+      const message = error instanceof Error ? error.message : t("cashFund.error")
       toast.error(message)
     }
   }
+
+  const reasonPlaceholder =
+    selectedType === "IN"
+      ? t(FUND_TYPE_KEYS.IN.hint)
+      : selectedType === "OUT"
+        ? t(FUND_TYPE_KEYS.OUT.hint)
+        : t("cashFund.reasonPlaceholder")
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -97,11 +127,9 @@ export function CashFundDialog({ open, onOpenChange, onSubmit }: CashFundDialogP
         <DialogHeader className="border-b bg-muted/20 p-6">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold">
             <ArrowRightLeft className="h-5 w-5 text-primary" />
-            Alimentation / Retrait
+            {t("cashFund.title")}
           </DialogTitle>
-          <DialogDescription className="text-xs">
-            Mouvement exceptionnel de fonds hors vente ou dépense enregistrée.
-          </DialogDescription>
+          <DialogDescription className="text-xs">{t("cashFund.desc")}</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -109,10 +137,7 @@ export function CashFundDialog({ open, onOpenChange, onSubmit }: CashFundDialogP
             <div className="space-y-4 p-6">
               <div className="flex items-start gap-3 rounded-xl border border-amber-200/60 bg-amber-50/50 p-3 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <p>
-                  Une session de caisse ouverte est requise. L&apos;opération met à jour
-                  immédiatement le solde théorique de la ligne sélectionnée.
-                </p>
+                <p>{t("cashFund.sessionWarning")}</p>
               </div>
 
               <FormField
@@ -120,37 +145,40 @@ export function CashFundDialog({ open, onOpenChange, onSubmit }: CashFundDialogP
                 name="type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Type d&apos;opération</FormLabel>
+                    <FormLabel required>{t("cashFund.operationType")}</FormLabel>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {FUND_OPERATION_TYPES.map((op) => (
-                        <button
-                          key={op.value}
-                          type="button"
-                          onClick={() => field.onChange(op.value)}
-                          className={cn(
-                            "flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition-colors",
-                            selectedType === op.value
-                              ? "border-primary bg-primary/5 ring-1 ring-primary"
-                              : "hover:bg-muted/50"
-                          )}
-                        >
-                          <StatusBadge
-                            tone={op.value === "IN" ? "success" : "destructive"}
-                            className="text-[10px]"
-                          >
-                            {op.value === "IN" ? (
-                              <ArrowDownToLine className="mr-1 h-3 w-3" />
-                            ) : (
-                              <ArrowUpFromLine className="mr-1 h-3 w-3" />
+                      {(["IN", "OUT"] as const).map((opValue) => {
+                        const keys = FUND_TYPE_KEYS[opValue]
+                        return (
+                          <button
+                            key={opValue}
+                            type="button"
+                            onClick={() => field.onChange(opValue)}
+                            className={cn(
+                              "flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition-colors",
+                              selectedType === opValue
+                                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                : "hover:bg-muted/50"
                             )}
-                            {op.label}
-                          </StatusBadge>
-                          <span className="text-sm font-semibold">{op.label}</span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {op.description}
-                          </span>
-                        </button>
-                      ))}
+                          >
+                            <StatusBadge
+                              tone={opValue === "IN" ? "success" : "destructive"}
+                              className="text-[10px]"
+                            >
+                              {opValue === "IN" ? (
+                                <ArrowDownToLine className="mr-1 h-3 w-3" />
+                              ) : (
+                                <ArrowUpFromLine className="mr-1 h-3 w-3" />
+                              )}
+                              {t(keys.label)}
+                            </StatusBadge>
+                            <span className="text-sm font-semibold">{t(keys.label)}</span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {t(keys.description)}
+                            </span>
+                          </button>
+                        )
+                      })}
                     </div>
                     <FormMessage />
                   </FormItem>
@@ -163,7 +191,7 @@ export function CashFundDialog({ open, onOpenChange, onSubmit }: CashFundDialogP
                   name="method"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Ligne de caisse</FormLabel>
+                      <FormLabel required>{t("cashFund.cashLine")}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger className="h-10 rounded-xl">
@@ -173,7 +201,7 @@ export function CashFundDialog({ open, onOpenChange, onSubmit }: CashFundDialogP
                         <SelectContent className="rounded-xl">
                           {PAYMENT_METHOD_OPTIONS.map((m) => (
                             <SelectItem key={m.id} value={m.id}>
-                              {m.label}
+                              {t(m.label)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -187,7 +215,7 @@ export function CashFundDialog({ open, onOpenChange, onSubmit }: CashFundDialogP
                   name="amount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Montant (FCFA)</FormLabel>
+                      <FormLabel required>{t("cashFund.amount")}</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -209,19 +237,16 @@ export function CashFundDialog({ open, onOpenChange, onSubmit }: CashFundDialogP
                 name="reason"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Motif du mouvement</FormLabel>
+                    <FormLabel required>{t("cashFund.reason")}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder={
-                          FUND_OPERATION_TYPES.find((o) => o.value === selectedType)?.hint ??
-                          "Motif de l'opération…"
-                        }
+                        placeholder={reasonPlaceholder}
                         className="h-10 rounded-xl"
                         {...field}
                       />
                     </FormControl>
                     <FormDescription className="text-[10px]">
-                      Obligatoire pour la traçabilité et l&apos;audit de caisse.
+                      {t("cashFund.reasonHint")}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -236,7 +261,7 @@ export function CashFundDialog({ open, onOpenChange, onSubmit }: CashFundDialogP
                 className="rounded-xl font-semibold"
                 onClick={() => handleOpenChange(false)}
               >
-                Annuler
+                {t("common.cancel")}
               </Button>
               <Button
                 type="submit"
@@ -248,7 +273,7 @@ export function CashFundDialog({ open, onOpenChange, onSubmit }: CashFundDialogP
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
                 )}
-                Valider le mouvement
+                {t("cashFund.validate")}
               </Button>
             </DialogFooter>
           </form>

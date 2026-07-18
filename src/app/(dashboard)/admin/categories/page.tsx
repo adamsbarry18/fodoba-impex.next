@@ -54,6 +54,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useClientPagination } from "@/hooks/use-client-pagination"
 import { TablePagination } from "@/components/ui/table-pagination"
+import { useT } from "@/i18n/context"
 
 const PAGE_SIZE = 20
 
@@ -70,6 +71,7 @@ function CategoryItem({
   onToggle: (id: string) => void
   onDelete: (id: string, name: string) => void
 }) {
+  const t = useT()
   const hasChildren = node.children.length > 0
   const isExpanded = expanded[node.id] === true
 
@@ -104,9 +106,7 @@ function CategoryItem({
             {node.name}
           </StatusBadge>
           {!node.active && (
-            <StatusBadge tone="slate" className="text-[10px]">
-              Inactif
-            </StatusBadge>
+            <StatusBadge preset="activeState" value="inactive" className="text-[10px]" />
           )}
           {node.description && (
             <span className="hidden truncate text-xs text-muted-foreground sm:inline">
@@ -116,7 +116,13 @@ function CategoryItem({
         </div>
 
         <div className="flex shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-lg"
+            asChild
+            title={t("categories.edit")}
+          >
             <Link href={`/admin/categories/${node.id}/edit`}>
               <Edit className="h-3.5 w-3.5" />
             </Link>
@@ -126,6 +132,7 @@ function CategoryItem({
             size="icon"
             className="h-8 w-8 rounded-lg text-destructive hover:text-destructive"
             onClick={() => onDelete(node.id, node.name)}
+            title={t("categories.delete")}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
@@ -151,6 +158,8 @@ function CategoryItem({
 }
 
 export default function CategoriesPage() {
+  const t = useT()
+
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
@@ -165,7 +174,7 @@ export default function CategoriesPage() {
       const data = await CategoryService.listCategories()
       setCategories(data)
     } catch {
-      toast.error("Erreur lors du chargement des catégories")
+      toast.error(t("categories.errorLoading"))
     } finally {
       setLoading(false)
     }
@@ -180,7 +189,7 @@ export default function CategoriesPage() {
         const data = await CategoryService.listCategories()
         if (!cancelled) setCategories(data)
       } catch {
-        if (!cancelled) toast.error("Erreur lors du chargement des catégories")
+        if (!cancelled) toast.error(t("categories.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -190,7 +199,7 @@ export default function CategoriesPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   const filteredCategories = useMemo(
     () => filterCategoriesForTree(categories, searchTerm, statusFilter),
@@ -244,11 +253,11 @@ export default function CategoriesPage() {
     setDeleting(true)
     try {
       await CategoryService.deleteCategory(deleteTarget.id)
-      toast.success("Catégorie supprimée")
+      toast.success(t("categories.deleted"))
       setDeleteTarget(null)
       loadCategories()
     } catch {
-      toast.error("Erreur lors de la suppression")
+      toast.error(t("categories.deleteError"))
     } finally {
       setDeleting(false)
     }
@@ -274,10 +283,8 @@ export default function CategoriesPage() {
             <FolderTree className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Catégories produits</h1>
-            <p className="text-sm text-muted-foreground">
-              Hiérarchie du catalogue global FODOBA IMPEX.
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight">{t("categories.title")}</h1>
+            <p className="text-sm text-muted-foreground">{t("categories.subtitle")}</p>
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -288,12 +295,12 @@ export default function CategoriesPage() {
             disabled={loading}
           >
             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            Actualiser
+            {t("categories.refresh")}
           </Button>
           <Button asChild className="rounded-xl font-semibold">
             <Link href="/admin/categories/new">
               <Plus className="mr-2 h-4 w-4" />
-              Nouvelle catégorie
+              {t("categories.newCategory")}
             </Link>
           </Button>
         </div>
@@ -307,7 +314,7 @@ export default function CategoriesPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Total
+                {t("categories.statTotal")}
               </p>
               <p className="text-2xl font-bold">{stats.total}</p>
             </div>
@@ -321,7 +328,7 @@ export default function CategoriesPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Actives
+                {t("categories.statActive")}
               </p>
               <p className="text-2xl font-bold">{stats.active}</p>
             </div>
@@ -335,7 +342,7 @@ export default function CategoriesPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Racines
+                {t("categories.statRoots")}
               </p>
               <p className="text-2xl font-bold">{stats.roots}</p>
             </div>
@@ -349,7 +356,7 @@ export default function CategoriesPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Avec sous-catégories
+                {t("categories.statWithChildren")}
               </p>
               <p className="text-2xl font-bold">{stats.withChildren}</p>
             </div>
@@ -362,7 +369,7 @@ export default function CategoriesPage() {
           <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher par nom ou description…"
+              placeholder={t("categories.searchByNameOrDesc")}
               className="h-10 rounded-xl pl-9"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -373,12 +380,12 @@ export default function CategoriesPage() {
             onValueChange={(v) => setStatusFilter(v as CategoryStatusFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="Statut" />
+              <SelectValue placeholder={t("categories.filterStatus")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Tous les statuts</SelectItem>
-              <SelectItem value="active">Actives uniquement</SelectItem>
-              <SelectItem value="inactive">Inactives uniquement</SelectItem>
+              <SelectItem value="all">{t("categories.filterStatusAll")}</SelectItem>
+              <SelectItem value="active">{t("categories.filterActiveOnly")}</SelectItem>
+              <SelectItem value="inactive">{t("categories.filterInactiveOnly")}</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
@@ -389,11 +396,9 @@ export default function CategoriesPage() {
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
               <FolderTree className="h-4 w-4 text-primary" />
-              Arborescence du catalogue
+              {t("categories.treeTitle")}
             </CardTitle>
-            <CardDescription className="text-xs">
-              Organisez vos produits par familles et sous-familles.
-            </CardDescription>
+            <CardDescription className="text-xs">{t("categories.treeDesc")}</CardDescription>
           </div>
           {tree.length > 0 && (
             <div className="flex gap-2">
@@ -403,7 +408,7 @@ export default function CategoriesPage() {
                 className="rounded-lg text-xs"
                 onClick={expandAll}
               >
-                Tout déplier
+                {t("categories.expandAll")}
               </Button>
               <Button
                 variant="outline"
@@ -411,7 +416,7 @@ export default function CategoriesPage() {
                 className="rounded-lg text-xs"
                 onClick={collapseAll}
               >
-                Tout replier
+                {t("categories.collapseAll")}
               </Button>
             </div>
           )}
@@ -425,22 +430,22 @@ export default function CategoriesPage() {
             <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed p-16 text-center">
               <Tag className="h-12 w-12 text-muted-foreground/30" />
               <div>
-                <p className="font-semibold">Aucune catégorie configurée</p>
+                <p className="font-semibold">{t("categories.emptyConfigured")}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Créez la première famille de produits pour structurer le catalogue.
+                  {t("categories.emptyConfiguredDesc")}
                 </p>
               </div>
               <Button asChild className="rounded-xl font-semibold">
                 <Link href="/admin/categories/new">
                   <Plus className="mr-2 h-4 w-4" />
-                  Nouvelle catégorie
+                  {t("categories.newCategory")}
                 </Link>
               </Button>
             </div>
           ) : tree.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
               <XCircle className="h-10 w-10 opacity-30" />
-              <p>Aucune catégorie ne correspond aux filtres.</p>
+              <p>{t("categories.noFilterMatch")}</p>
             </div>
           ) : (
             <>
@@ -475,15 +480,14 @@ export default function CategoriesPage() {
       >
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer la catégorie ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("categories.confirmDeleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              La catégorie <strong>{deleteTarget?.name}</strong> sera définitivement supprimée.
-              Vérifiez qu&apos;aucun produit ne lui est rattaché.
+              {t("categories.confirmDeleteDescCheck", { name: deleteTarget?.name ?? "" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-xl" disabled={deleting}>
-              Annuler
+              {t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -491,7 +495,7 @@ export default function CategoriesPage() {
               disabled={deleting}
             >
               {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Supprimer
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

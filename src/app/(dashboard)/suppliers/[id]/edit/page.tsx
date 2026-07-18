@@ -15,10 +15,12 @@ import { toast } from "sonner"
 import { ArrowLeft, Loader2, Save } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { useT } from "@/i18n/context"
 
 export default function EditSupplierPage() {
   const router = useRouter()
   const params = useParams()
+  const t = useT()
   const [loading, setLoading] = useState(true)
   
   const form = useForm<Supplier>({
@@ -32,25 +34,25 @@ export default function EditSupplierPage() {
         if (data) {
           form.reset(data)
         } else {
-          toast.error("Fournisseur introuvable")
+          toast.error(t("suppliers.notFound"))
           router.push("/suppliers")
         }
       } catch (error) {
-        toast.error("Erreur de chargement")
+        toast.error(t("common.errorLoading"))
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [params.id])
+  }, [params.id, router, t])
 
   const onSubmit = async (values: Supplier) => {
     try {
       await SupplierService.updateSupplier(params.id as string, values)
-      toast.success("Profil fournisseur mis à jour")
+      toast.success(t("suppliers.updateSuccess"))
       router.push(`/suppliers/${params.id}`)
     } catch (error) {
-      toast.error("Erreur lors de la mise à jour")
+      toast.error(t("common.errorUpdate"))
     }
   }
 
@@ -64,13 +66,13 @@ export default function EditSupplierPage() {
             <ArrowLeft className="w-4 h-4" />
           </Link>
         </Button>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Modifier Fournisseur</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">{t("suppliers.editTitle")}</h1>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>{form.getValues("name")}</CardTitle>
-          <CardDescription>Mise à jour des informations contractuelles.</CardDescription>
+          <CardDescription>{t("suppliers.editDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -80,7 +82,7 @@ export default function EditSupplierPage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Raison Sociale / Nom</FormLabel>
+                    <FormLabel required>{t("suppliers.nameLabel")}</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -95,7 +97,7 @@ export default function EditSupplierPage() {
                   name="country"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Pays</FormLabel>
+                      <FormLabel required>{t("suppliers.countryLabel")}</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -108,7 +110,7 @@ export default function EditSupplierPage() {
                   name="city"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Ville</FormLabel>
+                      <FormLabel>{t("suppliers.cityLabel")}</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -124,7 +126,7 @@ export default function EditSupplierPage() {
                   name="type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Type de Fournisseur</FormLabel>
+                      <FormLabel>{t("suppliers.typeLabel")}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -132,8 +134,8 @@ export default function EditSupplierPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="local">Local (Sous-région)</SelectItem>
-                          <SelectItem value="import">Import (International)</SelectItem>
+                          <SelectItem value="local">{t("suppliers.typeLocalExtended")}</SelectItem>
+                          <SelectItem value="import">{t("suppliers.typeImportExtended")}</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -145,7 +147,7 @@ export default function EditSupplierPage() {
                   name="defaultCurrency"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Devise Habituelle</FormLabel>
+                      <FormLabel>{t("suppliers.defaultCurrencyLabel")}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -170,7 +172,7 @@ export default function EditSupplierPage() {
                 name="paymentTerms"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Conditions de Paiement</FormLabel>
+                    <FormLabel>{t("suppliers.paymentTermsLabel")}</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -181,7 +183,7 @@ export default function EditSupplierPage() {
 
               <div className="flex justify-end gap-4 pt-4">
                 <Button variant="outline" type="button" onClick={() => router.back()}>
-                  Annuler
+                  {t("common.cancel")}
                 </Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>
                   {form.formState.isSubmitting ? (
@@ -189,7 +191,7 @@ export default function EditSupplierPage() {
                   ) : (
                     <Save className="w-4 h-4 mr-2" />
                   )}
-                  Enregistrer les modifications
+                  {t("suppliers.saveChanges")}
                 </Button>
               </div>
             </form>

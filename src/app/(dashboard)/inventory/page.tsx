@@ -60,17 +60,28 @@ import {
   type StockFilter,
 } from "@/lib/product-utils"
 import { cn } from "@/lib/utils"
-import { useTableColumns } from "@/hooks/use-table-columns"
+import { useTranslatedTableColumns } from "@/hooks/use-translated-table-columns"
 import { TableColumnToggle } from "@/components/ui/table-column-toggle"
 import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { INVENTORY_TABLE_COLUMNS } from "@/lib/table-column-presets"
+import { useT } from "@/i18n/context"
 
 const PAGE_SIZE = 25
+
+const INVENTORY_COLUMN_LABEL_KEYS: Record<string, string> = {
+  product: "inventory.colProduct",
+  sku: "inventory.colSku",
+  category: "inventory.colCategory",
+  price: "inventory.colPrice",
+  stock: "inventory.colStock",
+  actions: "inventory.colActions",
+}
 
 export default function InventoryPage() {
   const router = useRouter()
   const { activeStore } = useStore()
   const { can } = usePermissions()
+  const t = useT()
 
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -87,7 +98,7 @@ export default function InventoryPage() {
   const canManage = can("manage:catalog")
 
   const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
-    useTableColumns("inventory", INVENTORY_TABLE_COLUMNS)
+    useTranslatedTableColumns("inventory", INVENTORY_TABLE_COLUMNS, INVENTORY_COLUMN_LABEL_KEYS)
 
   const loadData = useCallback(
     async (options?: { loadMore?: boolean; reset?: boolean }) => {
@@ -124,13 +135,13 @@ export default function InventoryPage() {
         )
         setStocks((prev) => (loadMore ? { ...prev, ...newStocks } : newStocks))
       } catch {
-        toast.error("Erreur de chargement")
+        toast.error(t("inventory.errorLoading"))
       } finally {
         setLoading(false)
         setLoadingMore(false)
       }
     },
-    [activeStore, filterCategory, lastVisible, products]
+    [activeStore, filterCategory, lastVisible, products, t]
   )
 
   useEffect(() => {
@@ -166,7 +177,7 @@ export default function InventoryPage() {
         )
         if (!cancelled) setStocks(newStocks)
       } catch {
-        if (!cancelled) toast.error("Erreur de chargement")
+        if (!cancelled) toast.error(t("inventory.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -176,7 +187,7 @@ export default function InventoryPage() {
     return () => {
       cancelled = true
     }
-  }, [filterCategory, activeStore?.id])
+  }, [filterCategory, activeStore?.id, t])
 
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
@@ -209,6 +220,8 @@ export default function InventoryPage() {
     [products, stocks]
   )
 
+  const hasActiveFilters = searchTerm.trim().length > 0 || stockFilter !== "all"
+
   const handleRefresh = async () => {
     setLastVisible(undefined)
     setHasMore(true)
@@ -221,24 +234,24 @@ export default function InventoryPage() {
       try {
         const product = await ProductService.findProductByCode(code)
         if (!product) {
-          toast.error(`Produit introuvable : ${code}`)
+          toast.error(t("inventory.productNotFound", { code }))
           return
         }
         router.push(`/inventory/${product.id}`)
       } catch {
-        toast.error("Erreur lors du scan")
+        toast.error(t("inventory.scanError"))
       } finally {
         setScanProcessing(false)
       }
     },
-    [router]
+    [router, t]
   )
 
   if (!activeStore) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
         <Package className="h-10 w-10 opacity-30" />
-        <p>Sélectionnez une boutique pour consulter le catalogue et les stocks.</p>
+        <p>{t("inventory.selectStore")}</p>
       </div>
     )
   }
@@ -251,10 +264,14 @@ export default function InventoryPage() {
             <Package className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Catalogue et stocks</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("inventory.title")}</h1>
             <p className="text-sm text-muted-foreground">
-              Articles et niveaux de stock pour{" "}
-              <strong className="text-foreground">{activeStore.name}</strong>
+              {t.rich("inventory.subtitle", {
+                store: activeStore.name,
+                strong: (chunks) => (
+                  <strong className="text-foreground">{chunks}</strong>
+                ),
+              })}
             </p>
           </div>
         </div>
@@ -266,19 +283,19 @@ export default function InventoryPage() {
             disabled={loading}
           >
             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            Actualiser
+            {t("inventory.refresh")}
           </Button>
           <Button variant="outline" asChild className="rounded-xl font-semibold">
             <Link href="/inventory/history">
               <History className="mr-2 h-4 w-4" />
-              Historique flux
+              {t("inventory.history")}
             </Link>
           </Button>
           {canManage && (
             <Button asChild className="rounded-xl font-semibold">
               <Link href="/inventory/new">
                 <Plus className="mr-2 h-4 w-4" />
-                Nouveau produit
+                {t("inventory.newProduct")}
               </Link>
             </Button>
           )}
@@ -293,7 +310,7 @@ export default function InventoryPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Produits chargés
+                {t("inventory.statTotal")}
               </p>
               <p className="text-2xl font-bold">{stats.total}</p>
             </div>
@@ -307,7 +324,7 @@ export default function InventoryPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Stock bas
+                {t("inventory.statLowStock")}
               </p>
               <p className="text-2xl font-bold">{stats.lowStock}</p>
             </div>
@@ -321,7 +338,7 @@ export default function InventoryPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Ruptures
+                {t("inventory.statOutOfStock")}
               </p>
               <p className="text-2xl font-bold">{stats.outOfStock}</p>
             </div>
@@ -335,10 +352,10 @@ export default function InventoryPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Valorisation vente
+                {t("inventory.statValuation")}
               </p>
               <p className="text-sm font-bold">
-                {stats.valuation.toLocaleString("fr-FR")} FCFA
+                {stats.valuation.toLocaleString()} FCFA
               </p>
             </div>
           </CardContent>
@@ -350,7 +367,7 @@ export default function InventoryPage() {
           <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher par nom, SKU ou code-barres…"
+              placeholder={t("inventory.searchPlaceholder")}
               className="h-10 rounded-xl pl-9"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -358,10 +375,10 @@ export default function InventoryPage() {
           </div>
           <Select value={filterCategory} onValueChange={setFilterCategory}>
             <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="Catégorie" />
+              <SelectValue placeholder={t("inventory.filterCategory")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Toutes les catégories</SelectItem>
+              <SelectItem value="all">{t("inventory.filterCategoryAll")}</SelectItem>
               {categories.map((cat) => (
                 <SelectItem key={cat.id} value={cat.id}>
                   {cat.name}
@@ -374,17 +391,17 @@ export default function InventoryPage() {
             onValueChange={(v) => setStockFilter(v as StockFilter)}
           >
             <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="Stock" />
+              <SelectValue placeholder={t("inventory.filterStock")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Tous les stocks</SelectItem>
-              <SelectItem value="low">Stock bas</SelectItem>
-              <SelectItem value="out">Rupture</SelectItem>
+              <SelectItem value="all">{t("inventory.filterStockAll")}</SelectItem>
+              <SelectItem value="low">{t("inventory.filterStockLow")}</SelectItem>
+              <SelectItem value="out">{t("inventory.filterStockOut")}</SelectItem>
             </SelectContent>
           </Select>
           <div className="md:col-span-4">
             <BarcodeScanField
-              placeholder="Scanner un produit [F2]…"
+              placeholder={t("inventory.scanPlaceholderProduct")}
               onScan={handleProductScan}
               processing={scanProcessing}
             />
@@ -395,10 +412,11 @@ export default function InventoryPage() {
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 p-4 sm:p-6">
           <div>
-            <CardTitle className="text-base">Liste des produits</CardTitle>
+            <CardTitle className="text-base">{t("inventory.listTitle")}</CardTitle>
             <CardDescription className="text-xs">
-              {filteredProducts.length} produit{filteredProducts.length !== 1 ? "s" : ""}
-              {(searchTerm || stockFilter !== "all") && " (filtrés)"}
+              {hasActiveFilters
+                ? t("inventory.listDescriptionFiltered", { count: filteredProducts.length })
+                : t("inventory.listDescription", { count: filteredProducts.length })}
             </CardDescription>
           </div>
           <TableColumnToggle
@@ -416,17 +434,17 @@ export default function InventoryPage() {
           ) : filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 p-16 text-center text-muted-foreground">
               <Package className="h-10 w-10 opacity-30" />
-              <p className="font-medium">Aucun produit trouvé</p>
+              <p className="font-medium">{t("inventory.noProductsFound")}</p>
               <p className="text-xs">
                 {products.length === 0 && canManage
-                  ? "Ajoutez votre premier article au catalogue."
-                  : "Modifiez vos filtres de recherche."}
+                  ? t("inventory.noProductsEmptyDesc")
+                  : t("inventory.noProductsFilterDesc")}
               </p>
               {products.length === 0 && canManage && (
                 <Button asChild className="mt-2 rounded-xl">
                   <Link href="/inventory/new">
                     <Plus className="mr-2 h-4 w-4" />
-                    Nouveau produit
+                    {t("inventory.newProduct")}
                   </Link>
                 </Button>
               )}
@@ -438,22 +456,22 @@ export default function InventoryPage() {
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
                       <VisibleTableColumn id="product" isVisible={isVisible}>
-                        <TableHead className="pl-4 sm:pl-6">Produit</TableHead>
+                        <TableHead className="pl-4 sm:pl-6">{t("inventory.colProduct")}</TableHead>
                       </VisibleTableColumn>
                       <VisibleTableColumn id="sku" isVisible={isVisible}>
-                        <TableHead>SKU / Code-barres</TableHead>
+                        <TableHead>{t("inventory.colSku")}</TableHead>
                       </VisibleTableColumn>
                       <VisibleTableColumn id="category" isVisible={isVisible}>
-                        <TableHead>Catégorie</TableHead>
+                        <TableHead>{t("inventory.colCategory")}</TableHead>
                       </VisibleTableColumn>
                       <VisibleTableColumn id="price" isVisible={isVisible}>
-                        <TableHead className="text-right">Prix (FCFA)</TableHead>
+                        <TableHead className="text-right">{t("inventory.colPrice")}</TableHead>
                       </VisibleTableColumn>
                       <VisibleTableColumn id="stock" isVisible={isVisible}>
-                        <TableHead className="text-center">Stock</TableHead>
+                        <TableHead className="text-center">{t("inventory.colStock")}</TableHead>
                       </VisibleTableColumn>
                       <VisibleTableColumn id="actions" isVisible={isVisible}>
-                        <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
+                        <TableHead className="pr-4 text-right sm:pr-6">{t("inventory.colActions")}</TableHead>
                       </VisibleTableColumn>
                     </TableRow>
                   </TableHeader>
@@ -495,7 +513,7 @@ export default function InventoryPage() {
                           </VisibleTableColumn>
                           <VisibleTableColumn id="price" isVisible={isVisible}>
                             <TableCell className="text-right font-headline font-bold">
-                              {p.sellingPriceFCFA.toLocaleString("fr-FR")}
+                              {p.sellingPriceFCFA.toLocaleString()}
                             </TableCell>
                           </VisibleTableColumn>
                           <VisibleTableColumn id="stock" isVisible={isVisible}>
@@ -513,12 +531,12 @@ export default function InventoryPage() {
                                 </span>
                                 {status === "low" && (
                                   <StatusBadge tone="warning" className="text-[8px]">
-                                    Alerte
+                                    {t("badges.stockStatus.low")}
                                   </StatusBadge>
                                 )}
                                 {status === "out" && (
                                   <StatusBadge tone="destructive" className="text-[8px]">
-                                    Rupture
+                                    {t("badges.stockStatus.out")}
                                   </StatusBadge>
                                 )}
                               </div>
@@ -546,7 +564,7 @@ export default function InventoryPage() {
                                     className="flex items-center gap-2"
                                   >
                                     <Eye className="h-4 w-4" />
-                                    Détails
+                                    {t("common.details")}
                                   </Link>
                                 </DropdownMenuItem>
                                 {canManage && (
@@ -556,7 +574,7 @@ export default function InventoryPage() {
                                       className="flex items-center gap-2 text-primary"
                                     >
                                       <Edit className="h-4 w-4" />
-                                      Modifier
+                                      {t("inventory.edit")}
                                     </Link>
                                   </DropdownMenuItem>
                                 )}
@@ -584,7 +602,7 @@ export default function InventoryPage() {
                     ) : (
                       <ChevronDown className="mr-2 h-4 w-4" />
                     )}
-                    Charger plus de produits
+                    {t("inventory.loadMore")}
                   </Button>
                 </div>
               )}

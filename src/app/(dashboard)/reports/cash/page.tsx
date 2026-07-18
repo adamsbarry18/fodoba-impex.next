@@ -23,15 +23,19 @@ import {
 import Link from "next/link"
 import { toast } from "sonner"
 import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { useStore } from "@/lib/contexts/StoreContext"
 import { getCashAuditSummary, getSessionTotals } from "@/lib/cash-session-utils"
 import { useClientPagination } from "@/hooks/use-client-pagination"
 import { TablePagination } from "@/components/ui/table-pagination"
+import { useT, useLocale } from "@/i18n/context"
+import { getDateLocale } from "@/i18n/get-date-locale"
 
 const PAGE_SIZE = 25
 
 export default function CashReportPage() {
+  const t = useT()
+  const { locale } = useLocale()
+  const dateLocale = useMemo(() => getDateLocale(locale), [locale])
   const { activeStore } = useStore()
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -49,13 +53,13 @@ export default function CashReportPage() {
         const res = await CashService.listSessions(activeStore.id, 50)
         setSessions(res)
       } catch {
-        toast.error("Erreur de chargement")
+        toast.error(t("common.errorLoading"))
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [activeStore])
+  }, [activeStore, t])
 
   const summary = useMemo(() => getCashAuditSummary(sessions), [sessions])
 
@@ -72,7 +76,7 @@ export default function CashReportPage() {
   const handleExportPdf = async () => {
     if (!activeStore) return
     if (sessions.length === 0) {
-      toast.error("Aucune session à exporter")
+      toast.error(t("common.noSessionToExport"))
       return
     }
     setExporting(true)
@@ -81,9 +85,9 @@ export default function CashReportPage() {
         totalVariance: summary.totalVariance,
         reliabilityPercent: summary.reliabilityPercent,
       })
-      toast.success("PDF consolidé téléchargé")
+      toast.success(t("common.successExportPdfConsolidated"))
     } catch {
-      toast.error("Erreur lors de l'export PDF")
+      toast.error(t("common.errorExportPdf"))
     } finally {
       setExporting(false)
     }
@@ -101,7 +105,7 @@ export default function CashReportPage() {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
         <Wallet className="h-10 w-10 opacity-30" />
-        <p>Sélectionnez une boutique pour consulter l&apos;audit caisse.</p>
+        <p>{t("reports.cash.selectStore")}</p>
       </div>
     )
   }
@@ -116,10 +120,9 @@ export default function CashReportPage() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Rapport d&apos;Audit Caisse</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("reports.cash.title")}</h1>
             <p className="text-sm text-muted-foreground">
-              Journal analytique des sessions et rapprochements de{" "}
-              <strong>{activeStore.name}</strong>.
+              {t("reports.cash.subtitle", { store: activeStore.name })}
             </p>
           </div>
         </div>
@@ -134,7 +137,7 @@ export default function CashReportPage() {
           ) : (
             <Download className="mr-2 h-4 w-4" />
           )}
-          PDF Consolidé
+          {t("reconciliation.exportPdf")}
         </Button>
       </div>
 
@@ -142,7 +145,7 @@ export default function CashReportPage() {
         <Card className="rounded-2xl border bg-card shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Écart global ({summary.sessionCount} sessions)
+              {t("reports.cash.statGlobalVariance", { count: summary.sessionCount })}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -151,10 +154,10 @@ export default function CashReportPage() {
                 summary.totalVariance === 0 ? "text-primary" : "text-destructive"
               }`}
             >
-              {summary.totalVariance.toLocaleString("fr-FR")} FCFA
+              {summary.totalVariance.toLocaleString(locale)} FCFA
             </div>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Cumul des variances de comptage
+              {t("reports.cash.statGlobalVarianceDesc")}
             </p>
           </CardContent>
         </Card>
@@ -162,7 +165,7 @@ export default function CashReportPage() {
         <Card className="rounded-2xl border bg-card shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Fiabilité rapprochement
+              {t("reports.cash.statReliability")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -170,8 +173,10 @@ export default function CashReportPage() {
               {summary.reliabilityPercent}%
             </div>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {summary.conformCount} clôture{summary.conformCount !== 1 ? "s" : ""} conforme
-              {summary.conformCount !== 1 ? "s" : ""} sur {summary.closedCount || summary.sessionCount}
+              {t("reports.cash.statReliabilityDetail", {
+                conform: summary.conformCount,
+                total: summary.closedCount || summary.sessionCount,
+              })}
             </p>
           </CardContent>
         </Card>
@@ -179,7 +184,7 @@ export default function CashReportPage() {
         <Card className="rounded-2xl border bg-card shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Sessions enregistrées
+              {t("reports.cash.statSessions")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -187,8 +192,10 @@ export default function CashReportPage() {
               {summary.sessionCount}
             </div>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {summary.closedCount} clôturée{summary.closedCount > 1 ? "s" : ""},{" "}
-              {summary.sessionCount - summary.closedCount} en cours
+              {t("reports.cash.statSessionsDetail", {
+                closed: summary.closedCount,
+                open: summary.sessionCount - summary.closedCount,
+              })}
             </p>
           </CardContent>
         </Card>
@@ -198,28 +205,26 @@ export default function CashReportPage() {
         <CardHeader className="border-b bg-muted/20">
           <CardTitle className="flex items-center gap-2 text-base">
             <History className="h-5 w-5 text-primary" />
-            Journal analytique des sessions
+            {t("reports.cash.journalTitle")}
           </CardTitle>
-          <CardDescription>
-            Détail des ouvertures, clôtures et écarts par session de caisse.
-          </CardDescription>
+          <CardDescription>{t("reports.cash.journalDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="py-4 pl-6">Date &amp; ouverture</TableHead>
-                <TableHead>Caissier</TableHead>
-                <TableHead className="text-right">Attendu (total)</TableHead>
-                <TableHead className="text-right">Réel (total)</TableHead>
-                <TableHead className="text-center pr-6">Statut / écart</TableHead>
+                <TableHead className="py-4 pl-6">{t("reports.cash.colDateOpen")}</TableHead>
+                <TableHead>{t("reports.cash.colCashier")}</TableHead>
+                <TableHead className="text-right">{t("reports.cash.colExpectedTotal")}</TableHead>
+                <TableHead className="text-right">{t("reports.cash.colActualTotal")}</TableHead>
+                <TableHead className="pr-6 text-center">{t("reports.cash.colStatusVariance")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sessions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-16 text-center text-muted-foreground italic">
-                    Aucune session de caisse enregistrée pour cette boutique.
+                  <TableCell colSpan={5} className="py-16 text-center italic text-muted-foreground">
+                    {t("reports.cash.noSessions")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -232,11 +237,13 @@ export default function CashReportPage() {
                       <TableCell className="py-4 pl-6">
                         <div className="flex flex-col">
                           <span className="text-sm font-semibold">
-                            {format(openedAt, "dd MMM yyyy", { locale: fr })}
+                            {format(openedAt, "dd MMM yyyy", { locale: dateLocale })}
                           </span>
                           <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                             <Calendar className="h-2.5 w-2.5" />
-                            à {format(openedAt, "HH:mm")}
+                            {t("reports.cash.atTime", {
+                              time: format(openedAt, "HH:mm"),
+                            })}
                           </span>
                         </div>
                       </TableCell>
@@ -244,10 +251,10 @@ export default function CashReportPage() {
                         {s.openedByName}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {totalExpected.toLocaleString("fr-FR")}
+                        {totalExpected.toLocaleString(locale)}
                       </TableCell>
                       <TableCell className="text-right font-bold">
-                        {totalActual.toLocaleString("fr-FR")}
+                        {totalActual.toLocaleString(locale)}
                       </TableCell>
                       <TableCell className="pr-6 text-center">
                         <div className="flex flex-col items-center gap-1">
@@ -264,13 +271,13 @@ export default function CashReportPage() {
                             }
                           >
                             {totalVar === 0
-                              ? "Conforme"
-                              : `${totalVar > 0 ? "+" : ""}${totalVar.toLocaleString("fr-FR")}`}
+                              ? undefined
+                              : `${totalVar > 0 ? "+" : ""}${totalVar.toLocaleString(locale)}`}
                           </StatusBadge>
                           {s.status === "OPEN" && (
                             <span className="flex items-center gap-1 text-[9px] font-bold text-primary">
                               <ShieldCheck className="h-3 w-3" />
-                              EN COURS
+                              {t("reports.cash.sessionInProgress")}
                             </span>
                           )}
                         </div>

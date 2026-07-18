@@ -1,6 +1,6 @@
-
 "use client"
 
+import { useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -37,23 +37,15 @@ import { Loader2, Save, Wallet, AlertTriangle } from "lucide-react"
 import { EXPENSE_CATEGORIES } from "@/lib/expense-utils"
 import { PAYMENT_METHOD_OPTIONS } from "@/lib/constants/payment-methods"
 import type { UserProfile } from "@/lib/types"
+import { useT } from "@/i18n/context"
 
-const ExpenseFormSchema = z.object({
-  amount: z.coerce.number().min(1, "Le montant doit être supérieur à 0"),
-  category: z.string().min(1, "Catégorie requise"),
-  label: z.string().min(2, "Libellé requis (min. 2 caractères)"),
-  method: z.enum([
-    "CASH",
-    "ORANGE_MONEY",
-    "MOBILE_MONEY",
-    "CARD",
-    "TRANSFER",
-    "OTHER",
-  ] as const),
-  notes: z.string().optional(),
-})
-
-type ExpenseFormValues = z.infer<typeof ExpenseFormSchema>
+type ExpenseFormValues = {
+  amount: number
+  category: string
+  label: string
+  method: PaymentMethod
+  notes?: string
+}
 
 type ExpenseFormDialogProps = {
   open: boolean
@@ -70,8 +62,29 @@ export function ExpenseFormDialog({
   user,
   onSuccess,
 }: ExpenseFormDialogProps) {
+  const t = useT()
+
+  const expenseFormSchema = useMemo(
+    () =>
+      z.object({
+        amount: z.coerce.number().min(1, t("expenses.form.validation.amountMin")),
+        category: z.string().min(1, t("expenses.form.validation.categoryRequired")),
+        label: z.string().min(2, t("expenses.form.validation.labelMin")),
+        method: z.enum([
+          "CASH",
+          "ORANGE_MONEY",
+          "MOBILE_MONEY",
+          "CARD",
+          "TRANSFER",
+          "OTHER",
+        ] as const),
+        notes: z.string().optional(),
+      }),
+    [t]
+  )
+
   const form = useForm<ExpenseFormValues>({
-    resolver: zodResolver(ExpenseFormSchema),
+    resolver: zodResolver(expenseFormSchema),
     defaultValues: {
       amount: 0,
       category: EXPENSE_CATEGORIES[0],
@@ -97,13 +110,13 @@ export function ExpenseFormDialog({
         user,
         notes: values.notes,
       })
-      toast.success("Dépense enregistrée et caisse débitée")
+      toast.success(t("expenses.form.success"))
       form.reset()
       onOpenChange(false)
       onSuccess()
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "Erreur lors de l'enregistrement"
+        error instanceof Error ? error.message : t("expenses.form.saveError")
       toast.error(message)
     }
   }
@@ -114,11 +127,9 @@ export function ExpenseFormDialog({
         <DialogHeader className="border-b bg-muted/20 p-6">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold">
             <Wallet className="h-5 w-5 text-primary" />
-            Enregistrer une dépense
+            {t("expenses.form.title")}
           </DialogTitle>
-          <DialogDescription className="text-xs">
-            Cette action débite immédiatement la caisse active de la boutique.
-          </DialogDescription>
+          <DialogDescription className="text-xs">{t("expenses.form.desc")}</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -126,10 +137,7 @@ export function ExpenseFormDialog({
             <div className="space-y-4 p-6">
               <div className="flex items-start gap-3 rounded-xl border border-amber-200/60 bg-amber-50/50 p-3 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <p>
-                  Une session de caisse ouverte est requise. L&apos;opération est irréversible
-                  une fois validée.
-                </p>
+                <p>{t("expenses.form.warning")}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -138,7 +146,7 @@ export function ExpenseFormDialog({
                   name="amount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Montant (FCFA)</FormLabel>
+                      <FormLabel required>{t("expenses.form.amountLabel")}</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -158,7 +166,7 @@ export function ExpenseFormDialog({
                   name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Catégorie</FormLabel>
+                      <FormLabel required>{t("expenses.form.categoryLabel")}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger className="h-10 rounded-xl">
@@ -184,10 +192,10 @@ export function ExpenseFormDialog({
                 name="label"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Libellé / Motif</FormLabel>
+                    <FormLabel required>{t("expenses.form.labelLabel")}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Ex. Facture EDM mai 2026"
+                        placeholder={t("expenses.form.labelPlaceholder")}
                         className="h-10 rounded-xl"
                         {...field}
                       />
@@ -203,7 +211,7 @@ export function ExpenseFormDialog({
                   name="method"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Mode de règlement</FormLabel>
+                      <FormLabel required>{t("expenses.form.methodLabel")}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger className="h-10 rounded-xl">
@@ -213,7 +221,7 @@ export function ExpenseFormDialog({
                         <SelectContent className="rounded-xl">
                           {PAYMENT_METHOD_OPTIONS.map((m) => (
                             <SelectItem key={m.id} value={m.id}>
-                              {m.label}
+                              {t(m.label)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -227,16 +235,16 @@ export function ExpenseFormDialog({
                   name="notes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Justificatif (réf.)</FormLabel>
+                      <FormLabel>{t("expenses.form.notesLabel")}</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="N° facture…"
+                          placeholder={t("expenses.form.notesPlaceholder")}
                           className="h-10 rounded-xl"
                           {...field}
                         />
                       </FormControl>
                       <FormDescription className="text-[10px]">
-                        Référence facture ou bon de commande
+                        {t("expenses.form.notesDesc")}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -252,7 +260,7 @@ export function ExpenseFormDialog({
                 className="rounded-xl font-semibold"
                 onClick={() => handleOpenChange(false)}
               >
-                Annuler
+                {t("common.cancel")}
               </Button>
               <Button
                 type="submit"
@@ -264,7 +272,7 @@ export function ExpenseFormDialog({
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
                 )}
-                Valider la sortie
+                {t("expenses.form.submit")}
               </Button>
             </DialogFooter>
           </form>

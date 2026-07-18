@@ -45,7 +45,6 @@ import {
 } from "@/components/ui/chart"
 import Link from "next/link"
 import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import {
   Select,
   SelectContent,
@@ -62,13 +61,8 @@ import {
 } from "@/lib/dashboard-utils"
 import { getStockStatus } from "@/lib/product-utils"
 import { cn } from "@/lib/utils"
-
-const chartConfig = {
-  sales: {
-    label: "Ventes",
-    color: "hsl(var(--primary))",
-  },
-} satisfies ChartConfig
+import { useT, useLocale } from "@/i18n/context"
+import { getDateLocale } from "@/i18n/get-date-locale"
 
 interface LowStockItem extends Product {
   currentStock: number
@@ -80,12 +74,22 @@ export default function DashboardPage() {
   const { formatAmount } = useCurrency()
   const [loading, setLoading] = useState(true)
   const [timeRange, setTimeRange] = useState<DashboardTimeRange>("7d")
+  const t = useT()
+  const { locale } = useLocale()
+  const dateLocale = useMemo(() => getDateLocale(locale), [locale])
 
   const [sales, setSales] = useState<Sale[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([])
   const [cashSession, setCashSession] = useState<CashSession | null>(null)
+
+  const chartConfig = useMemo(() => ({
+    sales: {
+      label: t("dashboard.chartLabel"),
+      color: "hsl(var(--primary))",
+    },
+  } satisfies ChartConfig), [t])
 
   const loadDashboardData = useCallback(async () => {
     if (!userProfile || !activeStore) {
@@ -123,26 +127,26 @@ export default function DashboardPage() {
 
       setLowStockItems(alerts)
     } catch {
-      toast.error("Erreur de chargement du tableau de bord")
+      toast.error(t("dashboard.loadError"))
     } finally {
       setLoading(false)
     }
-  }, [userProfile, activeStore])
+  }, [userProfile, activeStore, t])
 
   useEffect(() => {
     loadDashboardData()
   }, [loadDashboardData])
 
   const stats = useMemo(
-    () => getDashboardStats(sales, clients, suppliers, timeRange, cashSession),
-    [sales, clients, suppliers, timeRange, cashSession]
+    () => getDashboardStats(sales, clients, suppliers, timeRange, cashSession, dateLocale),
+    [sales, clients, suppliers, timeRange, cashSession, dateLocale]
   )
 
   if (!activeStore) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
         <LayoutDashboard className="h-10 w-10 opacity-30" />
-        <p>Sélectionnez une boutique pour afficher le tableau de bord.</p>
+        <p>{t("dashboard.selectStore")}</p>
       </div>
     )
   }
@@ -151,7 +155,7 @@ export default function DashboardPage() {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Chargement du tableau de bord…</p>
+        <p className="text-sm text-muted-foreground">{t("dashboard.loadingDashboard")}</p>
       </div>
     )
   }
@@ -165,14 +169,14 @@ export default function DashboardPage() {
           </div>
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-primary/70">
-              {format(new Date(), "EEEE d MMMM yyyy", { locale: fr })}
+              {format(new Date(), "EEEE d MMMM yyyy", { locale: dateLocale })}
             </p>
             <h1 className="text-3xl font-bold tracking-tight">
-              Bonjour, <span className="text-primary">{userProfile?.prenom}</span>
+              {t("dashboard.greeting", { name: userProfile?.prenom || "" })}
             </h1>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>
-                Vue d&apos;ensemble -{" "}
+                {t("dashboard.overview")} -{" "}
                 <strong className="text-foreground">{activeStore.name}</strong>
               </span>
               <StatusBadge
@@ -192,7 +196,7 @@ export default function DashboardPage() {
             disabled={loading}
           >
             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            Actualiser
+            {t("common.refresh")}
           </Button>
           <Select
             value={timeRange}
@@ -201,13 +205,13 @@ export default function DashboardPage() {
             <SelectTrigger className="h-10 w-full rounded-xl sm:w-[200px]">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-primary" />
-                <SelectValue placeholder="Période" />
+                <SelectValue placeholder={t("common.period")} />
               </div>
             </SelectTrigger>
             <SelectContent className="rounded-xl">
               {DASHBOARD_TIME_RANGES.map((r) => (
                 <SelectItem key={r.value} value={r.value}>
-                  {r.label}
+                  {t(r.label)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -215,7 +219,7 @@ export default function DashboardPage() {
           <Button asChild className="rounded-xl font-semibold">
             <Link href="/pos">
               <ShoppingCart className="mr-2 h-4 w-4" />
-              Vente
+              {t("common.sale")}
             </Link>
           </Button>
         </div>
@@ -229,11 +233,11 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                CA boutique
+                {t("dashboard.storeRevenue")}
               </p>
               <p className="text-sm font-bold">{formatAmount(stats.periodRevenue, "FCFA")}</p>
               <p className="text-[10px] text-muted-foreground">
-                {stats.salesCount} vente{stats.salesCount > 1 ? "s" : ""}
+                {t("dashboard.salesCount", { count: stats.salesCount })}
               </p>
             </div>
           </CardContent>
@@ -246,12 +250,12 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Créances clients
+                {t("dashboard.clientDebts")}
               </p>
               <p className="text-sm font-bold text-destructive">
                 {formatAmount(stats.totalClientDebt, "FCFA")}
               </p>
-              <p className="text-[10px] text-muted-foreground">Réseau global</p>
+              <p className="text-[10px] text-muted-foreground">{t("common.globalNetwork")}</p>
             </div>
           </CardContent>
         </Card>
@@ -263,10 +267,10 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Dettes fournisseurs
+                {t("dashboard.supplierDebts")}
               </p>
               <p className="text-sm font-bold">{formatAmount(stats.totalSupplierDebt, "FCFA")}</p>
-              <p className="text-[10px] text-muted-foreground">Global FODOBA</p>
+              <p className="text-[10px] text-muted-foreground">{t("common.globalFodoba")}</p>
             </div>
           </CardContent>
         </Card>
@@ -278,11 +282,11 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Caisse espèces
+                {t("dashboard.cashRegister")}
               </p>
               <p className="text-sm font-bold">{formatAmount(stats.cashCash, "FCFA")}</p>
               <p className="text-[10px] text-muted-foreground">
-                Total caisse : {formatAmount(stats.cashTotal, "FCFA")}
+                {t("dashboard.totalCash", { amount: formatAmount(stats.cashTotal, "FCFA") })}
               </p>
             </div>
           </CardContent>
@@ -293,25 +297,25 @@ export default function DashboardPage() {
         <Button variant="outline" size="sm" asChild className="rounded-xl">
           <Link href="/inventory">
             <Package className="mr-1.5 h-3.5 w-3.5" />
-            Catalogue
+            {t("dashboard.catalog")}
           </Link>
         </Button>
         <Button variant="outline" size="sm" asChild className="rounded-xl">
           <Link href="/reconciliation">
             <Wallet className="mr-1.5 h-3.5 w-3.5" />
-            Trésorerie
+            {t("dashboard.treasury")}
           </Link>
         </Button>
         <Button variant="outline" size="sm" asChild className="rounded-xl">
           <Link href="/reports">
             <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
-            Rapports
+            {t("dashboard.reports")}
           </Link>
         </Button>
         <Button variant="outline" size="sm" asChild className="rounded-xl">
           <Link href="/inventory/transfers/new">
             <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
-            Transfert stock
+            {t("dashboard.stockTransfer")}
           </Link>
         </Button>
       </div>
@@ -324,16 +328,15 @@ export default function DashboardPage() {
                 <AlertTriangle className="h-5 w-5 text-amber-600" />
               </div>
               <div>
-                <CardTitle className="text-base">Alertes de stock</CardTitle>
+                <CardTitle className="text-base">{t("dashboard.stockAlerts")}</CardTitle>
                 <CardDescription className="text-xs">
-                  {lowStockItems.length} produit{lowStockItems.length > 1 ? "s" : ""} à{" "}
-                  {activeStore.code}
+                  {t("dashboard.productsAtStore", { count: lowStockItems.length, code: activeStore.code })}
                 </CardDescription>
               </div>
             </div>
             <Button variant="ghost" size="sm" asChild className="rounded-xl text-xs font-semibold">
               <Link href="/inventory">
-                Voir tout <ChevronRight className="ml-1 h-4 w-4" />
+                {t("common.viewAll")} <ChevronRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
           </CardHeader>
@@ -361,9 +364,9 @@ export default function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-7">
         <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm lg:col-span-4">
           <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-            <CardTitle className="text-base">Performance - {activeStore.code}</CardTitle>
+            <CardTitle className="text-base">{t("dashboard.performance", { code: activeStore.code })}</CardTitle>
             <CardDescription className="text-xs">
-              Évolution du chiffre d&apos;affaires sur la période sélectionnée.
+              {t("dashboard.revenueEvolution")}
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
@@ -401,8 +404,8 @@ export default function DashboardPage() {
 
         <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm lg:col-span-3">
           <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-            <CardTitle className="text-base">Ventes récentes</CardTitle>
-            <CardDescription className="text-xs">Dernières transactions locales.</CardDescription>
+            <CardTitle className="text-base">{t("dashboard.recentSales")}</CardTitle>
+            <CardDescription className="text-xs">{t("dashboard.recentTransactions")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 p-4 sm:p-6">
             {sales.slice(0, 6).map((sale) => (
@@ -417,7 +420,7 @@ export default function DashboardPage() {
                     <div>
                       <p className="font-mono text-xs font-bold">#{sale.id.slice(-6)}</p>
                       <p className="text-[11px] text-muted-foreground">
-                        {sale.clientName || "Passage"}
+                        {sale.clientName || t("common.walkIn")}
                       </p>
                     </div>
                   </div>
@@ -433,7 +436,7 @@ export default function DashboardPage() {
             ))}
             {sales.length === 0 && (
               <div className="py-10 text-center text-sm text-muted-foreground">
-                Aucune vente récente pour {activeStore.name}.
+                {t("dashboard.noRecentSales", { name: activeStore.name })}
               </div>
             )}
           </CardContent>

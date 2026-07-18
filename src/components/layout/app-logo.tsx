@@ -1,5 +1,6 @@
 import Image from "next/image"
 import { cn } from "@/lib/utils"
+import { getAppName } from "@/lib/constants/branding"
 
 const sizeClasses = {
   sm: "h-9 w-9",
@@ -33,7 +34,7 @@ export function AppLogo({ size = "sm", className }: AppLogoProps) {
     >
       <Image
         src="/images/logo.png"
-        alt="FODOBA"
+        alt={getAppName()}
         fill
         className="object-cover"
         sizes={sizePixels[size]}

@@ -43,6 +43,7 @@ import {
   SidebarNavMenuItem,
   appDropdownContentClass,
 } from "@/components/layout/nav-menu-items"
+import { useT } from "@/i18n/context"
 
 export const AppSidebar = memo(function AppSidebar() {
   const pathname = usePathname()
@@ -50,6 +51,7 @@ export const AppSidebar = memo(function AppSidebar() {
   const { isMobile, setOpenMobile, openMobile } = useSidebar()
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const settingsMenuRef = useRef<HTMLLIElement | null>(null)
+  const t = useT()
 
   useEffect(() => {
     if (!openMobile) setSettingsMenuOpen(false)
@@ -114,10 +116,10 @@ export const AppSidebar = memo(function AppSidebar() {
           <AppLogo />
           <div className="min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-bold tracking-tight text-sidebar-foreground">
-              FODOBA
+              {t("common.appName")}
             </p>
             <p className="truncate text-[11px] font-medium text-muted-foreground">
-              Gestion d&apos;Import-Export
+              {t("sidebar.importExport")}
             </p>
           </div>
           {isMobile ? (
@@ -127,7 +129,7 @@ export const AppSidebar = memo(function AppSidebar() {
               size="icon"
               className="ml-auto h-9 w-9 shrink-0 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
               onClick={() => setOpenMobile(false)}
-              aria-label="Fermer le menu"
+              aria-label={t("sidebar.closeMenu")}
             >
               <X className="h-5 w-5" aria-hidden />
             </Button>
@@ -139,7 +141,7 @@ export const AppSidebar = memo(function AppSidebar() {
         {filteredNavigation.map((group) => (
           <SidebarGroup key={group.title} className="p-0 py-2">
             <SidebarGroupLabel className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground group-data-[collapsible=icon]:hidden">
-              {group.title}
+              {t(group.title)}
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-0.5">
@@ -166,7 +168,7 @@ export const AppSidebar = memo(function AppSidebar() {
                   <SidebarMenuButton
                     type="button"
                     isActive={settingsSectionActive}
-                    title="Paramètres"
+                    title={t("nav.settings")}
                     aria-expanded={settingsMenuOpen}
                     onClick={() => setSettingsMenuOpen((v) => !v)}
                     className={cn(
@@ -185,7 +187,7 @@ export const AppSidebar = memo(function AppSidebar() {
                       />
                     ) : null}
                     <NavIconBox icon={Cog} active={settingsSectionActive} />
-                    <span className="truncate font-medium">Paramètres</span>
+                    <span className="truncate font-medium">{t("nav.settings")}</span>
                   </SidebarMenuButton>
 
                   {settingsMenuOpen ? (
@@ -197,14 +199,14 @@ export const AppSidebar = memo(function AppSidebar() {
                     >
                       <div className="px-3 py-3">
                         <p className="text-sm font-semibold leading-none text-popover-foreground">
-                          Paramètres
+                          {t("nav.settings")}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Administration système
+                          {t("nav.settingsDesc")}
                         </p>
                       </div>
                       <Separator />
-                      <nav className="flex flex-col gap-0.5 p-1.5" aria-label="Paramètres">
+                      <nav className="flex flex-col gap-0.5 p-1.5" aria-label={t("nav.settings")}>
                         {allowedAdminItems.map((item) => (
                           <AppMobileNavLink
                             key={item.url}
@@ -225,7 +227,7 @@ export const AppSidebar = memo(function AppSidebar() {
                   <DropdownMenuTrigger asChild>
                     <SidebarMenuButton
                       isActive={settingsSectionActive}
-                      title="Paramètres"
+                      title={t("nav.settings")}
                       className={cn(
                         "h-9 gap-2.5 rounded-lg px-2.5",
                         "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -242,7 +244,7 @@ export const AppSidebar = memo(function AppSidebar() {
                         />
                       ) : null}
                       <NavIconBox icon={Cog} active={settingsSectionActive} />
-                      <span className="truncate font-medium">Paramètres</span>
+                      <span className="truncate font-medium">{t("nav.settings")}</span>
                     </SidebarMenuButton>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
@@ -255,10 +257,10 @@ export const AppSidebar = memo(function AppSidebar() {
                     <DropdownMenuLabel className="px-3 py-3 font-normal">
                       <div className="flex flex-col gap-1">
                         <p className="text-sm font-semibold leading-none text-popover-foreground">
-                          Paramètres
+                          {t("nav.settings")}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Administration système
+                          {t("nav.settingsDesc")}
                         </p>
                       </div>
                     </DropdownMenuLabel>

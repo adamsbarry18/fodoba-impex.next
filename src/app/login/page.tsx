@@ -20,10 +20,12 @@ import { toast } from "sonner"
 import { AuthPageShell } from "@/components/auth/auth-page-shell"
 import { PasswordField } from "@/components/auth/password-field"
 import { LoginSchema, type LoginFormValues } from "@/lib/auth-utils"
+import { useT } from "@/i18n/context"
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
+  const t = useT()
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(LoginSchema),
@@ -37,11 +39,11 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(values.email.trim(), values.password)
-      toast.success("Connexion réussie")
+      toast.success(t("auth.loginSuccess"))
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Impossible de se connecter."
-      toast.error(message)
+      const rawMessage = error instanceof Error ? error.message : "auth.error.generic"
+      const displayMessage = t.has(rawMessage) ? t(rawMessage) : t("auth.loginError")
+      toast.error(displayMessage)
     } finally {
       setLoading(false)
     }
@@ -49,12 +51,12 @@ export default function LoginPage() {
 
   return (
     <AuthPageShell
-      title="Connexion"
-      description="Accédez à votre espace de gestion commerciale."
+      title={t("auth.login")}
+      description={t("auth.loginDesc")}
       footer={
         <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
           <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          Connexion sécurisée - en cas de problème, contactez votre administrateur.
+          {t("auth.secureLogin")}
         </p>
       }
     >
@@ -66,7 +68,7 @@ export default function LoginPage() {
             render={({ field }) => (
               <FormItem>
                 <FormLabel required className="text-sm font-medium">
-                  Email professionnel
+                  {t("auth.email")}
                 </FormLabel>
                 <FormControl>
                   <div className="relative">
@@ -76,7 +78,7 @@ export default function LoginPage() {
                     />
                     <Input
                       type="email"
-                      placeholder="nom@fodoba.com"
+                      placeholder={t("auth.emailPlaceholder")}
                       autoComplete="email"
                       className="h-11 rounded-xl pl-10"
                       {...field}
@@ -95,13 +97,13 @@ export default function LoginPage() {
               <FormItem>
                 <div className="flex items-center justify-between gap-2">
                   <FormLabel required className="text-sm font-medium">
-                    Mot de passe
+                    {t("auth.password")}
                   </FormLabel>
                   <Link
                     href="/forgot-password"
                     className="text-xs font-semibold text-primary transition-colors hover:text-primary/80"
                   >
-                    Mot de passe oublié ?
+                    {t("auth.forgotPassword")}
                   </Link>
                 </div>
                 <FormControl>
@@ -126,7 +128,7 @@ export default function LoginPage() {
             ) : (
               <LogIn className="mr-2 h-4 w-4" aria-hidden />
             )}
-            Se connecter
+            {t("auth.submit")}
           </Button>
         </form>
       </Form>

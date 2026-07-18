@@ -49,15 +49,26 @@ import {
   toPurchaseDate,
 } from "@/lib/purchase-utils"
 import { cn } from "@/lib/utils"
-import { useTableColumns } from "@/hooks/use-table-columns"
+import { useTranslatedTableColumns } from "@/hooks/use-translated-table-columns"
 import { TableColumnToggle } from "@/components/ui/table-column-toggle"
 import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { PURCHASE_TABLE_COLUMNS } from "@/lib/table-column-presets"
+import { useT } from "@/i18n/context"
+
+const PURCHASE_COLUMN_LABEL_KEYS: Record<string, string> = {
+  ref: "purchases.colRefDate",
+  supplier: "purchases.colSupplier",
+  items: "purchases.colItems",
+  total: "purchases.colTotalFcfa",
+  status: "purchases.colStatus",
+  actions: "purchases.colActions",
+}
 
 const PAGE_SIZE = 50
 
 export default function PurchasesPage() {
   const { activeStore } = useStore()
+  const t = useT()
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -88,7 +99,7 @@ export default function PurchasesPage() {
       setLastDoc(result.lastVisible)
       setHasMore(result.purchases.length === PAGE_SIZE)
     } catch {
-      toast.error("Erreur lors du chargement des achats")
+      toast.error(t("purchases.errorLoading"))
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -116,7 +127,7 @@ export default function PurchasesPage() {
         setLastDoc(result.lastVisible)
         setHasMore(result.purchases.length === PAGE_SIZE)
       } catch {
-        if (!cancelled) toast.error("Erreur lors du chargement des achats")
+        if (!cancelled) toast.error(t("purchases.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -143,7 +154,7 @@ export default function PurchasesPage() {
   }, [purchases, searchTerm, statusFilter])
 
   const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
-    useTableColumns("purchases", PURCHASE_TABLE_COLUMNS)
+    useTranslatedTableColumns("purchases", PURCHASE_TABLE_COLUMNS, PURCHASE_COLUMN_LABEL_KEYS)
 
   const stats = useMemo(
     () => ({
@@ -166,7 +177,7 @@ export default function PurchasesPage() {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
         <Truck className="h-10 w-10 opacity-30" />
-        <p>Sélectionnez une boutique pour gérer les achats.</p>
+        <p>{t("purchases.selectStore")}</p>
       </div>
     )
   }
@@ -180,11 +191,10 @@ export default function PurchasesPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight font-headline">
-              Gestion des achats
+              {t("purchases.title")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Commandes fournisseurs pour{" "}
-              <strong className="text-foreground">{activeStore.name}</strong>
+              {t("purchases.subtitle", { store: activeStore.name })}
             </p>
           </div>
         </div>
@@ -196,12 +206,12 @@ export default function PurchasesPage() {
             disabled={loading}
           >
             <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
-            Actualiser
+            {t("common.refresh")}
           </Button>
           <Button asChild className="rounded-xl font-semibold">
             <Link href="/purchases/new">
               <Plus className="mr-2 h-4 w-4" />
-              Nouvel approvisionnement
+              {t("purchases.newPurchase")}
             </Link>
           </Button>
         </div>
@@ -213,7 +223,7 @@ export default function PurchasesPage() {
             <ClipboardList className="h-5 w-5 text-slate-500" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Commandes
+                {t("purchases.statTotal")}
               </p>
               <p className="text-xl font-bold">{stats.total}</p>
             </div>
@@ -224,7 +234,7 @@ export default function PurchasesPage() {
             <Clock className="h-5 w-5 text-slate-500" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Brouillons
+                {t("purchases.statDraft")}
               </p>
               <p className="text-xl font-bold">{stats.draft}</p>
             </div>
@@ -235,7 +245,7 @@ export default function PurchasesPage() {
             <Truck className="h-5 w-5 text-blue-500" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Commandées
+                {t("purchases.statOrdered")}
               </p>
               <p className="text-xl font-bold">{stats.ordered}</p>
             </div>
@@ -246,7 +256,7 @@ export default function PurchasesPage() {
             <CheckCircle2 className="h-5 w-5 text-emerald-500" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Reçues
+                {t("purchases.statReceived")}
               </p>
               <p className="text-xl font-bold">{stats.received}</p>
             </div>
@@ -257,7 +267,7 @@ export default function PurchasesPage() {
             <Package className="h-5 w-5 text-primary" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Volume FCFA
+                {t("purchases.statVolumeFcfa")}
               </p>
               <p className="text-sm font-bold">{stats.totalAmount.toLocaleString("fr-FR")}</p>
             </div>
@@ -270,7 +280,7 @@ export default function PurchasesPage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher par référence, fournisseur, auteur…"
+              placeholder={t("purchases.searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="h-10 rounded-xl pl-9"
@@ -281,14 +291,14 @@ export default function PurchasesPage() {
             onValueChange={(v) => setStatusFilter(v as Purchase["status"] | "all")}
           >
             <SelectTrigger className="h-10 w-full rounded-xl sm:w-[200px]">
-              <SelectValue placeholder="Statut" />
+              <SelectValue placeholder={t("purchases.filterStatus")} />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all">Tous les statuts</SelectItem>
-              <SelectItem value="DRAFT">Brouillon</SelectItem>
-              <SelectItem value="ORDERED">Commandé</SelectItem>
-              <SelectItem value="RECEIVED">Reçu</SelectItem>
-              <SelectItem value="CANCELLED">Annulé</SelectItem>
+              <SelectItem value="all">{t("purchases.filterStatusAll")}</SelectItem>
+              <SelectItem value="DRAFT">{t("badges.purchaseStatus.DRAFT")}</SelectItem>
+              <SelectItem value="ORDERED">{t("badges.purchaseStatus.ORDERED")}</SelectItem>
+              <SelectItem value="RECEIVED">{t("badges.purchaseStatus.RECEIVED")}</SelectItem>
+              <SelectItem value="CANCELLED">{t("badges.purchaseStatus.CANCELLED")}</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
@@ -297,10 +307,17 @@ export default function PurchasesPage() {
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 p-4 sm:p-6">
           <div>
-            <CardTitle className="text-base">Historique des commandes</CardTitle>
+            <CardTitle className="text-base">{t("purchases.historyTitle")}</CardTitle>
             <CardDescription className="text-xs">
-              {filteredPurchases.length} commande{filteredPurchases.length !== 1 ? "s" : ""}
-              {searchTerm || statusFilter !== "all" ? " (filtrées)" : ""}
+              {searchTerm || statusFilter !== "all"
+                ? t("purchases.listDescription", {
+                    filtered: filteredPurchases.length,
+                    total: purchases.length,
+                  })
+                : t("purchases.listDescriptionNoFilter", {
+                    filtered: filteredPurchases.length,
+                    total: purchases.length,
+                  })}
             </CardDescription>
           </div>
           <TableColumnToggle
@@ -318,17 +335,17 @@ export default function PurchasesPage() {
           ) : filteredPurchases.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 p-16 text-center text-muted-foreground">
               <Truck className="h-10 w-10 opacity-30" />
-              <p className="font-medium">Aucune commande trouvée</p>
+              <p className="font-medium">{t("purchases.noPurchasesFound")}</p>
               <p className="text-xs">
                 {purchases.length === 0
-                  ? "Créez votre premier approvisionnement fournisseur."
-                  : "Modifiez vos filtres de recherche."}
+                  ? t("purchases.noPurchasesDesc")
+                  : t("purchases.noPurchasesFilterDesc")}
               </p>
               {purchases.length === 0 && (
                 <Button asChild className="mt-2 rounded-xl">
                   <Link href="/purchases/new">
                     <Plus className="mr-2 h-4 w-4" />
-                    Nouvel approvisionnement
+                    {t("purchases.newPurchase")}
                   </Link>
                 </Button>
               )}
@@ -339,22 +356,22 @@ export default function PurchasesPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <VisibleTableColumn id="ref" isVisible={isVisible}>
-                      <TableHead className="pl-4 sm:pl-6">Référence / Date</TableHead>
+                      <TableHead className="pl-4 sm:pl-6">{t("purchases.colRefDate")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="supplier" isVisible={isVisible}>
-                      <TableHead>Fournisseur</TableHead>
+                      <TableHead>{t("purchases.colSupplier")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="items" isVisible={isVisible}>
-                      <TableHead>Articles</TableHead>
+                      <TableHead>{t("purchases.colItems")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="total" isVisible={isVisible}>
-                      <TableHead className="text-right">Total (FCFA)</TableHead>
+                      <TableHead className="text-right">{t("purchases.colTotalFcfa")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="status" isVisible={isVisible}>
-                      <TableHead>Statut</TableHead>
+                      <TableHead>{t("purchases.colStatus")}</TableHead>
                     </VisibleTableColumn>
                     <VisibleTableColumn id="actions" isVisible={isVisible}>
-                      <TableHead className="pr-4 text-right sm:pr-6">Actions</TableHead>
+                      <TableHead className="pr-4 text-right sm:pr-6">{t("purchases.colActions")}</TableHead>
                     </VisibleTableColumn>
                   </TableRow>
                 </TableHeader>
@@ -402,7 +419,7 @@ export default function PurchasesPage() {
                         <VisibleTableColumn id="items" isVisible={isVisible}>
                           <TableCell>
                             <StatusBadge tone="slate" className="text-[10px]">
-                              {p.items.length} produit{p.items.length !== 1 ? "s" : ""}
+                              {t("purchases.productCount", { count: p.items.length })}
                             </StatusBadge>
                           </TableCell>
                         </VisibleTableColumn>
@@ -431,7 +448,7 @@ export default function PurchasesPage() {
                             >
                               <Link href={`/purchases/${p.id}`}>
                                 <Eye className="mr-1.5 h-3.5 w-3.5" />
-                                Voir le détail
+                                {t("purchases.viewDetail")}
                               </Link>
                             </Button>
                           </TableCell>
@@ -453,7 +470,7 @@ export default function PurchasesPage() {
                 className="rounded-xl font-semibold"
               >
                 {loadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Charger plus de commandes
+                {t("purchases.loadMore")}
               </Button>
             </div>
           )}

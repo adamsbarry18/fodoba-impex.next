@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 import type { NavItem } from "@/lib/navigation/app-nav"
+import { useT } from "@/i18n/context"
 
 export const appDropdownContentClass =
   "z-[200] w-56 min-w-[14rem] rounded-xl border bg-popover py-1 text-popover-foreground shadow-lg"
@@ -57,13 +58,14 @@ interface SidebarNavMenuItemProps {
 
 export function SidebarNavMenuItem({ item, isActive, onNavigate }: SidebarNavMenuItemProps) {
   const Icon = item.icon
+  const t = useT()
 
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
         asChild
         isActive={isActive}
-        tooltip={item.title}
+        tooltip={t(item.title)}
         className="h-9 gap-2.5 rounded-lg px-2.5"
       >
         <Link href={item.url} onClick={onNavigate} aria-current={isActive ? "page" : undefined}>
@@ -74,7 +76,7 @@ export function SidebarNavMenuItem({ item, isActive, onNavigate }: SidebarNavMen
             />
           ) : null}
           <NavIconBox icon={Icon} active={isActive} />
-          <span className="truncate font-medium">{item.title}</span>
+          <span className="truncate font-medium">{t(item.title)}</span>
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
@@ -89,12 +91,13 @@ interface AppDropdownNavItemProps {
 
 export function AppDropdownNavItem({ item, isActive, onNavigate }: AppDropdownNavItemProps) {
   const Icon = item.icon
+  const t = useT()
 
   return (
     <DropdownMenuItem asChild className={cn(appDropdownItemClass, isActive && "bg-accent/60 font-medium")}>
       <Link href={item.url} className="flex cursor-pointer items-center gap-2.5" onClick={onNavigate}>
         <NavIconBox icon={Icon} active={isActive} size="sm" />
-        <span className="min-w-0 flex-1 truncate">{item.title}</span>
+        <span className="min-w-0 flex-1 truncate">{t(item.title)}</span>
       </Link>
     </DropdownMenuItem>
   )
@@ -108,6 +111,7 @@ interface AppMobileNavLinkProps {
 
 export function AppMobileNavLink({ item, isActive, onNavigate }: AppMobileNavLinkProps) {
   const Icon = item.icon
+  const t = useT()
 
   return (
     <Link
@@ -122,7 +126,7 @@ export function AppMobileNavLink({ item, isActive, onNavigate }: AppMobileNavLin
       onClick={onNavigate}
     >
       <NavIconBox icon={Icon} active={isActive} size="sm" />
-      <span className="truncate">{item.title}</span>
+      <span className="truncate">{t(item.title)}</span>
     </Link>
   )
 }

@@ -25,7 +25,6 @@ import {
 import Link from "next/link"
 import { toast } from "sonner"
 import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { useAuth } from "@/lib/contexts/AuthContext"
 import { useStore } from "@/lib/contexts/StoreContext"
 import { useCurrency } from "@/hooks/use-currency"
@@ -36,8 +35,10 @@ import {
   PURCHASE_STATUS_ICONS,
   toPurchaseDate,
 } from "@/lib/purchase-utils"
-import { getPaymentMethodLabel } from "@/lib/constants/payment-methods"
+import { usePaymentMethodLabel } from "@/hooks/use-payment-method-label"
 import { cn } from "@/lib/utils"
+import { useT, useLocale } from "@/i18n/context"
+import { getDateLocale } from "@/i18n/get-date-locale"
 
 export default function SupplierDetailsPage() {
   const params = useParams()
@@ -46,6 +47,10 @@ export default function SupplierDetailsPage() {
   const { userProfile } = useAuth()
   const { availableStores, activeStore, loading: storeLoading } = useStore()
   const { formatAmount } = useCurrency()
+  const paymentMethodLabel = usePaymentMethodLabel()
+  const t = useT()
+  const { locale } = useLocale()
+  const dateLocale = useMemo(() => getDateLocale(locale), [locale])
 
   const [supplier, setSupplier] = useState<Supplier | null>(null)
   const [payments, setPayments] = useState<SupplierPayment[]>([])
@@ -68,7 +73,7 @@ export default function SupplierDetailsPage() {
       const supplierData = await SupplierService.getSupplier(supplierId)
 
       if (!supplierData) {
-        toast.error("Fournisseur introuvable")
+        toast.error(t("suppliers.notFound"))
         router.push("/suppliers")
         return
       }
@@ -89,11 +94,11 @@ export default function SupplierDetailsPage() {
       setPayments(paymentsData)
       setPurchases(purchasesData)
     } catch {
-      toast.error("Erreur de chargement")
+      toast.error(t("common.errorLoading"))
     } finally {
       setLoading(false)
     }
-  }, [authorizedStoreIds, params.id, router])
+  }, [authorizedStoreIds, params.id, router, t])
 
   useEffect(() => {
     if (storeLoading) return
@@ -130,11 +135,11 @@ export default function SupplierDetailsPage() {
         user: userProfile,
         notes: data.notes,
       })
-      toast.success("Règlement enregistré")
+      toast.success(t("suppliers.paymentSuccess"))
       setPaymentDialogOpen(false)
       await loadData()
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Erreur lors du règlement")
+      toast.error(error instanceof Error ? error.message : t("suppliers.paymentError"))
     } finally {
       setPaymentLoading(false)
     }
@@ -194,13 +199,13 @@ export default function SupplierDetailsPage() {
           <Button variant="outline" className="rounded-xl font-semibold" asChild>
             <Link href={`/suppliers/${supplier.id}/edit`}>
               <Edit className="mr-2 h-4 w-4" />
-              Modifier le profil
+              {t("suppliers.editProfile")}
             </Link>
           </Button>
           <Button variant="outline" className="rounded-xl font-semibold" asChild>
             <Link href={`/purchases/new?supplierId=${supplier.id}`}>
               <Truck className="mr-2 h-4 w-4" />
-              Nouvel achat
+              {t("suppliers.newPurchase")}
             </Link>
           </Button>
           {hasDebt && (
@@ -209,7 +214,7 @@ export default function SupplierDetailsPage() {
               onClick={() => setPaymentDialogOpen(true)}
             >
               <PlusCircle className="mr-2 h-4 w-4" />
-              Régler
+              {t("suppliers.payBtn")}
             </Button>
           )}
         </div>
@@ -218,7 +223,7 @@ export default function SupplierDetailsPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="rounded-2xl border bg-card shadow-sm">
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-xs uppercase text-muted-foreground">Type</CardTitle>
+            <CardTitle className="text-xs uppercase text-muted-foreground">{t("common.status")}</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="flex items-center gap-2">
@@ -226,7 +231,7 @@ export default function SupplierDetailsPage() {
               <StatusBadge preset="supplierType" value={supplier.type} />
             </div>
             <p className="mt-1 text-[10px] text-muted-foreground">
-              Devise : {supplier.defaultCurrency}
+              {t("suppliers.currencyLabel", { currency: supplier.defaultCurrency })}
             </p>
           </CardContent>
         </Card>
@@ -238,7 +243,7 @@ export default function SupplierDetailsPage() {
           )}
         >
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-xs uppercase text-muted-foreground">Encours</CardTitle>
+            <CardTitle className="text-xs uppercase text-muted-foreground">{t("suppliers.statOutstanding")}</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div
@@ -252,7 +257,7 @@ export default function SupplierDetailsPage() {
             {hasDebt && (
               <p className="mt-1 flex items-center text-[10px] font-bold text-destructive">
                 <AlertTriangle className="mr-1 h-3 w-3" />
-                Règlement en attente
+                {t("suppliers.paymentPending")}
               </p>
             )}
           </CardContent>
@@ -261,16 +266,15 @@ export default function SupplierDetailsPage() {
         <Card className="rounded-2xl border bg-card shadow-sm">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-xs uppercase text-muted-foreground">
-              Conditions de paiement
+              {t("suppliers.paymentTermsTitle")}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-lg font-medium">
-              {supplier.paymentTerms || "Non défini"}
+              {supplier.paymentTerms || t("suppliers.notDefined")}
             </div>
             <p className="mt-1 text-[10px] text-muted-foreground">
-              {purchases.length} commande{purchases.length !== 1 ? "s" : ""} enregistrée
-              {purchases.length !== 1 ? "s" : ""}
+              {t("suppliers.ordersRegistered", { count: purchases.length })}
             </p>
           </CardContent>
         </Card>
@@ -278,27 +282,27 @@ export default function SupplierDetailsPage() {
         <Card className="rounded-2xl border bg-card shadow-sm">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-xs uppercase text-muted-foreground">
-              Dernière activité
+              {t("suppliers.lastActivity")}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-sm font-medium">
               {lastPayment
-                ? format(lastPayment.timestamp.toDate(), "dd MMM yyyy", { locale: fr })
+                ? format(lastPayment.timestamp.toDate(), "dd MMM yyyy", { locale: dateLocale })
                 : lastPurchase
                   ? format(
                       (toPurchaseDate(lastPurchase.timestamp) ?? new Date()),
                       "dd MMM yyyy",
-                      { locale: fr }
+                      { locale: dateLocale }
                     )
-                  : "Aucune"}
+                  : t("suppliers.noActivity")}
             </div>
             <p className="mt-1 text-[10px] text-muted-foreground">
               {lastPayment
-                ? "Dernier règlement"
+                ? t("suppliers.lastPayment")
                 : lastPurchase
-                  ? "Dernière commande"
-                  : "Historique vide"}
+                  ? t("suppliers.lastOrder")
+                  : t("suppliers.emptyHistory")}
             </p>
           </CardContent>
         </Card>
@@ -308,35 +312,35 @@ export default function SupplierDetailsPage() {
         <TabsList className="rounded-xl">
           <TabsTrigger value="history" className="flex items-center gap-2 rounded-lg">
             <History className="h-4 w-4" />
-            Historique achats
+            {t("suppliers.tabPurchaseHistory")}
           </TabsTrigger>
           <TabsTrigger value="payments" className="flex items-center gap-2 rounded-lg">
             <Wallet className="h-4 w-4" />
-            Règlements
+            {t("suppliers.tabPayments")}
           </TabsTrigger>
           <TabsTrigger value="statement" className="flex items-center gap-2 rounded-lg">
             <FileText className="h-4 w-4" />
-            Relevé de compte
+            {t("suppliers.tabStatement")}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="history" className="space-y-4">
           <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-              <CardTitle className="text-base">Journal des commandes</CardTitle>
+              <CardTitle className="text-base">{t("suppliers.purchaseJournalTitle")}</CardTitle>
               <CardDescription className="text-xs">
-                Commandes et réceptions pour ce fournisseur.
+                {t("suppliers.purchaseJournalDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 sm:p-6">
               {purchases.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-12 text-center text-muted-foreground">
                   <Truck className="h-10 w-10 opacity-30" />
-                  <p className="font-medium">Aucune commande enregistrée</p>
+                  <p className="font-medium">{t("suppliers.noOrdersRegistered")}</p>
                   <Button asChild className="mt-2 rounded-xl">
                     <Link href={`/purchases/new?supplierId=${supplier.id}`}>
                       <Truck className="mr-2 h-4 w-4" />
-                      Créer un achat
+                      {t("suppliers.createPurchase")}
                     </Link>
                   </Button>
                 </div>
@@ -356,8 +360,8 @@ export default function SupplierDetailsPage() {
                           <p className="font-mono font-bold">{formatPurchaseRef(purchase.id)}</p>
                           <p className="text-xs text-muted-foreground">
                             {date
-                              ? format(date, "dd MMM yyyy à HH:mm", { locale: fr })
-                              : "—"}{" "}
+                              ? format(date, "dd MMM yyyy à HH:mm", { locale: dateLocale })
+                              : "-"}{" "}
                             · {purchase.storeName}
                           </p>
                         </div>
@@ -385,9 +389,9 @@ export default function SupplierDetailsPage() {
           <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 p-4 sm:p-6">
               <div>
-                <CardTitle className="text-base">Journal des règlements</CardTitle>
+                <CardTitle className="text-base">{t("suppliers.paymentJournalTitle")}</CardTitle>
                 <CardDescription className="text-xs">
-                  Virements et paiements pour solde de dettes.
+                  {t("suppliers.paymentJournalDesc")}
                 </CardDescription>
               </div>
               {hasDebt && (
@@ -397,7 +401,7 @@ export default function SupplierDetailsPage() {
                   onClick={() => setPaymentDialogOpen(true)}
                 >
                   <PlusCircle className="mr-2 h-4 w-4" />
-                  Nouveau règlement
+                  {t("suppliers.newPayment")}
                 </Button>
               )}
             </CardHeader>
@@ -405,14 +409,14 @@ export default function SupplierDetailsPage() {
               {payments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-12 text-center text-muted-foreground">
                   <Wallet className="h-10 w-10 opacity-30" />
-                  <p className="font-medium">Aucun règlement enregistré</p>
+                  <p className="font-medium">{t("suppliers.noPaymentsRegistered")}</p>
                   {hasDebt && (
                     <Button
                       className="mt-2 rounded-xl"
                       onClick={() => setPaymentDialogOpen(true)}
                     >
                       <Wallet className="mr-2 h-4 w-4" />
-                      Régler la dette
+                      {t("suppliers.payDebt")}
                     </Button>
                   )}
                 </div>
@@ -433,14 +437,14 @@ export default function SupplierDetailsPage() {
                           </p>
                           <p className="text-[10px] text-muted-foreground">
                             {format(payment.timestamp.toDate(), "dd MMM yyyy à HH:mm", {
-                              locale: fr,
+                              locale: dateLocale,
                             })}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <StatusBadge tone="slate" className="text-[10px]">
-                          {getPaymentMethodLabel(payment.method)}
+                          {paymentMethodLabel(payment.method)}
                         </StatusBadge>
                         {payment.notes && (
                           <p className="mt-1 max-w-[160px] truncate text-[10px] italic text-muted-foreground">
@@ -459,9 +463,9 @@ export default function SupplierDetailsPage() {
         <TabsContent value="statement" className="space-y-4">
           <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-              <CardTitle className="text-base">Relevé de compte</CardTitle>
+              <CardTitle className="text-base">{t("suppliers.statementTitle")}</CardTitle>
               <CardDescription className="text-xs">
-                Synthèse des flux financiers avec ce fournisseur.
+                {t("suppliers.statementDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 p-4 sm:p-6">
@@ -469,7 +473,7 @@ export default function SupplierDetailsPage() {
                 <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center">
                   <Receipt className="mb-2 h-5 w-5 text-muted-foreground" />
                   <span className="mb-1 text-xs uppercase text-muted-foreground">
-                    Total réceptionné
+                    {t("suppliers.totalReceived")}
                   </span>
                   <span className="font-headline text-3xl font-bold text-destructive">
                     {totalPurchased.toLocaleString("fr-FR")}
@@ -479,7 +483,7 @@ export default function SupplierDetailsPage() {
                 <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center">
                   <Wallet className="mb-2 h-5 w-5 text-muted-foreground" />
                   <span className="mb-1 text-xs uppercase text-muted-foreground">
-                    Total réglé
+                    {t("suppliers.totalPaid")}
                   </span>
                   <span className="font-headline text-3xl font-bold text-emerald-600">
                     {totalPaid.toLocaleString("fr-FR")}
@@ -490,9 +494,11 @@ export default function SupplierDetailsPage() {
 
               <div className="flex flex-col items-center justify-between gap-4 rounded-xl border bg-muted/20 p-6 sm:flex-row">
                 <div>
-                  <h3 className="text-lg font-bold">Solde restant dû</h3>
+                  <h3 className="text-lg font-bold">{t("suppliers.remainingBalance")}</h3>
                   <p className="text-sm text-muted-foreground">
-                    Arrêté au {format(new Date(), "dd MMMM yyyy", { locale: fr })}
+                    {t("suppliers.statementAsOf", {
+                      date: format(new Date(), "dd MMMM yyyy", { locale: dateLocale }),
+                    })}
                   </p>
                 </div>
                 <div

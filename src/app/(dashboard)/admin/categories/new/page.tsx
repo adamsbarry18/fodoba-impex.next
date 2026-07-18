@@ -44,9 +44,11 @@ import { ENTITY_ROUTES, readReturnContext } from "@/lib/navigation/return-to"
 import { applyReturnSelection } from "@/hooks/use-return-selection"
 import { getCategoryPath } from "@/lib/category-utils"
 import { StatusBadge } from "@/components/ui/status-badge"
+import { useT } from "@/i18n/context"
 
 export default function NewCategoryPage() {
   const router = useRouter()
+  const t = useT()
   const { redirectAfterCreate, cancelHref } = useCreateReturn(
     "/admin/categories",
     ENTITY_ROUTES.category.param
@@ -80,7 +82,8 @@ export default function NewCategoryPage() {
           ENTITY_ROUTES.category.param,
           (id) => form.setValue("parentId", id),
           {
-            successMessage: ENTITY_ROUTES.category.createdMessage,
+            successMessage: t(ENTITY_ROUTES.category.createdMessageKey),
+            errorMessage: t("hooks.returnSelectionError"),
             reload: async () => {
               const cats = await CategoryService.listCategories()
               setCategories(cats)
@@ -88,7 +91,7 @@ export default function NewCategoryPage() {
           }
         )
       } catch {
-        if (!cancelled) toast.error("Erreur de chargement")
+        if (!cancelled) toast.error(t("common.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -98,7 +101,7 @@ export default function NewCategoryPage() {
     return () => {
       cancelled = true
     }
-  }, [form])
+  }, [form, t])
 
   const parentPath = parentId ? getCategoryPath(categories, parentId) : []
 
@@ -106,12 +109,12 @@ export default function NewCategoryPage() {
     try {
       const category = await CategoryService.createCategory(values)
       if (!readReturnContext(ENTITY_ROUTES.category.param).returnTo) {
-        toast.success("Catégorie créée")
+        toast.success(t("categories.form.created"))
       }
       redirectAfterCreate(category.id)
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "Erreur lors de la création"
+        error instanceof Error ? error.message : t("common.errorCreation")
       toast.error(message)
     }
   }
@@ -137,9 +140,9 @@ export default function NewCategoryPage() {
             <FolderTree className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Nouvelle catégorie</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("categories.form.newTitle")}</h1>
             <p className="text-sm text-muted-foreground">
-              Ajout d&apos;une famille ou sous-famille au catalogue global.
+              {t("categories.form.newSubtitle")}
             </p>
           </div>
         </div>
@@ -151,10 +154,10 @@ export default function NewCategoryPage() {
             <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Tag className="h-4 w-4 text-primary" />
-                Identification
+                {t("categories.form.identification")}
               </CardTitle>
               <CardDescription className="text-xs">
-                Nom et description affichés dans le catalogue et les filtres produits.
+                {t("categories.form.identificationDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">
@@ -163,10 +166,10 @@ export default function NewCategoryPage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Nom de la catégorie</FormLabel>
+                    <FormLabel required>{t("categories.form.name")}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Ex. Grains, Boissons, Épicerie…"
+                        placeholder={t("categories.form.namePlaceholder")}
                         className="h-10 rounded-xl"
                         {...field}
                       />
@@ -181,16 +184,16 @@ export default function NewCategoryPage() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>{t("common.description")}</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Précisions sur le contenu de cette catégorie…"
+                        placeholder={t("categories.form.descriptionPlaceholder")}
                         className="min-h-[80px] rounded-xl resize-none"
                         {...field}
                       />
                     </FormControl>
                     <FormDescription className="text-[11px]">
-                      Optionnel - aide les collaborateurs à classer les produits.
+                      {t("categories.form.descriptionHint")}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -203,10 +206,10 @@ export default function NewCategoryPage() {
             <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Layers className="h-4 w-4 text-primary" />
-                Hiérarchie & statut
+                {t("categories.form.hierarchyTitle")}
               </CardTitle>
               <CardDescription className="text-xs">
-                Position dans l&apos;arborescence et disponibilité pour les nouveaux produits.
+                {t("categories.form.hierarchyDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">
@@ -215,7 +218,7 @@ export default function NewCategoryPage() {
                 name="parentId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Catégorie parente</FormLabel>
+                    <FormLabel>{t("categories.form.parent")}</FormLabel>
                     <Select
                       onValueChange={(value) =>
                         field.onChange(value === "none" ? null : value)
@@ -224,11 +227,11 @@ export default function NewCategoryPage() {
                     >
                       <FormControl>
                         <SelectTrigger className="h-10 rounded-xl">
-                          <SelectValue placeholder="Choisir un parent" />
+                          <SelectValue placeholder={t("categories.form.parentPlaceholder")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent className="rounded-xl">
-                        <SelectItem value="none">Aucune (racine)</SelectItem>
+                        <SelectItem value="none">{t("categories.form.parentNone")}</SelectItem>
                         {categories.map((cat) => (
                           <SelectItem key={cat.id} value={cat.id}>
                             {cat.name}
@@ -238,7 +241,9 @@ export default function NewCategoryPage() {
                     </Select>
                     {parentPath.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1 pt-1">
-                        <span className="text-[11px] text-muted-foreground">Chemin :</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {t("categories.form.pathLabel")}
+                        </span>
                         {parentPath.map((segment, i) => (
                           <StatusBadge key={i} tone="slate" className="text-[10px]">
                             {segment}
@@ -259,12 +264,12 @@ export default function NewCategoryPage() {
                     <div className="space-y-0.5">
                       <FormLabel className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-primary" />
-                        Catégorie active
+                        {t("categories.form.active")}
                       </FormLabel>
                       <FormDescription className="text-[11px]">
                         {isActive
-                          ? "Visible et sélectionnable lors de la création de produits."
-                          : "Masquée des formulaires - les produits existants restent liés."}
+                          ? t("categories.form.activeDescOn")
+                          : t("categories.form.activeDescOff")}
                       </FormDescription>
                     </div>
                     <FormControl>
@@ -276,10 +281,7 @@ export default function NewCategoryPage() {
 
               <div className="flex items-start gap-3 rounded-xl border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <p>
-                  Les catégories racines apparaissent en premier niveau dans le catalogue. Les
-                  sous-catégories permettent un classement plus fin (ex. Boissons → Sodas).
-                </p>
+                <p>{t("categories.form.hierarchyHint")}</p>
               </div>
             </CardContent>
           </Card>
@@ -291,7 +293,7 @@ export default function NewCategoryPage() {
               className="rounded-xl font-semibold"
               onClick={() => router.back()}
             >
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button
               type="submit"
@@ -303,7 +305,7 @@ export default function NewCategoryPage() {
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              Enregistrer
+              {t("common.save")}
             </Button>
           </div>
         </form>

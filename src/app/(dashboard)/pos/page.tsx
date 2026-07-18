@@ -61,11 +61,13 @@ import {
   getCartSubtotal,
 } from "@/lib/pos-utils"
 import { useSaleTicket } from "@/hooks/use-sale-ticket"
+import { useT } from "@/i18n/context"
 
 export default function POSPage() {
   const { activeStore } = useStore()
   const { userProfile } = useAuth()
   const { formatAmount } = useCurrency()
+  const t = useT()
   
   // Product & Category Data
   const [products, setProducts] = useState<Product[]>([])
@@ -124,7 +126,8 @@ export default function POSPage() {
             setClientSearch("")
           },
           {
-            successMessage: ENTITY_ROUTES.client.createdMessage,
+            successMessage: t(ENTITY_ROUTES.client.createdMessageKey),
+            errorMessage: t("hooks.returnSelectionError"),
             reload: async () => {
               const fresh = await ClientService.listClients()
               setClients(fresh)
@@ -132,13 +135,14 @@ export default function POSPage() {
           }
         )
       } catch (error) {
-        toast.error("Erreur lors du chargement des données initiales")
+        toast.error(t("pos.errorLoadingData"))
       } finally {
         setLoading(false)
       }
     }
     loadInitialData()
   }, [])
+
 
   useEffect(() => {
     if (!activeStore?.id) {
@@ -180,7 +184,7 @@ export default function POSPage() {
       setLastVisible(result.lastVisible)
       setHasMore(result.products.length === 24)
     } catch (error) {
-      toast.error("Erreur de chargement des articles")
+      toast.error(t("pos.errorLoadingItems"))
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -216,7 +220,7 @@ export default function POSPage() {
         setProducts(searchResults)
         setHasMore(false) // search returns maximum matches
       } catch (error) {
-        toast.error("Erreur lors de la recherche du produit")
+        toast.error(t("pos.errorSearch"))
       } finally {
         setLoadingMore(false)
       }
@@ -251,20 +255,20 @@ export default function POSPage() {
     try {
       const product = await ProductService.findProductByCode(code)
       if (!product) {
-        toast.error(`Produit introuvable : ${code}`)
+        toast.error(t("pos.productNotFound", { code }))
         return
       }
       addToCart(product)
-      toast.success(`${product.name} ajouté au panier`, {
+      toast.success(t("pos.productAdded", { name: product.name }), {
         duration: 1500,
         position: "bottom-center",
       })
     } catch {
-      toast.error("Erreur lors du scan")
+      toast.error(t("pos.errorScan"))
     } finally {
       setScanProcessing(false)
     }
-  }, [])
+  }, [t])
 
   useGlobalBarcodeListener(handleProductScan)
 
@@ -293,7 +297,7 @@ export default function POSPage() {
 
   const handleOpenPayment = () => {
     if (!cashSession) {
-      toast.error("Ouvrez la caisse avant d'encaisser une vente.")
+      toast.error(t("pos.openCashFirst"))
       return
     }
     setIsPaymentOpen(true)
@@ -305,7 +309,7 @@ export default function POSPage() {
   ) => {
     if (!activeStore || !userProfile || cart.length === 0) return
     if (debtAmount > 0 && (!selectedClientId || selectedClientId === "none")) {
-      toast.error("Sélectionnez un client pour une vente à crédit.")
+      toast.error(t("pos.selectClientForCredit"))
       return
     }
 
@@ -332,7 +336,7 @@ export default function POSPage() {
       setIsSuccessOpen(true)
       CashService.getActiveSession(activeStore.id).then(setCashSession)
     } catch (error: any) {
-      toast.error(error.message || "Erreur de validation de la transaction")
+      toast.error(error.message || t("pos.transactionError"))
     } finally {
       setProcessing(false)
     }
@@ -356,9 +360,9 @@ export default function POSPage() {
 
   // Get name of selected client
   const selectedClientName = useMemo(() => {
-    if (selectedClientId === "none") return "Client de passage"
-    return clients.find(c => c.id === selectedClientId)?.name || "Client sélectionné"
-  }, [clients, selectedClientId])
+    if (selectedClientId === "none") return t("pos.walkInClient")
+    return clients.find(c => c.id === selectedClientId)?.name || t("pos.selectedClient")
+  }, [clients, selectedClientId, t])
 
   const selectedClient = useMemo(
     () => clients.find((c) => c.id === selectedClientId),
@@ -372,6 +376,7 @@ export default function POSPage() {
       .catch(() => setCashSession(null))
   }
 
+
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 pb-8">
       <div className="flex flex-col gap-4 rounded-2xl border bg-card p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
@@ -381,9 +386,9 @@ export default function POSPage() {
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight">Point de vente</h1>
+              <h1 className="text-2xl font-bold tracking-tight">{t("pos.title")}</h1>
               <StatusBadge tone="primary-soft" className="text-[10px]">
-                {activeStore?.name || "Boutique"}
+                {activeStore?.name || t("pos.store")}
               </StatusBadge>
               <StatusBadge
                 preset="cashSessionStatus"
@@ -393,7 +398,7 @@ export default function POSPage() {
             </div>
             <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
               <User className="h-3.5 w-3.5" />
-              Caissier : {userProfile?.prenom} {userProfile?.nom}
+              {t("pos.cashier")} : {userProfile?.prenom} {userProfile?.nom}
             </div>
           </div>
         </div>
@@ -402,7 +407,7 @@ export default function POSPage() {
           <div className="hidden items-center gap-1.5 rounded-xl border bg-muted/30 px-3 py-2 text-xs text-muted-foreground sm:flex">
             <Keyboard className="h-3.5 w-3.5" />
             <span>
-              Douchette ou <kbd className="rounded border bg-background px-1.5 py-0.5 text-[10px]">F2</kbd>
+              {t("pos.scannerOrKey")} <kbd className="rounded border bg-background px-1.5 py-0.5 text-[10px]">F2</kbd>
             </span>
           </div>
           <Button
@@ -412,7 +417,7 @@ export default function POSPage() {
             onClick={refreshCashSession}
           >
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            Caisse
+            {t("pos.cashRegister")}
           </Button>
         </div>
       </div>
@@ -420,13 +425,13 @@ export default function POSPage() {
       {!cashSession && (
         <div className="flex flex-col gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <p className="text-sm font-bold text-foreground">Caisse fermée</p>
+            <p className="text-sm font-bold text-foreground">{t("pos.cashClosed")}</p>
             <p className="text-xs text-muted-foreground">
-              Ouvrez une session de caisse pour enregistrer des ventes et mettre à jour les encaissements.
+              {t("pos.cashClosedDesc")}
             </p>
           </div>
           <Button asChild variant="outline" className="shrink-0 rounded-xl font-bold">
-            <Link href="/reconciliation">Ouvrir la caisse</Link>
+            <Link href="/reconciliation">{t("pos.openCash")}</Link>
           </Button>
         </div>
       )}
@@ -443,7 +448,7 @@ export default function POSPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder="Rechercher (Nom, SKU, Code-barres)..." 
+                placeholder={t("pos.searchPlaceholder")} 
                 className="pl-10 h-10 w-full bg-background border-border rounded-xl text-xs focus-visible:ring-primary/20"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -452,10 +457,10 @@ export default function POSPage() {
 
             <BarcodeScanField
               className="flex-1"
-              placeholder="Scanner code-barres [F2]…"
+              placeholder={t("pos.scanPlaceholder")}
               onScan={handleProductScan}
               processing={scanProcessing}
-              onFocusHint={() => toast.info("Prêt pour le scan", { duration: 1500 })}
+              onFocusHint={() => toast.info(t("pos.scanReady"), { duration: 1500 })}
             />
 
             {/* View Mode Grid/List toggle */}
@@ -465,7 +470,7 @@ export default function POSPage() {
                 size="icon" 
                 className={cn("h-8 w-8 rounded-lg", viewMode === 'grid' && "bg-secondary text-foreground")}
                 onClick={() => setViewMode('grid')}
-                title="Affichage en Grille"
+                title={t("pos.gridView")}
               >
                 <LayoutGrid className="h-4 w-4" />
               </Button>
@@ -474,7 +479,7 @@ export default function POSPage() {
                 size="icon" 
                 className={cn("h-8 w-8 rounded-lg", viewMode === 'list' && "bg-secondary text-foreground")}
                 onClick={() => setViewMode('list')}
-                title="Affichage en Liste Dense"
+                title={t("pos.listView")}
               >
                 <List className="h-4 w-4" />
               </Button>
@@ -494,7 +499,7 @@ export default function POSPage() {
                 )}
               >
                 <Tag className="w-3.5 h-3.5" />
-                <span>Tous les articles</span>
+                <span>{t("pos.allItems")}</span>
               </button>
               
               {categories.map((cat) => (
@@ -518,7 +523,7 @@ export default function POSPage() {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <p className="text-xs text-muted-foreground font-medium">Chargement du catalogue...</p>
+              <p className="text-xs text-muted-foreground font-medium">{t("pos.loadingCatalog")}</p>
             </div>
           ) : products.length > 0 ? (
             <>
@@ -545,9 +550,10 @@ export default function POSPage() {
                           {product.name}
                         </p>
 
+
                         <div className="flex items-end justify-between pt-1">
                           <div className="space-y-0.5">
-                            <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Prix de vente</span>
+                            <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">{t("pos.sellingPrice")}</span>
                             <div className="text-primary font-extrabold text-base font-headline">
                               {formatAmount(product.sellingPriceFCFA, "FCFA")}
                             </div>
@@ -567,11 +573,11 @@ export default function POSPage() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="border-b border-border bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
-                          <th className="py-3 px-5">Réf / SKU</th>
-                          <th className="py-3 px-5">Nom de l'article</th>
-                          <th className="py-3 px-5">Unité</th>
-                          <th className="py-3 px-5 text-right">Prix (FCFA)</th>
-                          <th className="py-3 px-5 text-center">Action</th>
+                          <th className="py-3 px-5">{t("pos.refSku")}</th>
+                          <th className="py-3 px-5">{t("pos.itemName")}</th>
+                          <th className="py-3 px-5">{t("common.unit")}</th>
+                          <th className="py-3 px-5 text-right">{t("pos.priceFcfa")}</th>
+                          <th className="py-3 px-5 text-center">{t("pos.action")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border text-xs">
@@ -601,7 +607,7 @@ export default function POSPage() {
                                   addToCart(product)
                                 }}
                               >
-                                <Plus className="w-3 h-3 mr-1" /> Ajouter
+                                <Plus className="w-3 h-3 mr-1" /> {t("pos.addToCart")}
                               </Button>
                             </td>
                           </tr>
@@ -622,7 +628,7 @@ export default function POSPage() {
                     className="text-muted-foreground font-bold text-xs hover:text-primary transition-colors h-9 rounded-xl border border-border bg-card px-4"
                   >
                     {loadingMore ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
-                    Charger plus de produits ({products.length} affichés)
+                    {t("pos.loadMore", { count: products.length })}
                   </Button>
                 </div>
               )}
@@ -634,9 +640,9 @@ export default function POSPage() {
                 <Barcode className="w-5 h-5 text-muted-foreground" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-base font-bold text-foreground">Aucun article disponible</h3>
+                <h3 className="text-base font-bold text-foreground">{t("pos.noItems")}</h3>
                 <p className="text-xs text-muted-foreground max-w-[280px] mx-auto">
-                  Aucun article trouvé. Essayez de réinitialiser la recherche ou de changer de catégorie.
+                  {t("pos.noItemsDesc")}
                 </p>
               </div>
             </div>
@@ -653,10 +659,10 @@ export default function POSPage() {
                   <div className="bg-secondary p-2 rounded-xl text-muted-foreground">
                     <ShoppingCart className="w-4 h-4" />
                   </div>
-                  <CardTitle className="text-sm font-bold text-foreground">Panier actif</CardTitle>
+                  <CardTitle className="text-sm font-bold text-foreground">{t("pos.activeCart")}</CardTitle>
                 </div>
                 <Badge variant="secondary" className="bg-primary/10 text-primary font-bold rounded-full px-2.5 py-0.5 text-[10px]">
-                  {cartItemCount} article{cartItemCount > 1 ? "s" : ""}
+                  {t("pos.itemCount", { count: cartItemCount })}
                 </Badge>
               </CardHeader>
 
@@ -664,7 +670,7 @@ export default function POSPage() {
                 {/* Client de facturation - passage par défaut */}
                 <div className="p-5 border-b border-border space-y-2 relative">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider ml-1">
-                    Client Facturation
+                    {t("pos.billingClient")}
                   </Label>
 
                   <div
@@ -693,7 +699,7 @@ export default function POSPage() {
                         </p>
                         {selectedClientId === "none" ? (
                           <p className="text-[10px] text-muted-foreground">
-                            Par défaut - vente comptant intégrale
+                            {t("pos.walkInDefault")}
                           </p>
                         ) : selectedClient?.phone ? (
                           <p className="text-[10px] text-muted-foreground font-mono">{selectedClient.phone}</p>
@@ -709,7 +715,7 @@ export default function POSPage() {
                             setClientSearch("")
                           }}
                           className="rounded-full p-1 text-primary transition-colors hover:bg-primary/10"
-                          aria-label="Revenir au client de passage"
+                          aria-label={t("pos.resetWalkIn")}
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -721,7 +727,7 @@ export default function POSPage() {
                         className="h-8 rounded-lg text-[11px] font-bold"
                         onClick={() => setIsClientDropdownOpen(true)}
                       >
-                        {selectedClientId === "none" ? "Choisir" : "Modifier"}
+                        {selectedClientId === "none" ? t("pos.choose") : t("pos.change")}
                       </Button>
                     </div>
                   </div>
@@ -733,7 +739,7 @@ export default function POSPage() {
                           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                           <Input
                             type="text"
-                            placeholder="Rechercher un client (Nom, Tel)..."
+                            placeholder={t("pos.searchClient")}
                             className="h-9 pl-9 text-xs rounded-lg"
                             value={clientSearch}
                             onChange={(e) => setClientSearch(e.target.value)}
@@ -752,8 +758,9 @@ export default function POSPage() {
                           className="flex w-full items-center gap-2 px-4 py-2.5 text-left font-semibold text-foreground transition-colors hover:bg-muted"
                         >
                           <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>Client de passage</span>
+                          <span>{t("pos.walkInClient")}</span>
                         </button>
+
                         {filteredClients.map((c) => (
                           <button
                             key={c.id}
@@ -773,7 +780,7 @@ export default function POSPage() {
                         ))}
                         {filteredClients.length === 0 && clientSearch && (
                           <div className="px-4 py-2.5 text-center text-[11px] italic text-muted-foreground">
-                            Aucun client correspondant
+                            {t("pos.noClientMatch")}
                           </div>
                         )}
                       </div>
@@ -796,7 +803,7 @@ export default function POSPage() {
                       <div className="bg-secondary/40 p-3.5 rounded-full text-muted-foreground/30">
                         <ShoppingCart className="w-6 h-6" />
                       </div>
-                      <p className="text-muted-foreground text-xs font-medium italic">Le panier est vide.</p>
+                      <p className="text-muted-foreground text-xs font-medium italic">{t("pos.emptyCart")}</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -810,7 +817,7 @@ export default function POSPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                  Prix
+                                  {t("pos.unitPrice")}
                                 </span>
                                 <Input
                                   type="number"
@@ -869,13 +876,13 @@ export default function POSPage() {
             <div className="p-5 bg-muted/30 border-t border-border space-y-5">
               <div className="space-y-3">
                 <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-muted-foreground">Sous-total</span>
+                  <span className="text-muted-foreground">{t("pos.subtotal")}</span>
                   <span className="text-foreground">{formatAmount(subtotal, "FCFA")}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-semibold">
                   <div className="flex items-center gap-1 text-muted-foreground">
                     <Percent className="w-3.5 h-3.5" />
-                    <span>Remise globale</span>
+                    <span>{t("pos.globalDiscount")}</span>
                   </div>
                   <div className="relative">
                     <Input 
@@ -889,7 +896,7 @@ export default function POSPage() {
                 
                 <div className="flex justify-between items-center pt-3 border-t border-border">
                   <span className="font-extrabold text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Net à encaisser
+                    {t("pos.netAmount")}
                   </span>
                   <span className="text-xl font-black text-primary font-headline tracking-tight">
                     {formatAmount(total, "FCFA")}
@@ -904,10 +911,10 @@ export default function POSPage() {
                 disabled={cart.length === 0 || !cashSession}
               >
                 {cart.length === 0
-                  ? "Panier vide"
+                  ? t("pos.emptyCartBtn")
                   : !cashSession
-                    ? "Caisse fermée"
-                    : `Encaisser ${formatAmount(total, "FCFA")}`}
+                    ? t("pos.closedCashBtn")
+                    : t("pos.checkout", { amount: formatAmount(total, "FCFA") })}
               </Button>
 
               <PaymentDialog
@@ -933,7 +940,7 @@ export default function POSPage() {
                   ) : (
                     <Printer className="h-4 w-4 text-muted-foreground" />
                   )}
-                  <span>Ticket thermique de la dernière vente</span>
+                  <span>{t("pos.lastTicket")}</span>
                 </Button>
               </div>
             </div>
@@ -947,9 +954,9 @@ export default function POSPage() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
               <CheckCircle2 className="h-8 w-8" />
             </div>
-            <DialogTitle className="text-lg font-bold">Vente enregistrée</DialogTitle>
+            <DialogTitle className="text-lg font-bold">{t("pos.saleRecorded")}</DialogTitle>
             <DialogDescription className="mt-2 text-xs">
-              Transaction validée. Stock et caisse mis à jour.
+              {t("pos.saleRecordedDesc")}
             </DialogDescription>
             {lastSale && (
               <p className="mt-3 font-mono text-sm font-bold text-primary">
@@ -968,17 +975,17 @@ export default function POSPage() {
               ) : (
                 <Printer className="mr-2 h-4 w-4" />
               )}
-              Imprimer le ticket
+              {t("pos.printTicket")}
             </Button>
             <Button
               variant="outline"
               className="w-full rounded-xl font-semibold"
               onClick={() => setIsSuccessOpen(false)}
             >
-              Nouvelle vente
+              {t("pos.newSale")}
             </Button>
             <Button variant="link" className="w-full text-xs text-muted-foreground" asChild>
-              <Link href="/reports/sales">Voir l&apos;historique des ventes</Link>
+              <Link href="/reports/sales">{t("pos.viewSaleHistory")}</Link>
             </Button>
           </div>
         </DialogContent>
@@ -986,3 +993,4 @@ export default function POSPage() {
     </div>
   )
 }
+

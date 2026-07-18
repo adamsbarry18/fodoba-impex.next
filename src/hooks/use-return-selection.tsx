@@ -4,9 +4,11 @@ import { Suspense, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { consumeReturnParam } from "@/lib/navigation/return-to"
+import { useT } from "@/i18n/context"
 
 interface ReturnSelectionOptions {
   successMessage?: string
+  errorMessage?: string
   reload?: () => void | Promise<void>
 }
 
@@ -25,7 +27,7 @@ export async function applyReturnSelection(
     if (options?.successMessage) toast.success(options.successMessage)
     return true
   } catch {
-    toast.error("Erreur lors de la sélection")
+    if (options?.errorMessage) toast.error(options.errorMessage)
     return false
   }
 }
@@ -39,6 +41,7 @@ function ReturnSelectionEffect({
   onSelected: (id: string) => void | Promise<void>
   options?: ReturnSelectionOptions
 }) {
+  const t = useT()
   const searchParams = useSearchParams()
   const selectedId = searchParams.get(paramName)
   const onSelectedRef = useRef(onSelected)
@@ -64,7 +67,9 @@ function ReturnSelectionEffect({
         await onSelectedRef.current(id)
         if (options?.successMessage) toast.success(options.successMessage)
       } catch {
-        if (!cancelled) toast.error("Erreur lors de la sélection")
+        if (!cancelled) {
+          toast.error(options?.errorMessage ?? t("hooks.returnSelectionError"))
+        }
       }
     }
 
@@ -73,7 +78,7 @@ function ReturnSelectionEffect({
     return () => {
       cancelled = true
     }
-  }, [selectedId, paramName, options?.successMessage, onSelected, options?.reload])
+  }, [selectedId, paramName, options?.successMessage, options?.errorMessage, onSelected, options?.reload, t])
 
   return null
 }

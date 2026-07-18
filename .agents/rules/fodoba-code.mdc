@@ -1,0 +1,59 @@
+---
+description: Conventions de code FODOBA IMPEX (services, Firestore, UI, RBAC, i18n)
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# FODOBA - Conventions code
+
+Skill détaillé : `.agents/skills/fodoba/SKILL.md` et `reference.md`.
+
+## Obligatoire
+
+1. **Internationalisation** — pas de texte UI en dur ; `const t = useT()` puis `t("namespace.key")` ; ajouter la clé dans **fr.json, en.json et pt.json**
+2. **Logique Firestore** dans `src/services/*.service.ts` — pas dans les pages
+3. **`useStore().activeStore`** pour toute opération boutique ; attendre `loading === false`
+4. **RBAC** : `usePermissions()` / `RoleGuard` — rôles `admin` | `manager` | `seller`
+5. **Toasts** : `import { toast } from "sonner"` + messages via `t()`
+6. **Montants** : `useCurrency().formatAmount(amount, "FCFA")`
+7. **Badges statut** : `StatusBadge` + presets `src/lib/badge-tones.ts` (sans `children` qui écrase la traduction du preset)
+8. **Typecheck** : `npm run typecheck` après modifications substantielles
+
+## Internationalisation (i18n)
+
+- Provider : `I18nProvider` dans `src/app/layout.tsx` (next-intl)
+- Hook : `useT()` depuis `@/i18n/context` ; locale : `useLocale()`
+- Messages : `src/i18n/messages/{fr,en,pt}.json` — clés plates `"module.key"`
+- Chargement : `nestMessages()` convertit plat → imbriqué (next-intl v4+)
+- Variables : `t("key", { name: value })` ; rich text : `t.rich("key", { strong: (c) => <strong>{c}</strong> })`
+- Constantes avec clés i18n (`payment-methods.ts`, `badge-tones.ts`) : toujours passer par `t()` à l'affichage
+- Hors React (PDF) : `getAppName()`, `getPaymentMethodLabelFr()` depuis `src/lib/constants/`
+- Tableaux : `useTranslatedTableColumns(tableKey, columns, labelKeys)`
+
+## Formulaires
+
+- CRUD : `react-hook-form` + `zodResolver` + schémas dans `@/lib/types` (messages Zod via `useMemo` + `t()`)
+- Flux transactionnels (POS, paiement) : `useState` acceptable
+
+## Firestore
+
+- Import : `@/lib/firebase/client` → `{ app, auth, db }`
+- Collections plates + `storeId` ; stock ID = `{storeId}_{productId}`
+- Pas de query dans `runTransaction` ; reads avant writes
+- Requêtes soumises aux règles : inclure `where("storeId", "==", storeId)` quand la règle utilise `isStoreAuthorized`
+- Pas de hooks realtime généralisés — `useEffect` + services (`onSnapshot` réservé aux notifications)
+
+## Structure UI
+
+- Pages dashboard : en-tête (icône + titre + description), cartes `rounded-2xl`, `max-w-[1600px]`
+- Navigation : `src/lib/navigation/app-nav.ts` + `src/components/layout/nav-menu-items.tsx` (titres via `t(item.title)`)
+- Utils métier : `src/lib/*-utils.ts` (ne pas dupliquer la logique dans les pages)
+
+## Pièges
+
+- Afficher une clé i18n (`payment.cash`) au lieu de `t("payment.cash")`
+- `StatusBadge` avec `preset` + `children` — les children écrasent la traduction
+- Vente sans session caisse ouverte
+- `createUserWithEmailAndPassword` sur l'app principale (utiliser `createCollaborator`)
+- Rôles `"Admin"` / `"Vendeur"` — utiliser lowercase
+- Commits / PR sans demande explicite de l'utilisateur

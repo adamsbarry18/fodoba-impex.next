@@ -7,36 +7,45 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/ui/status-badge"
-import { 
-  ArrowLeft, 
-  Download, 
-  Printer, 
-  Loader2, 
+import {
+  ArrowLeft,
+  Download,
+  Printer,
+  Loader2,
   Users,
-  TrendingUp,
   AlertCircle,
-  Wallet
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { useCurrency } from "@/hooks/use-currency"
 import { useClientPagination } from "@/hooks/use-client-pagination"
 import { TablePagination } from "@/components/ui/table-pagination"
+import { useT } from "@/i18n/context"
 
 const PAGE_SIZE = 50
 
 export default function ClientDebtReportPage() {
+  const t = useT()
   const { formatAmount } = useCurrency()
   const [loading, setLoading] = useState(true)
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<{
+    summary: { totalClientDebt: number }
+    clients: Array<{
+      id: string
+      name: string
+      type: string
+      status: string
+      currentDebt: number
+    }>
+  } | null>(null)
 
   const loadData = async () => {
     setLoading(true)
     try {
       const res = await ReportService.getFinanceConsolidation()
       setData(res)
-    } catch (error) {
-      toast.error("Erreur de chargement")
+    } catch {
+      toast.error(t("common.errorLoading"))
     } finally {
       setLoading(false)
     }
@@ -46,13 +55,7 @@ export default function ClientDebtReportPage() {
     loadData()
   }, [])
 
-  const clients = (data?.clients ?? []) as Array<{
-    id: string
-    name: string
-    type: string
-    status: string
-    currentDebt: number
-  }>
+  const clients = data?.clients ?? []
 
   const {
     paginatedItems: paginatedClients,
@@ -64,10 +67,16 @@ export default function ClientDebtReportPage() {
     rangeEnd,
   } = useClientPagination(clients, { pageSize: PAGE_SIZE })
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-primary" /></div>
+  if (loading) {
+    return (
+      <div className="flex justify-center p-12">
+        <Loader2 className="animate-spin text-primary" />
+      </div>
+    )
+  }
   if (!data) return null
 
-  const totalDebtors = clients.length;
+  const totalDebtors = clients.length
 
   return (
     <div className="space-y-8">
@@ -79,89 +88,105 @@ export default function ClientDebtReportPage() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Rapport des Créances Clients</h1>
-            <p className="text-muted-foreground">Analyse globale de l'encours client et risques de défaut.</p>
+            <h1 className="text-3xl font-bold tracking-tight">{t("reports.clients.title")}</h1>
+            <p className="text-muted-foreground">{t("reports.clients.subtitle")}</p>
           </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="rounded-xl font-bold">
-            <Download className="w-4 h-4 mr-2" /> Excel
+            <Download className="mr-2 h-4 w-4" /> Excel
           </Button>
-          <Button className="rounded-xl font-bold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
-            <Printer className="w-4 h-4 mr-2" /> PDF
+          <Button className="rounded-xl bg-primary font-bold shadow-lg shadow-primary/20 hover:bg-primary/90">
+            <Printer className="mr-2 h-4 w-4" /> PDF
           </Button>
         </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <Card className="border-none shadow-sm ring-1 ring-gray-100 rounded-[24px] overflow-hidden bg-white">
+        <Card className="overflow-hidden rounded-[24px] border-none bg-white shadow-sm ring-1 ring-gray-100">
           <CardHeader className="p-6 pb-2">
-            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Total Encours</CardTitle>
+            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+              {t("reports.clients.statTotalDebt")}
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-6 pt-0">
-            <div className="text-3xl font-bold font-headline text-destructive">{formatAmount(data.summary.totalClientDebt)}</div>
-            <p className="text-[10px] text-gray-400 mt-1 font-medium italic">Somme restant à recouvrer</p>
+            <div className="text-3xl font-bold font-headline text-destructive">
+              {formatAmount(data.summary.totalClientDebt)}
+            </div>
+            <p className="mt-1 text-[10px] font-medium italic text-gray-400">
+              {t("reports.clients.statTotalDebtDesc")}
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm ring-1 ring-gray-100 rounded-[24px] overflow-hidden bg-white">
+        <Card className="overflow-hidden rounded-[24px] border-none bg-white shadow-sm ring-1 ring-gray-100">
           <CardHeader className="p-6 pb-2">
-            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Nombre de Débiteurs</CardTitle>
+            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+              {t("reports.clients.statDebtors")}
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-6 pt-0">
             <div className="text-3xl font-bold font-headline text-gray-900">{totalDebtors}</div>
-            <p className="text-[10px] text-gray-400 mt-1 font-medium">Clients ayant un solde négatif</p>
+            <p className="mt-1 text-[10px] font-medium text-gray-400">
+              {t("reports.clients.statDebtorsDesc")}
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm ring-1 ring-gray-100 rounded-[24px] overflow-hidden bg-white">
+        <Card className="overflow-hidden rounded-[24px] border-none bg-white shadow-sm ring-1 ring-gray-100">
           <CardHeader className="p-6 pb-2">
-            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Risque Moyen / Client</CardTitle>
+            <CardTitle className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+              {t("reports.clients.statAvgRisk")}
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-6 pt-0">
             <div className="text-3xl font-bold font-headline text-gray-900">
-              {totalDebtors > 0 ? formatAmount(data.summary.totalClientDebt / totalDebtors) : "0 FCFA"}
+              {totalDebtors > 0
+                ? formatAmount(data.summary.totalClientDebt / totalDebtors)
+                : "0 FCFA"}
             </div>
-            <p className="text-[10px] text-gray-400 mt-1 font-medium">Encours moyen par compte</p>
+            <p className="mt-1 text-[10px] font-medium text-gray-400">
+              {t("reports.clients.statAvgRiskDesc")}
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border-none shadow-sm ring-1 ring-gray-100 rounded-[24px] overflow-hidden bg-white">
+      <Card className="overflow-hidden rounded-[24px] border-none bg-white shadow-sm ring-1 ring-gray-100">
         <CardHeader className="p-8">
           <CardTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            Détail des soldes débiteurs
+            <Users className="h-5 w-5 text-primary" />
+            {t("reports.clients.detailTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50/50">
-                <TableHead className="py-4 pl-8">Nom du Client</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-right pr-8">Dette (FCFA)</TableHead>
+                <TableHead className="py-4 pl-8">{t("reports.clients.colName")}</TableHead>
+                <TableHead>{t("reports.clients.colType")}</TableHead>
+                <TableHead>{t("reports.clients.colStatus")}</TableHead>
+                <TableHead className="pr-8 text-right">{t("reports.clients.colDebt")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {clients.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-20 text-gray-400 italic">
-                    Aucune créance en cours dans le réseau.
+                  <TableCell colSpan={4} className="py-20 text-center italic text-gray-400">
+                    {t("reports.clients.noDebts")}
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedClients.map((c) => (
-                  <TableRow key={c.id} className="hover:bg-gray-50/50 transition-colors">
+                  <TableRow key={c.id} className="transition-colors hover:bg-gray-50/50">
                     <TableCell className="py-4 pl-8 font-bold text-gray-900">{c.name}</TableCell>
-                    <TableCell className="capitalize">
+                    <TableCell>
                       <StatusBadge preset="clientType" value={c.type} className="text-[10px]" />
                     </TableCell>
                     <TableCell>
-                       <StatusBadge preset="clientStatus" value={c.status} className="text-[10px]" />
+                      <StatusBadge preset="clientStatus" value={c.status} className="text-[10px]" />
                     </TableCell>
-                    <TableCell className="text-right pr-8 font-headline font-bold text-destructive">
+                    <TableCell className="pr-8 text-right font-headline font-bold text-destructive">
                       {c.currentDebt.toLocaleString()}
                     </TableCell>
                   </TableRow>
@@ -180,14 +205,14 @@ export default function ClientDebtReportPage() {
         </CardContent>
       </Card>
 
-      <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6 flex gap-4 items-start max-w-4xl">
-         <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-         <div className="space-y-1">
-            <p className="text-sm font-bold text-amber-900">Note de conformité BI</p>
-            <p className="text-[13px] text-amber-700 leading-relaxed">
-              Ce rapport liste exclusivement les clients ayant une dette active. Pour la gestion des profils (ajout, modification), rendez-vous dans le menu opérationnel <strong>"Clients"</strong>.
-            </p>
-         </div>
+      <div className="flex max-w-4xl items-start gap-4 rounded-2xl border border-amber-100 bg-amber-50 p-6">
+        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+        <div className="space-y-1">
+          <p className="text-sm font-bold text-amber-900">{t("reports.clients.complianceTitle")}</p>
+          <p className="text-[13px] leading-relaxed text-amber-700">
+            {t("reports.clients.complianceDesc")}
+          </p>
+        </div>
       </div>
     </div>
   )

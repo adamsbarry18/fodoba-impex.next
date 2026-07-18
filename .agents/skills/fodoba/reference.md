@@ -11,9 +11,11 @@
 | `src/lib/auth/permissions.ts` | Matrice RBAC |
 | `src/lib/navigation/` | `app-nav.ts` (menu), `return-to.ts` (retour création entité) |
 | `src/lib/*-utils.ts` | Helpers métier par domaine (voir liste ci-dessous) |
+| `src/lib/constants/` | Constantes partagées (`payment-methods`, `branding`, …) |
 | `src/lib/firebase/` | Config + client (`client.ts`) |
+| `src/i18n/` | Config locale, messages JSON, provider, `nestMessages` |
 | `src/components/` | layout, auth, pos, cash, notifications, `ui/` shadcn |
-| `src/hooks/` | permissions, currency, barcode, create-return |
+| `src/hooks/` | permissions, currency, barcode, i18n helpers, create-return |
 
 ### Utils métier (`src/lib/`)
 
@@ -21,19 +23,50 @@
 
 ## Providers (ordre fixe)
 
-`AuthProvider` → `CurrencyProvider` → `StoreProvider` → `NotificationProvider` → `AuthLayoutWrapper`
+`I18nProvider` → `AuthProvider` → `CurrencyProvider` → `StoreProvider` → `NotificationProvider` → `AuthLayoutWrapper`
 
 Fichier : `src/app/layout.tsx`
+
+## Internationalisation (i18n)
+
+| Élément | Fichier / usage |
+|---------|-----------------|
+| Langues | `fr` (défaut), `en`, `pt` — `src/i18n/config.ts` |
+| Persistance | `localStorage` clé `fodoba-locale` |
+| Messages | `src/i18n/messages/{fr,en,pt}.json` (~1500 clés, format plat `"module.key"`) |
+| Conversion | `nestMessages()` — plat → imbriqué pour next-intl v4+ |
+| Provider | `I18nProvider` + `NextIntlClientProvider` — `src/i18n/context.tsx` |
+| Traduction UI | `const t = useT()` → `t("common.save")` |
+| Locale | `useLocale()` → `{ locale, setLocale }` (sélecteur dans `app-header.tsx`) |
+| Rich text | `t.rich("key", { store: name, strong: (c) => <strong>{c}</strong> })` |
+| Pluriels | ICU dans JSON : `{count, plural, one {# item} other {# items}}` |
+| Colonnes table | `useTranslatedTableColumns(tableKey, columns, labelKeys)` |
+| Modes paiement | `usePaymentMethodLabel()` ou `t(getPaymentMethodLabel(id))` |
+| Badges preset | `StatusBadge preset="…" value="…"` sans `children` (traduit via `badge-tones.ts`) |
+| Hors React | `getAppName()`, `getPaymentMethodLabelFr()` — `src/lib/constants/` |
+| PDF | `print.service.ts` utilise `getAppName()` ; corps des PDF encore majoritairement FR |
+
+### Namespaces courants
+
+`common.*` · `nav.*` · `header.*` · `badges.*` · `payment.*` · par module (`purchases.*`, `inventory.*`, `reconciliation.*`, …)
+
+### Ajouter une traduction
+
+1. Ajouter la clé dans **fr.json, en.json et pt.json** (même clé, texte adapté)
+2. Dans le composant client : `import { useT } from "@/i18n/context"` puis `t("module.key")`
+3. Si variable : `t("module.key", { name: value })` — ne pas oublier les paramètres requis
+4. `npm run typecheck`
 
 ## Conventions
 
 - Routes : anglais kebab-case (`/inventory/transfers/new`, `/reconciliation`)
 - Rôles Firestore : `"admin"`, `"manager"`, `"seller"` (lowercase)
-- Permissions : `"action:ressource"` - `permissions.ts`
+- Permissions : `"action:ressource"` — `permissions.ts`
 - Services : `{Domain}Service` dans `{domain}.service.ts`
 - Champs mixtes : `nom`/`prenom`/`boutiqueIds` (profil) vs `storeId`/`activeStore` (contexte)
 - localStorage boutique : clé `activeStoreId`
 - Devise référence comptable : **FCFA** ; aussi GNF, USD, EUR via `currencies`
+- UI : textes via i18n ; réponses agents IA au user en **français**
 
 ## Firebase
 
@@ -43,7 +76,7 @@ Fichier : `src/app/layout.tsx`
 import { app, auth, db } from '@/lib/firebase/client';
 ```
 
-Config : `NEXT_PUBLIC_FIREBASE_*` - `.env.example` → `.env.local`
+Config : `NEXT_PUBLIC_FIREBASE_*` — `.env.example` → `.env.local`
 
 ### Pattern données
 
@@ -64,9 +97,9 @@ Config : `NEXT_PUBLIC_FIREBASE_*` - `.env.example` → `.env.local`
 | `isStoreAuthorized(storeId)` | Admin ou `storeId in boutiqueIds` |
 | `isSelfProfileUpdate(userId)` | Auto-édition : `prenom`, `nom`, `phone`, `photoURL` |
 
-**Impact requêtes client** : si une règle lit `resource.data.storeId`, la requête Firestore **doit** filtrer par `storeId` (sinon `permission-denied`). Exemple corrigé : `CashService.getMovements(sessionId, storeId)`.
+**Impact requêtes client** : si une règle lit `resource.data.storeId`, la requête Firestore **doit** filtrer par `storeId` (sinon `permission-denied`). Exemple : `CashService.getMovements(sessionId, storeId)`.
 
-Collections couvertes : `users`, `stores`, `products`, `categories`, `stocks`, `inventory_movements`, `sales`, `expenses`, `cash_sessions`, `cash_movements`, `purchases`, `clients`, `client_payments`, `suppliers`, `currencies`, `audit_logs`, `notifications`.
+Collections couvertes : `users`, `stores`, `products`, `categories`, `stocks`, `inventory_movements`, `sales`, `expenses`, `cash_sessions`, `cash_movements`, `purchases`, `clients`, `client_payments`, `suppliers`, `supplier_payments`, `currencies`, `audit_logs`, `notifications`.
 
 ### Collections
 
@@ -78,7 +111,7 @@ Collections couvertes : `users`, `stores`, `products`, `categories`, `stocks`, `
 | `stocks` | `product.service.ts` | Niveaux par boutique |
 | `inventory_movements` | `inventory.service.ts` | Historique stock |
 | `clients`, `client_payments` | `client.service.ts` | Clients + paiements |
-| `suppliers`, `purchases` | `supplier.service.ts`, `purchase.service.ts` | Achats import |
+| `suppliers`, `supplier_payments`, `purchases` | `supplier.service.ts`, `purchase.service.ts` | Achats import |
 | `sales` | `sale.service.ts` | Ventes POS |
 | `expenses` | `expense.service.ts` | Dépenses boutique |
 | `cash_sessions`, `cash_movements` | `cash.service.ts` | Caisse |
@@ -90,57 +123,39 @@ Collections couvertes : `users`, `stores`, `products`, `categories`, `stocks`, `
 
 `auth`, `user`, `store`, `category`, `product`, `inventory`, `client`, `supplier`, `purchase`, `sale`, `cash`, `expense`, `currency`, `notification`, `report`, `print`, `audit`
 
-Pattern :
-
-```tsx
-export const ProductService = {
-  async listProducts(...) { /* getDocs, tri mémoire si filtres */ },
-  async createProduct(...) { /* setDoc + serverTimestamp */ },
-};
-```
-
 ### Transactions
 
 `runTransaction` dans ventes, achats, stock :
 1. **Toutes les reads avant writes**
-2. **Pas de query dans la transaction** (ex. session caisse lue avant `runTransaction`)
+2. **Pas de query dans la transaction**
 3. Stock ID : `doc(db, 'stocks', `${storeId}_${productId}`)`
 
 ### Auth
 
-- Erreurs FR : `mapAuthErrorCode()` - `auth-utils.ts` / `AuthService.handleAuthError()`
-- Bootstrap : premier user → admin auto si `users` vide - `AuthContext.tsx`
-- Création collaborateur : app Firebase secondaire - `UserService.createCollaborator`
-- Profil personnel : `UserService.updateOwnProfile()` (champs limités, règle Firestore)
-
-### Index Firestore
-
-Éviter `where` + `orderBy` composites quand possible - tri/filtre en mémoire. Préférer filtre `storeId` seul + filtre client si besoin.
+- Erreurs auth mappées via clés i18n — `auth-utils.ts` / `AuthService.handleAuthError()`
+- Bootstrap : premier user → admin auto si `users` vide — `AuthContext.tsx`
+- Création collaborateur : app Firebase secondaire — `UserService.createCollaborator`
 
 ## Contextes & hooks
 
 | Hook | Usage |
 |------|-------|
+| `useT()` | Traductions UI (`next-intl`) |
+| `useLocale()` | Langue active + `setLocale` |
 | `useAuth()` | user, rôle, login/logout, `refreshProfile` |
 | `useStore()` | `activeStore`, `availableStores`, `setActiveStoreById` |
 | `useCurrency()` | taux, `formatAmount`, conversion FCFA |
 | `useNotifications()` | abonnement Firestore `onSnapshot` |
 | `usePermissions()` | `can('action:ressource')`, `canAny()` |
-
-Admin/Manager voient toutes les boutiques ; seller limité à `boutiqueIds`.
+| `usePaymentMethodLabel()` | Libellé traduit d'un mode de paiement |
+| `useTranslatedTableColumns()` | Colonnes de tableau traduites |
 
 ## RBAC
 
 Rôles et permissions dans `src/lib/auth/permissions.ts`.
 
-| Rôle | Exemples permissions |
-|------|---------------------|
-| `admin` | `manage:stores`, `manage:users`, `view:reports:global`, `access:admin:panel` |
-| `manager` | `manage:catalog`, `manage:purchases`, `manage:transfers`, `view:reports:cash` |
-| `seller` | `create:sale`, `view:stock`, `reconcile:cash`, `manage:expenses` |
-
-Garde UI : `RoleGuard` - `src/components/auth/role-guard.tsx`  
-Nav : `APP_NAVIGATION` - `src/lib/navigation/app-nav.ts`, filtrée par `usePermissions()`
+Garde UI : `RoleGuard` — `src/components/auth/role-guard.tsx`  
+Nav : `APP_NAVIGATION` — clés `nav.*`, filtrée par `usePermissions()`
 
 ## UI
 
@@ -156,16 +171,15 @@ Auth guard : `auth-layout-wrapper.tsx` (redirect `/login`).
 | Composant | Fichier |
 |-----------|---------|
 | `StatusBadge` | `components/ui/status-badge.tsx` + `badge-tones.ts` |
-| `UserAvatar` | `components/ui/user-avatar.tsx` |
+| `TablePagination` / `TableColumnToggle` | traduits via `table.*` |
 | `LoadingScreen` | `components/ui/loading-screen.tsx` |
 | `AuthPageShell` | `components/auth/auth-page-shell.tsx` |
-| `NotificationPanel` | `components/notifications/notification-panel.tsx` |
-| `PaymentDialog` | `components/pos/payment-dialog.tsx` |
 | Menu sidebar/header | `nav-menu-items.tsx`, `app-sidebar.tsx`, `app-header.tsx` |
 
 ### Style
 
-- `lang="fr"`, accent vert `#1DD97C` (`--primary`)
+- `document.documentElement.lang` mis à jour selon locale (`fr` / `en` / `pt`)
+- Accent vert `#1DD97C` (`--primary`)
 - Fonts : Inter (body), Space Grotesk (`font-headline`)
 - Cartes : `rounded-2xl border bg-card shadow-sm`
 - Montants : `formatAmount(x, "FCFA")`
@@ -173,45 +187,19 @@ Auth guard : `auth-layout-wrapper.tsx` (redirect `/login`).
 ### Toasts
 
 ```tsx
-import { toast } from "sonner";
-toast.success("Vente enregistrée");
-toast.error("Erreur lors de l'enregistrement");
+const t = useT();
+toast.success(t("common.successUpdate"));
+toast.error(t("common.error"));
 ```
 
 ### Formulaires
 
-**CRUD** : `useForm` + `zodResolver` + schéma Zod  
+**CRUD** : `useForm` + `zodResolver` + schéma Zod (messages validation via `useMemo` + `t()`)  
 **Flux transactionnels** (POS, paiement) : `useState` manuel acceptable
-
-### Listes
-
-`useState` + pagination `lastVisible`/`hasMore` via services.
 
 ## Domaines métier
 
-### POS / Ventes
-
-- Page : `pos/page.tsx` · utils : `pos-utils.ts`
-- Service : `SaleService.processSale()`
-- Prérequis : session caisse ouverte
-- Paiement : `PaymentDialog` + `payment-methods.ts`
-
-### Caisse
-
-- `cash.service.ts` - sessions, mouvements, clôture
-- Page : `reconciliation/page.tsx` · utils : `cash-session-utils.ts`
-- **Requête mouvements** : filtre `storeId` obligatoire (règles Firestore)
-
-### Achats / Stock / Rapports
-
-- Achats : `purchases/`, `purchase.service.ts`, `landed-cost/`
-- Stock : `inventory/`, `inventory.service.ts`, transferts `inventory/transfers/new`
-- Rapports : `report.service.ts`, `reports/*`, PDF `print.service.ts`
-
-### Notifications & audit
-
-- Panel : `notification-panel.tsx` · utils : `notification-utils.ts`
-- Audit admin : `admin/audit/page.tsx` · `audit.service.ts`, `audit-utils.ts`
+Voir routes : POS (`pos/`), Caisse (`reconciliation/`), Achats (`purchases/`), Stock (`inventory/`), Rapports (`reports/*`, `print.service.ts`).
 
 ## Routes principales
 
@@ -231,19 +219,19 @@ toast.error("Erreur lors de l'enregistrement");
 ## CI/CD
 
 - Push/PR `main`/`dev` → `validate` (lint + typecheck + build)
-- Déploiement Vercel : `workflow_dispatch` - `.github/workflows/ci-cd.yml`
+- Déploiement Vercel : `workflow_dispatch` — `.github/workflows/ci-cd.yml`
 
 ## Documentation projet
 
 | Fichier | Rôle |
 |---------|------|
-| `README.md` | Setup, architecture, déploiement |
+| `README.md` | Setup, architecture, i18n, déploiement |
 | `.env.example` | Variables Firebase |
 | `firestore.rules` | Règles sécurité Firestore |
-| `docs/cahier_de_charges.md` | CDC v1.0 - source métier |
+| `docs/cahier_de_charges.md` | CDC v1.0 — source métier |
 | `docs/blueprint.md` | Spec produit |
-| `.cursor/skills/fodoba/` | Conventions agents IA |
-| `.cursor/rules/` | Règles Cursor (code + documentation) |
+| `.agents/skills/fodoba/` | Skill agent IA (conventions code) |
+| `.agents/rules/` | Règles persistantes (code + documentation) |
 
 Le **code fait foi** techniquement ; le **CDC** pour les règles métier.  
 Offline/IndexedDB : aspirational, non implémenté dans `src/`.
@@ -256,7 +244,5 @@ Offline/IndexedDB : aspirational, non implémenté dans `src/`.
 | Data scope | `storeId` + collections plates | `boutiques/{id}/` | collections plates |
 | Services | couche `src/services/` | `firebase/services/` | inline pages |
 | Realtime | notifications only | `useCollection` partout | `useCollection` |
-| Notifications | Firestore | localStorage | N/A |
+| i18n | next-intl fr/en/pt | N/A | N/A |
 | Devise ref | FCFA | GNF | EUR+GNF |
-| Formulaires | RHF+zod (CRUD) | useState | useState |
-| Toasts | sonner | sonner + Radix | Radix |

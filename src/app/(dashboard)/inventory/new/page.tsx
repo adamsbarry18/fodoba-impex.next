@@ -47,6 +47,7 @@ import { applyReturnSelection } from "@/hooks/use-return-selection"
 import { PRODUCT_UNITS } from "@/lib/product-utils"
 import { useCurrency } from "@/hooks/use-currency"
 import { StatusBadge } from "@/components/ui/status-badge"
+import { useT } from "@/i18n/context"
 
 export default function NewProductPage() {
   const router = useRouter()
@@ -57,6 +58,7 @@ export default function NewProductPage() {
   const { formatAmount, rates } = useCurrency()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const t = useT()
 
   const form = useForm<Omit<Product, "id" | "createdAt">>({
     resolver: zodResolver(ProductSchema.omit({ id: true, createdAt: true })),
@@ -90,7 +92,8 @@ export default function NewProductPage() {
           ENTITY_ROUTES.category.param,
           (id) => form.setValue("categoryId", id),
           {
-            successMessage: ENTITY_ROUTES.category.createdMessage,
+            successMessage: t(ENTITY_ROUTES.category.createdMessageKey),
+            errorMessage: t("hooks.returnSelectionError"),
             reload: async () => {
               const cats = await CategoryService.listCategories()
               setCategories(cats.filter((c) => c.active))
@@ -98,7 +101,7 @@ export default function NewProductPage() {
           }
         )
       } catch {
-        if (!cancelled) toast.error("Erreur de chargement")
+        if (!cancelled) toast.error(t("common.errorLoading"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -108,18 +111,18 @@ export default function NewProductPage() {
     return () => {
       cancelled = true
     }
-  }, [form])
+  }, [form, t])
 
   const onSubmit = async (values: Omit<Product, "id" | "createdAt">) => {
     try {
       const product = await ProductService.createProduct(values)
       if (!readReturnContext(ENTITY_ROUTES.product.param).returnTo) {
-        toast.success("Produit ajouté au catalogue")
+        toast.success(t("common.successProductAdded"))
       }
       redirectAfterCreate(product.id)
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "Erreur lors de la création"
+        error instanceof Error ? error.message : t("common.errorCreation")
       toast.error(message)
     }
   }
@@ -145,10 +148,8 @@ export default function NewProductPage() {
             <Package className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Nouveau produit</h1>
-            <p className="text-sm text-muted-foreground">
-              Ajout au catalogue global - visible dans toutes les boutiques autorisées.
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight">{t("inventory.newTitle")}</h1>
+            <p className="text-sm text-muted-foreground">{t("inventory.newSubtitle")}</p>
           </div>
         </div>
       </div>
@@ -156,15 +157,14 @@ export default function NewProductPage() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            {/* Identification */}
             <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
               <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Tags className="h-4 w-4 text-primary" />
-                  Identification
+                  {t("inventory.form.identification")}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Nom commercial, références et classification.
+                  {t("inventory.form.identificationDesc")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 p-4 sm:p-6">
@@ -173,10 +173,10 @@ export default function NewProductPage() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Désignation commerciale</FormLabel>
+                      <FormLabel required>{t("inventory.form.commercialName")}</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Ex. Riz Basmati Premium 5 kg"
+                          placeholder={t("inventory.form.commercialNamePlaceholder")}
                           className="h-10 rounded-xl"
                           {...field}
                         />
@@ -192,15 +192,13 @@ export default function NewProductPage() {
                     name="sku"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Référence (SKU)</FormLabel>
+                        <FormLabel required>{t("inventory.form.sku")}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="RIZ-001"
+                            placeholder={t("inventory.form.skuPlaceholder")}
                             className="h-10 rounded-xl font-mono uppercase"
                             {...field}
-                            onChange={(e) =>
-                              field.onChange(e.target.value.toUpperCase())
-                            }
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                           />
                         </FormControl>
                         <FormMessage />
@@ -212,13 +210,13 @@ export default function NewProductPage() {
                     name="barcode"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Code-barres / EAN</FormLabel>
+                        <FormLabel>{t("inventory.form.barcode")}</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <Barcode className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
                               className="h-10 rounded-xl pl-10 font-mono"
-                              placeholder="613…"
+                              placeholder={t("inventory.form.barcodePlaceholder")}
                               {...field}
                             />
                           </div>
@@ -234,12 +232,12 @@ export default function NewProductPage() {
                   name="categoryId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Catégorie</FormLabel>
+                      <FormLabel required>{t("inventory.form.category")}</FormLabel>
                       <FieldWithAdd entity="category" returnTo="/inventory/new">
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger className="h-10 rounded-xl">
-                              <SelectValue placeholder="Choisir une catégorie" />
+                              <SelectValue placeholder={t("inventory.form.chooseCategory")} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent className="rounded-xl">
@@ -258,15 +256,14 @@ export default function NewProductPage() {
               </CardContent>
             </Card>
 
-            {/* Logistique */}
             <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
               <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Scale className="h-4 w-4 text-primary" />
-                  Logistique & unités
+                  {t("inventory.form.logisticsUnits")}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Unité de vente et seuil d&apos;alerte stock par boutique.
+                  {t("inventory.form.logisticsUnitsDesc")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 p-4 sm:p-6">
@@ -276,11 +273,11 @@ export default function NewProductPage() {
                     name="unit"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Unité de vente</FormLabel>
+                        <FormLabel required>{t("inventory.form.sellUnit")}</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger className="h-10 rounded-xl">
-                              <SelectValue placeholder="Unité" />
+                              <SelectValue placeholder={t("inventory.form.unit")} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent className="rounded-xl">
@@ -300,7 +297,7 @@ export default function NewProductPage() {
                     name="lowStockThreshold"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Seuil d&apos;alerte</FormLabel>
+                        <FormLabel required>{t("inventory.form.lowStockThreshold")}</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -321,16 +318,16 @@ export default function NewProductPage() {
                   name="conditionnement"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Conditionnement</FormLabel>
+                      <FormLabel>{t("inventory.form.packaging")}</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Ex. 1 carton = 12 bouteilles"
+                          placeholder={t("inventory.form.packagingPlaceholder")}
                           className="h-10 rounded-xl"
                           {...field}
                         />
                       </FormControl>
                       <FormDescription className="text-[11px]">
-                        Informations utiles pour la manutention et les achats.
+                        {t("inventory.form.packagingHint")}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -340,25 +337,24 @@ export default function NewProductPage() {
                 <div className="flex items-start gap-3 rounded-xl border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <p>
-                    Le stock initial est à <strong className="text-foreground">0</strong> dans
-                    chaque boutique. Il sera alimenté par les réceptions d&apos;achat ou les
-                    ajustements d&apos;inventaire.
+                    {t.rich("inventory.form.initialStockHint", {
+                      strong: (chunks) => (
+                        <strong className="text-foreground">{chunks}</strong>
+                      ),
+                    })}
                   </p>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Tarification */}
           <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Coins className="h-4 w-4 text-primary" />
-                Tarification
+                {t("inventory.form.pricing")}
               </CardTitle>
-              <CardDescription className="text-xs">
-                Prix de vente FCFA (référence) et équivalents indicatifs multi-devises.
-              </CardDescription>
+              <CardDescription className="text-xs">{t("inventory.form.pricingDesc")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -367,7 +363,7 @@ export default function NewProductPage() {
                   name="purchasePriceRef"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Prix d&apos;achat ref.</FormLabel>
+                      <FormLabel>{t("inventory.form.purchasePriceRef")}</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -378,7 +374,7 @@ export default function NewProductPage() {
                         />
                       </FormControl>
                       <FormDescription className="text-[10px]">
-                        Coût unitaire indicatif
+                        {t("inventory.form.unitCostHint")}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -389,7 +385,7 @@ export default function NewProductPage() {
                   name="sellingPriceFCFA"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Prix vente FCFA</FormLabel>
+                      <FormLabel required>{t("inventory.form.sellPriceFcfa")}</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -408,7 +404,7 @@ export default function NewProductPage() {
                   name="prices.GNF"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Prix GNF</FormLabel>
+                      <FormLabel>{t("inventory.form.priceGnf")}</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -427,7 +423,7 @@ export default function NewProductPage() {
                   name="prices.USD"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Prix USD</FormLabel>
+                      <FormLabel>{t("inventory.form.priceUsd")}</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -446,7 +442,7 @@ export default function NewProductPage() {
                   name="prices.EUR"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Prix EUR</FormLabel>
+                      <FormLabel>{t("inventory.form.priceEur")}</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -464,7 +460,9 @@ export default function NewProductPage() {
 
               {sellingPrice > 0 && (
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-primary/5 p-3">
-                  <span className="text-xs text-muted-foreground">Équivalents indicatifs :</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t("inventory.form.indicativeEquivalents")}
+                  </span>
                   <StatusBadge tone="primary-soft" className="text-[10px]">
                     {formatAmount(sellingPrice, "FCFA")}
                   </StatusBadge>
@@ -490,7 +488,7 @@ export default function NewProductPage() {
               className="rounded-xl font-semibold"
               onClick={() => router.back()}
             >
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button
               type="submit"
@@ -502,7 +500,7 @@ export default function NewProductPage() {
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              Enregistrer le produit
+              {t("inventory.saveProduct")}
             </Button>
           </div>
         </form>

@@ -1,8 +1,8 @@
 # FODOBA IMPEX
 
-Application web de gestion commerciale **multi-boutiques** (gros et détail) - ventes, stocks, caisse, achats, clients et rapports.
+Application web de gestion commerciale **multi-boutiques** (gros et détail) — ventes, stocks, caisse, achats, clients et rapports.
 
-**Stack** : Next.js 15 · React 19 · TypeScript · Firebase (Auth + Firestore) · shadcn/ui · Tailwind
+**Stack** : Next.js 15 · React 19 · TypeScript · Firebase (Auth + Firestore) · next-intl · shadcn/ui · Tailwind
 
 ## Démarrage rapide
 
@@ -51,6 +51,35 @@ Points clés des règles :
 
 Permissions détaillées : [`src/lib/auth/permissions.ts`](src/lib/auth/permissions.ts).
 
+## Internationalisation
+
+L'interface est traduite en **français**, **anglais** et **portugais**.
+
+| Élément | Emplacement |
+|---------|-------------|
+| Langues | `fr` (défaut), `en`, `pt` — [`src/i18n/config.ts`](src/i18n/config.ts) |
+| Messages | [`src/i18n/messages/`](src/i18n/messages/) — clés plates `"module.key"` |
+| Provider | [`src/i18n/context.tsx`](src/i18n/context.tsx) — `I18nProvider` dans `layout.tsx` |
+| Sélecteur langue | Header (`app-header.tsx`) — persistance `localStorage` (`fodoba-locale`) |
+
+**Usage dans les composants client :**
+
+```tsx
+import { useT, useLocale } from "@/i18n/context"
+
+const t = useT()
+const { locale, setLocale } = useLocale()
+
+return <h1>{t("purchases.title")}</h1>
+```
+
+**Conventions :**
+
+- Jamais de texte UI en dur — ajouter la clé dans **fr.json, en.json et pt.json**
+- Constantes avec clés (`payment-methods.ts`, `badge-tones.ts`) → `t(key)` à l'affichage
+- Variables : `t("key", { store: name })` ; rich text : `t.rich(...)`
+- PDF / hors React : `getAppName()`, `getPaymentMethodLabelFr()` — [`src/lib/constants/`](src/lib/constants/)
+
 ## Architecture
 
 ```
@@ -58,25 +87,27 @@ src/
 ├── app/
 │   ├── login/                 # Auth
 │   └── (dashboard)/           # App authentifiée (sidebar + header)
+├── i18n/                      # config, messages, provider, nestMessages
 ├── components/                # UI, layout, pos, auth…
 ├── services/*.service.ts      # Couche métier Firestore (obligatoire)
 ├── lib/
 │   ├── contexts/              # Auth, Store, Currency, Notifications
-│   ├── navigation/app-nav.ts  # Menu sidebar
+│   ├── navigation/app-nav.ts  # Menu sidebar (clés nav.*)
+│   ├── constants/             # payment-methods, branding…
 │   ├── types.ts               # Types + schémas Zod
 │   └── *-utils.ts             # Helpers métier par domaine
-└── hooks/                     # permissions, currency, barcode…
+└── hooks/                     # permissions, currency, i18n, barcode…
 ```
 
 **Providers** (`src/app/layout.tsx`) :  
-`AuthProvider` → `CurrencyProvider` → `StoreProvider` → `NotificationProvider` → `AuthLayoutWrapper`
+`I18nProvider` → `AuthProvider` → `CurrencyProvider` → `StoreProvider` → `NotificationProvider` → `AuthLayoutWrapper`
 
 **Conventions** :
 
 - Collections Firestore **plates** + champ `storeId` (pas de sous-collections par boutique)
 - Stock : document ID `{storeId}_{productId}`
 - Devise comptable de référence : **FCFA**
-- UI et toasts en **français** ; notifications via Firestore (`notifications`)
+- Notifications via Firestore (`notifications`)
 - Requêtes Firestore : filtrer par `storeId` quand les règles l'exigent (ex. `cash_movements`)
 
 ## Modules principaux
@@ -113,10 +144,12 @@ src/
 
 | Ressource | Contenu |
 |-----------|---------|
-| [`docs/cahier_de_charges.md`](docs/cahier_de_charges.md) | CDC v1.0 - règles métier |
+| [`docs/cahier_de_charges.md`](docs/cahier_de_charges.md) | CDC v1.0 — règles métier |
 | [`docs/blueprint.md`](docs/blueprint.md) | Spec produit |
-| [`.cursor/skills/fodoba/`](.cursor/skills/fodoba/) | Conventions code pour Cursor / agents IA |
-| [`.cursor/rules/`](.cursor/rules/) | Règles persistantes documentation & code |
+| [`.agents/skills/fodoba/`](.agents/skills/fodoba/) | Skill agent IA — conventions code (`SKILL.md` + `reference.md`) |
+| [`.agents/rules/`](.agents/rules/) | Règles persistantes documentation & code |
+
+Le dossier [`.agents/`](.agents/) regroupe skills et rules pour les assistants IA (Cursor, Copilot, etc.) — indépendant de l'IDE.
 
 > **Note** : le mode hors-ligne (IndexedDB) est mentionné dans le CDC mais **non implémenté** dans le code actuel.
 
@@ -129,4 +162,4 @@ src/
 
 ## Licence
 
-Propriétaire - FODOBA IMPEX
+Propriétaire — FODOBA IMPEX

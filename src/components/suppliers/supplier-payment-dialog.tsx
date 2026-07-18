@@ -21,6 +21,7 @@ import {
 import { Loader2, Wallet } from "lucide-react"
 import type { Supplier, SupplierPayment } from "@/lib/types"
 import { POS_PAYMENT_METHODS } from "@/lib/constants/payment-methods"
+import { useT } from "@/i18n/context"
 
 type SupplierPaymentDialogProps = {
   open: boolean
@@ -41,6 +42,7 @@ export function SupplierPaymentDialog({
   processing,
   onSubmit,
 }: SupplierPaymentDialogProps) {
+  const t = useT()
   const [amount, setAmount] = useState("")
   const [method, setMethod] = useState<SupplierPayment["method"]>("CASH")
   const [notes, setNotes] = useState("")
@@ -64,19 +66,21 @@ export function SupplierPaymentDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="rounded-2xl sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Enregistrer un règlement</DialogTitle>
+          <DialogTitle>{t("suppliers.payment.title")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="flex items-center justify-between rounded-xl border bg-muted/30 p-4">
             <div>
-              <p className="text-xs font-bold uppercase text-muted-foreground">Dette fournisseur</p>
+              <p className="text-xs font-bold uppercase text-muted-foreground">
+                {t("suppliers.payment.debtLabel")}
+              </p>
               <p className="font-headline text-2xl font-bold text-destructive">
                 {supplier.currentDebt.toLocaleString("fr-FR")} FCFA
               </p>
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label required>Montant versé</Label>
+            <Label required>{t("suppliers.payment.amount")}</Label>
             <Input
               type="number"
               placeholder="0"
@@ -86,7 +90,7 @@ export function SupplierPaymentDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label required>Mode de paiement</Label>
+            <Label required>{t("suppliers.payment.method")}</Label>
             <Select
               value={method}
               onValueChange={(v) => setMethod(v as SupplierPayment["method"])}
@@ -97,16 +101,16 @@ export function SupplierPaymentDialog({
               <SelectContent className="rounded-xl">
                 {POS_PAYMENT_METHODS.map((m) => (
                   <SelectItem key={m.id} value={m.id}>
-                    {m.label}
+                    {t(m.label)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Commentaire / Référence</Label>
+            <Label>{t("suppliers.payment.notes")}</Label>
             <Input
-              placeholder="N° de virement, bordereau…"
+              placeholder={t("suppliers.payment.notesPlaceholder")}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="h-10 rounded-xl"
@@ -124,7 +128,7 @@ export function SupplierPaymentDialog({
             ) : (
               <Wallet className="mr-2 h-4 w-4" />
             )}
-            Valider le règlement
+            {t("suppliers.payment.submit")}
           </Button>
         </DialogFooter>
       </DialogContent>

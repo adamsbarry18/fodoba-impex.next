@@ -31,6 +31,7 @@ import {
   Building2,
 } from "lucide-react"
 import Link from "next/link"
+import { useMemo } from "react"
 import { useStore } from "@/lib/contexts/StoreContext"
 import { z } from "zod"
 import {
@@ -38,24 +39,30 @@ import {
   STORE_CODE_HINT,
   validateStoreCodeFormat,
 } from "@/lib/store-utils"
+import { useT } from "@/i18n/context"
 
-const FormSchema = StoreSchema.omit({ id: true, createdAt: true }).extend({
-  code: z
-    .string()
-    .min(2, "Le code est requis")
-    .refine((val) => !validateStoreCodeFormat(val), {
-      message: `Format attendu : ${STORE_CODE_HINT}`,
-    }),
-})
-
-type FormValues = z.infer<typeof FormSchema>
+type FormValues = Omit<Store, "id" | "createdAt">
 
 export default function NewStorePage() {
   const router = useRouter()
   const { refreshStores } = useStore()
+  const t = useT()
+
+  const formSchema = useMemo(
+    () =>
+      StoreSchema.omit({ id: true, createdAt: true }).extend({
+        code: z
+          .string()
+          .min(2, t("stores.form.codeRequired"))
+          .refine((val) => !validateStoreCodeFormat(val), {
+            message: t("stores.form.codeFormat", { hint: STORE_CODE_HINT }),
+          }),
+      }),
+    [t]
+  )
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(FormSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       code: "",
       name: "",
@@ -68,12 +75,12 @@ export default function NewStorePage() {
   const onSubmit = async (values: FormValues) => {
     try {
       await StoreService.createStore(values)
-      toast.success("Boutique créée avec succès")
+      toast.success(t("stores.form.created"))
       await refreshStores()
       router.push("/admin/stores")
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "Erreur lors de la création de la boutique"
+        error instanceof Error ? error.message : t("stores.form.createError")
       toast.error(message)
     }
   }
@@ -91,9 +98,9 @@ export default function NewStorePage() {
             <StoreIcon className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Nouvelle boutique</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("stores.form.newTitle")}</h1>
             <p className="text-sm text-muted-foreground">
-              Enregistrement d&apos;un nouveau point de vente dans le réseau.
+              {t("stores.form.newSubtitle")}
             </p>
           </div>
         </div>
@@ -105,11 +112,10 @@ export default function NewStorePage() {
             <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Building2 className="h-4 w-4 text-primary" />
-                Identification
+                {t("stores.form.identification")}
               </CardTitle>
               <CardDescription className="text-xs">
-                Le code est unique et sert de référence dans les rapports et l&apos;assignation
-                des collaborateurs.
+                {t("stores.form.identificationDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">
@@ -119,7 +125,7 @@ export default function NewStorePage() {
                   name="code"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Code boutique</FormLabel>
+                      <FormLabel required>{t("stores.form.code")}</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Hash className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -134,7 +140,10 @@ export default function NewStorePage() {
                         </div>
                       </FormControl>
                       <FormDescription className="text-[11px]">
-                        Format : {STORE_CODE_HINT} (ex. {STORE_CODE_EXAMPLE})
+                        {t("stores.form.codeHint", {
+                          hint: STORE_CODE_HINT,
+                          example: STORE_CODE_EXAMPLE,
+                        })}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -145,10 +154,10 @@ export default function NewStorePage() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Nom de la boutique</FormLabel>
+                      <FormLabel required>{t("stores.form.name")}</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Ex. Conakry Central"
+                          placeholder={t("stores.form.namePlaceholder")}
                           className="h-10 rounded-xl"
                           {...field}
                         />
@@ -161,10 +170,7 @@ export default function NewStorePage() {
 
               <div className="flex items-start gap-3 rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <p>
-                  La boutique sera créée en statut <strong className="text-foreground">actif</strong>.
-                  Vous pourrez la suspendre ultérieurement sans perdre l&apos;historique.
-                </p>
+                <p>{t("stores.form.activeHint")}</p>
               </div>
             </CardContent>
           </Card>
@@ -173,10 +179,10 @@ export default function NewStorePage() {
             <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
               <CardTitle className="flex items-center gap-2 text-base">
                 <MapPin className="h-4 w-4 text-primary" />
-                Coordonnées
+                {t("stores.form.contactTitle")}
               </CardTitle>
               <CardDescription className="text-xs">
-                Adresse et téléphone affichés dans l&apos;administration et les documents.
+                {t("stores.form.contactDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">
@@ -185,12 +191,12 @@ export default function NewStorePage() {
                 name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Adresse complète</FormLabel>
+                    <FormLabel required>{t("stores.form.address")}</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                          placeholder="Quartier, ville, pays"
+                          placeholder={t("stores.form.addressPlaceholder")}
                           className="h-10 rounded-xl pl-10"
                           {...field}
                         />
@@ -206,7 +212,7 @@ export default function NewStorePage() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Téléphone de contact</FormLabel>
+                    <FormLabel required>{t("stores.form.phone")}</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -231,7 +237,7 @@ export default function NewStorePage() {
               className="rounded-xl font-semibold"
               onClick={() => router.back()}
             >
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button
               type="submit"
@@ -243,7 +249,7 @@ export default function NewStorePage() {
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              Enregistrer la boutique
+              {t("stores.form.saveStore")}
             </Button>
           </div>
         </form>
