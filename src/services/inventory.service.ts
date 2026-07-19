@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { StockMovement, StockLevel, Product, Store, UserProfile } from "@/lib/types";
+import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper";
 
 const MOVEMENTS_COLLECTION = "inventory_movements";
 const STOCKS_COLLECTION = "stocks";
@@ -35,7 +36,7 @@ export const InventoryService = {
     const productRef = doc(db, "products", productId);
     const storeRef = doc(db, "stores", storeId);
 
-    return await runTransaction(db, async (transaction) => {
+    const movement = await runTransaction(db, async (transaction) => {
       const stockSnap = await transaction.get(stockRef);
       const productSnap = await transaction.get(productRef);
       const storeSnap = await transaction.get(storeRef);
@@ -80,6 +81,20 @@ export const InventoryService = {
       transaction.set(movementRef, movementData);
       return movementData as StockMovement;
     });
+
+    void AppNotificationHelper.notifyStockChanges({
+      storeId,
+      changes: [
+        {
+          productId,
+          productName: movement.productName,
+          previousStock: movement.previousStock,
+          newStock: movement.newStock,
+        },
+      ],
+    });
+
+    return movement;
   },
 
   async transferStock(params: {

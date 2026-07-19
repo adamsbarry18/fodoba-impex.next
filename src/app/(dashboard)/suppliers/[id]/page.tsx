@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   PlusCircle,
   Receipt,
+  Trash2,
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -30,6 +31,7 @@ import { useStore } from "@/lib/contexts/StoreContext"
 import { useCurrency } from "@/hooks/use-currency"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { SupplierPaymentDialog } from "@/components/suppliers/supplier-payment-dialog"
+import { SupplierDeleteDialog } from "@/components/suppliers/supplier-delete-dialog"
 import {
   formatPurchaseRef,
   PURCHASE_STATUS_ICONS,
@@ -58,6 +60,7 @@ export default function SupplierDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("history")
 
   const authorizedStoreIds = useMemo(
@@ -217,6 +220,14 @@ export default function SupplierDetailsPage() {
               {t("suppliers.payBtn")}
             </Button>
           )}
+          <Button
+            variant="outline"
+            className="rounded-xl font-semibold text-destructive hover:text-destructive"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            {t("common.delete")}
+          </Button>
         </div>
       </div>
 
@@ -521,6 +532,13 @@ export default function SupplierDetailsPage() {
         supplier={supplier}
         processing={paymentLoading}
         onSubmit={handlePayment}
+      />
+
+      <SupplierDeleteDialog
+        supplier={supplier}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onDeleted={() => router.push("/suppliers")}
       />
     </div>
   )

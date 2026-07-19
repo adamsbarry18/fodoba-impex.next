@@ -2,6 +2,7 @@ import type { CurrencyCode, Supplier } from "@/lib/types"
 
 export type SupplierTypeFilter = "all" | Supplier["type"]
 export type SupplierDebtFilter = "all" | "with_debt" | "clear"
+export type SupplierDeleteBlocker = "debt" | "purchases" | "payments"
 
 export const SUPPLIER_CURRENCIES: { value: CurrencyCode; label: string }[] = [
   { value: "FCFA", label: "FCFA (Référence)" },
@@ -64,4 +65,15 @@ export function filterSuppliers(
 
     return matchesSearch && matchesType && matchesCurrency && matchesDebt
   })
+}
+
+export function getSupplierDeleteBlockerMessageKey(blocker: SupplierDeleteBlocker): string {
+  switch (blocker) {
+    case "debt":
+      return "suppliers.deleteBlocked.debt"
+    case "purchases":
+      return "suppliers.deleteBlocked.purchases"
+    case "payments":
+      return "suppliers.deleteBlocked.payments"
+  }
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useRef, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -13,8 +13,6 @@ import { Loader2, Camera, AlertTriangle } from "lucide-react"
 import { Html5Qrcode } from "html5-qrcode"
 import { normalizeScanCode } from "@/hooks/use-barcode-scanner"
 import { useT } from "@/i18n/context"
-
-const SCANNER_ID = "barcode-camera-reader"
 
 interface BarcodeCameraDialogProps {
   open: boolean
@@ -31,22 +29,36 @@ export function BarcodeCameraDialog({
 }: BarcodeCameraDialogProps) {
   const t = useT()
   const scannerRef = useRef<Html5Qrcode | null>(null)
+  const onScanRef = useRef(onScan)
+  const onOpenChangeRef = useRef(onOpenChange)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [readerElement, setReaderElement] = useState<HTMLDivElement | null>(null)
+  const scannerId = useId().replace(/:/g, "")
 
   const resolvedTitle = title ?? t("barcode.cameraTitle")
 
   useEffect(() => {
-    if (!open) return
+    onScanRef.current = onScan
+  }, [onScan])
+
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange
+  }, [onOpenChange])
+
+  useEffect(() => {
+    if (!open || !readerElement) return
 
     let cancelled = false
-    const scanner = new Html5Qrcode(SCANNER_ID, { verbose: false })
-    scannerRef.current = scanner
 
     const start = async () => {
       setStarting(true)
       setError(null)
+
       try {
+        const scanner = new Html5Qrcode(scannerId, { verbose: false })
+        scannerRef.current = scanner
+
         await scanner.start(
           { facingMode: "environment" },
           {
@@ -59,8 +71,8 @@ export function BarcodeCameraDialog({
             if (!code) return
             await scanner.stop().catch(() => {})
             scannerRef.current = null
-            onOpenChange(false)
-            await onScan(code)
+            onOpenChangeRef.current(false)
+            await onScanRef.current(code)
           },
           () => {
             // frames sans détection - ignoré
@@ -86,7 +98,18 @@ export function BarcodeCameraDialog({
       }
       scannerRef.current = null
     }
-  }, [open, onOpenChange, onScan, t])
+  }, [open, readerElement, scannerId, t])
+
+  useEffect(() => {
+    if (open) return
+    setError(null)
+    setStarting(false)
+    setReaderElement(null)
+  }, [open])
+
+  const handleReaderRef = useCallback((node: HTMLDivElement | null) => {
+    setReaderElement(node)
+  }, [])
 
   const handleClose = async () => {
     if (scannerRef.current?.isScanning) {
@@ -110,7 +133,11 @@ export function BarcodeCameraDialog({
         </DialogHeader>
 
         <div className="relative bg-black p-2">
-          <div id={SCANNER_ID} className="min-h-[240px] w-full overflow-hidden rounded-xl" />
+          <div
+            ref={handleReaderRef}
+            id={scannerId}
+            className="min-h-[240px] w-full overflow-hidden rounded-xl"
+          />
           {starting && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/60">
               <Loader2 className="h-8 w-8 animate-spin text-white" />

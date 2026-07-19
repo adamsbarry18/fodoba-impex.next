@@ -55,6 +55,7 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
   const {
     notifications,
     unreadCount,
+    subscriptionError,
     markAsRead,
     markAllAsRead,
     deleteNotification,
@@ -213,7 +214,21 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
           <ScrollArea className="min-h-0 flex-1">
             <div className="p-3 pb-8">
               {filtered.length === 0 ? (
-                <NotificationEmptyState tab={activeTab} />
+                subscriptionError ? (
+                  <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
+                      <BellOff className="h-7 w-7 text-destructive/60" />
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {t("notifications.loadError")}
+                    </p>
+                    <p className="mt-1 max-w-[260px] text-xs text-muted-foreground">
+                      {t("notifications.loadErrorDesc")}
+                    </p>
+                  </div>
+                ) : (
+                  <NotificationEmptyState tab={activeTab} />
+                )
               ) : (
                 <div className="space-y-2">
                   {filtered.map((notification) => (
@@ -318,6 +333,7 @@ function NotificationItem({
           className={cn(
             "h-4 w-4",
             notification.type === "STOCK_ALERT" && "text-destructive",
+            notification.type === "EXPIRATION_ALERT" && "text-destructive",
             notification.type === "SALE" && "text-primary",
             notification.type === "PURCHASE" && "text-cyan-600",
             notification.type === "INFO" && "text-muted-foreground"

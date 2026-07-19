@@ -3,6 +3,7 @@ import type { Client } from "@/lib/types"
 export type ClientTypeFilter = "all" | Client["type"]
 export type ClientStatusFilter = "all" | Client["status"]
 export type ClientDebtFilter = "all" | "with_debt" | "over_limit" | "clear"
+export type ClientDeleteBlocker = "debt" | "sales" | "payments"
 
 export const CLIENT_TYPES = [
   {
@@ -91,4 +92,15 @@ export function filterClients(
 
     return matchesSearch && matchesType && matchesStatus && matchesDebt
   })
+}
+
+export function getClientDeleteBlockerMessageKey(blocker: ClientDeleteBlocker): string {
+  switch (blocker) {
+    case "debt":
+      return "clients.deleteBlocked.debt"
+    case "sales":
+      return "clients.deleteBlocked.sales"
+    case "payments":
+      return "clients.deleteBlocked.payments"
+  }
 }

@@ -115,5 +115,6 @@ export const BADGE_PRESETS = {
     SALE: { tone: "success", label: "badges.notificationType.SALE" },
     PURCHASE: { tone: "info", label: "badges.notificationType.PURCHASE" },
     INFO: { tone: "cyan", label: "badges.notificationType.INFO" },
+    EXPIRATION_ALERT: { tone: "destructive", label: "badges.notificationType.EXPIRATION_ALERT" },
   },
 } as const satisfies Record<string, Record<string, PresetEntry>>

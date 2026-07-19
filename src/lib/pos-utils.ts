@@ -1,7 +1,44 @@
-import type { SaleItem } from "@/lib/types"
+import type { SaleItem, Product, PriceTier } from "@/lib/types"
 import type { PosPaymentMode } from "@/lib/constants/payment-methods"
 import type { LucideIcon } from "lucide-react"
 import { Wallet, HandCoins, CreditCard, Split } from "lucide-react"
+import { normalizeProduct } from "@/lib/product-utils"
+
+export function getCartLineKey(productId: string, priceTier: PriceTier = "retail"): string {
+  return `${productId}:${priceTier}`
+}
+
+export function getProductPriceForTier(product: Product, tier: PriceTier): number {
+  const normalized = normalizeProduct(product)
+  if (tier === "wholesale" && normalized.wholesalePriceFCFA > 0) {
+    return normalized.wholesalePriceFCFA
+  }
+  return product.sellingPriceFCFA
+}
+
+export function hasWholesalePrice(product: Product): boolean {
+  return getProductPriceForTier(product, "wholesale") > 0
+}
+
+export function buildSaleItemFromProduct(
+  product: Product,
+  tier: PriceTier,
+  quantity = 1
+): SaleItem {
+  const unitPrice = getProductPriceForTier(product, tier)
+  return {
+    productId: product.id,
+    name: product.name,
+    quantity,
+    unitPrice,
+    total: unitPrice * quantity,
+    priceTier: tier,
+  }
+}
+
+export function formatSaleItemName(item: SaleItem, wholesaleSuffix = " (Engros)"): string {
+  return item.priceTier === "wholesale" ? `${item.name}${wholesaleSuffix}` : item.name
+}
 
 export function getCartItemCount(cart: SaleItem[]): number {
   return cart.reduce((sum, item) => sum + item.quantity, 0)

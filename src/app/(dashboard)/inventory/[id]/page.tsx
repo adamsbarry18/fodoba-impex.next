@@ -28,6 +28,8 @@ import { toast } from "sonner"
 import { QRCodeSVG } from "qrcode.react"
 import { useT } from "@/i18n/context"
 import { formatStockBreakdown, normalizeProduct } from "@/lib/product-utils"
+import { ProductExpirationDisplay } from "@/components/inventory/product-expiration-display"
+import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper"
 
 export default function ProductDetailsPage() {
   const params = useParams()
@@ -76,6 +78,14 @@ export default function ProductDetailsPage() {
   useEffect(() => {
     loadAll()
   }, [params.id])
+
+  useEffect(() => {
+    if (!product) return
+    void AppNotificationHelper.notifyProductExpiration({
+      product,
+      storeId: activeStore?.id,
+    })
+  }, [product, activeStore?.id])
 
   const handleManualAdjustment = async (delta: number) => {
     if (!activeStore || !product) return
@@ -202,22 +212,22 @@ export default function ProductDetailsPage() {
       </div>
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-stretch">
-        <Card className={`${cardClassName} lg:col-span-4`}>
+        <Card className={`${cardClassName} lg:col-span-2`}>
           {product.imageUrl ? (
-            <CardContent className="flex max-h-[220px] items-center justify-center overflow-hidden bg-muted/10 p-4 sm:max-h-[240px]">
+            <CardContent className="flex max-h-[160px] items-center justify-center overflow-hidden bg-muted/10 p-3 sm:max-h-[180px]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={product.imageUrl}
                 alt={product.name}
-                className="max-h-[188px] w-full max-w-full object-contain sm:max-h-[208px]"
+                className="max-h-[136px] w-full max-w-full object-contain sm:max-h-[156px]"
               />
             </CardContent>
           ) : (
-            <CardContent className="flex h-[220px] flex-col items-center justify-center gap-3 bg-muted/20 sm:h-[240px]">
-              <div className="rounded-2xl bg-muted/40 p-4">
-                <ImageIcon className="h-8 w-8 text-muted-foreground/60" />
+            <CardContent className="flex h-[160px] flex-col items-center justify-center gap-2 bg-muted/20 sm:h-[180px]">
+              <div className="rounded-xl bg-muted/40 p-3">
+                <ImageIcon className="h-6 w-6 text-muted-foreground/60" />
               </div>
-              <p className="text-xs font-medium text-muted-foreground">
+              <p className="text-[10px] font-medium text-muted-foreground">
                 {t("inventory.form.image")}
               </p>
             </CardContent>
@@ -225,10 +235,18 @@ export default function ProductDetailsPage() {
         </Card>
 
         {(hasPackagingInfo || hasFinancialInfo) && (
-          <Card className={`${cardClassName} lg:col-span-5`}>
-            <CardContent className="grid h-full gap-0 p-6 sm:grid-cols-2 sm:gap-6 sm:p-8">
+          <Card className={`${cardClassName} lg:col-span-7`}>
+            <CardContent
+              className={`grid h-full gap-0 p-6 sm:gap-6 sm:p-8 ${
+                hasPackagingInfo && hasFinancialInfo
+                  ? "sm:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]"
+                  : "sm:grid-cols-1"
+              }`}
+            >
               {hasPackagingInfo && (
-                <div className="space-y-1 sm:border-r sm:border-gray-100 sm:pr-6">
+                <div
+                  className={`space-y-1 ${hasFinancialInfo ? "sm:border-r sm:border-gray-100 sm:pr-6" : ""}`}
+                >
                   <p className="mb-3 text-sm font-bold text-gray-900">
                     {t("inventory.detail.packagingInfo")}
                   </p>
@@ -259,20 +277,24 @@ export default function ProductDetailsPage() {
                       <span className={metaLabelClassName}>
                         {t("inventory.detail.expirationDate")}
                       </span>
-                      <span className={metaValueClassName}>{product.expirationDate}</span>
+                      <ProductExpirationDisplay
+                        expirationDate={product.expirationDate}
+                        showDate
+                        className="text-right"
+                      />
                     </div>
                   )}
                 </div>
               )}
 
               {hasFinancialInfo && (
-                <div className="space-y-1">
-                  <p className="mb-3 text-sm font-bold text-gray-900">
+                <div className="space-y-1 sm:pl-2">
+                  <p className="mb-2 text-xs font-bold text-gray-900">
                     {t("inventory.detail.financialInfoTitle")}
                   </p>
                   <div className={metaRowClassName}>
                     <span className={metaLabelClassName}>{t("inventory.form.retailPrice")}</span>
-                    <span className="font-headline text-lg font-bold text-primary">
+                    <span className="font-headline text-base font-bold text-primary">
                       {product.sellingPriceFCFA.toLocaleString()}
                     </span>
                   </div>
@@ -319,23 +341,23 @@ export default function ProductDetailsPage() {
         )}
 
         <Card
-          className={`${cardClassName} ${hasPackagingInfo || hasFinancialInfo ? "lg:col-span-3" : "lg:col-span-8"}`}
+          className={`${cardClassName} ${hasPackagingInfo || hasFinancialInfo ? "lg:col-span-3" : "lg:col-span-10"}`}
         >
-          <CardContent className="flex h-full flex-col items-center justify-center gap-4 p-6 sm:flex-row sm:p-8 lg:flex-col">
-            <div className="shrink-0 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
-              <QRCodeSVG value={product.id} size={120} />
+          <CardContent className="flex h-full flex-col items-center justify-center gap-3 p-4 sm:p-5 lg:flex-col">
+            <div className="shrink-0 rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-100">
+              <QRCodeSVG value={product.id} size={96} />
             </div>
-            <div className="space-y-2 text-center sm:text-left lg:text-center">
-              <p className="text-sm font-bold text-gray-900">
+            <div className="space-y-1.5 text-center lg:text-center">
+              <p className="text-xs font-bold text-gray-900">
                 {t("inventory.detail.digitalIdTitle")}
               </p>
               <Badge
                 variant="secondary"
-                className="rounded-lg border-none bg-gray-100 px-3 py-1 font-mono text-[11px] font-bold text-gray-500"
+                className="rounded-lg border-none bg-gray-100 px-2.5 py-0.5 font-mono text-[10px] font-bold text-gray-500"
               >
                 {product.barcode || t("inventory.detail.noBarcode")}
               </Badge>
-              <p className="text-xs font-medium leading-relaxed text-gray-400">
+              <p className="max-w-[200px] text-[10px] font-medium leading-relaxed text-gray-400">
                 {t("inventory.detail.qrHint")}
               </p>
             </div>

@@ -55,7 +55,7 @@ export const ProductSchema = z.object({
   unitsPerPack: z.number().min(1).default(1),
   /** Quantité minimale ou facteur de vente au détail */
   retailQtyFactor: z.number().min(1).default(1),
-  /** @deprecated — préférer packagingUnit + unitsPerPack */
+  /** @deprecated - préférer packagingUnit + unitsPerPack */
   conditionnement: z.string().optional(),
   purchasePriceRef: z.number().min(0).default(0),
   wholesalePriceFCFA: z.number().min(0).default(0),
@@ -230,12 +230,15 @@ export type Purchase = z.infer<typeof PurchaseSchema>;
 
 export type PaymentMethod = "CASH" | "ORANGE_MONEY" | "MOBILE_MONEY" | "CARD" | "TRANSFER" | "OTHER";
 
+export type PriceTier = "retail" | "wholesale";
+
 export const SaleItemSchema = z.object({
   productId: z.string(),
   name: z.string(),
   quantity: z.number(),
   unitPrice: z.number(),
   total: z.number(),
+  priceTier: z.enum(["retail", "wholesale"]).default("retail"),
 });
 
 export type SaleItem = z.infer<typeof SaleItemSchema>;
@@ -314,7 +317,7 @@ export const CashMovementSchema = z.object({
 
 export type CashMovement = z.infer<typeof CashMovementSchema>;
 
-export type AppNotificationType = "STOCK_ALERT" | "SALE" | "PURCHASE" | "INFO";
+export type AppNotificationType = "STOCK_ALERT" | "SALE" | "PURCHASE" | "INFO" | "EXPIRATION_ALERT";
 
 export interface AppNotification {
   id: string;
@@ -325,6 +328,8 @@ export interface AppNotification {
   read: boolean;
   storeId?: string;
   userId?: string;
+  relatedProductId?: string;
+  relatedExpirationDate?: string;
 }
 
 export type AuditAction =

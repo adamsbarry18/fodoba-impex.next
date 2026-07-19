@@ -17,6 +17,7 @@ import { db } from "@/lib/firebase/client";
 import { Supplier, SupplierPayment, Purchase, UserProfile } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestore-utils";
 import { CashService } from "./cash.service";
+import type { SupplierDeleteBlocker } from "@/lib/supplier-utils";
 
 const COLLECTION_NAME = "suppliers";
 const PAYMENTS_COLLECTION = "supplier_payments";
@@ -59,6 +60,18 @@ async function fetchBySupplierAndStores<T extends { timestamp?: unknown }>(
     .sort((a, b) => getTimestampSortValue(b.timestamp) - getTimestampSortValue(a.timestamp));
 }
 
+async function countSupplierDocuments(
+  collectionName: string,
+  supplierId: string
+): Promise<number> {
+  const q = query(
+    collection(db, collectionName),
+    where("supplierId", "==", supplierId)
+  );
+  const snap = await getDocs(q);
+  return snap.size;
+}
+
 export const SupplierService = {
   async createSupplier(data: Omit<Supplier, "id" | "createdAt" | "currentDebt">) {
     const newDocRef = doc(collection(db, COLLECTION_NAME));
@@ -72,7 +85,15 @@ export const SupplierService = {
     return supplier;
   },
 
-  async updateSupplier(id: string, data: Partial<Supplier>) {
+  async updateSupplier(
+    id: string,
+    data: Partial<
+      Pick<
+        Supplier,
+        "name" | "country" | "city" | "type" | "defaultCurrency" | "paymentTerms"
+      >
+    >
+  ) {
     const docRef = doc(db, COLLECTION_NAME, id);
     await updateDoc(docRef, stripUndefined(data));
   },
@@ -89,7 +110,30 @@ export const SupplierService = {
     return snap.docs.map((docSnap) => docSnap.data() as Supplier);
   },
 
+  async getDeleteBlockers(supplierId: string): Promise<SupplierDeleteBlocker[]> {
+    const supplier = await this.getSupplier(supplierId);
+    if (!supplier) throw new Error("SUPPLIER_NOT_FOUND");
+
+    const blockers: SupplierDeleteBlocker[] = [];
+    if (supplier.currentDebt > 0) blockers.push("debt");
+
+    const [purchaseCount, paymentCount] = await Promise.all([
+      countSupplierDocuments(PURCHASES_COLLECTION, supplierId),
+      countSupplierDocuments(PAYMENTS_COLLECTION, supplierId),
+    ]);
+
+    if (purchaseCount > 0) blockers.push("purchases");
+    if (paymentCount > 0) blockers.push("payments");
+
+    return blockers;
+  },
+
   async deleteSupplier(id: string) {
+    const blockers = await this.getDeleteBlockers(id);
+    if (blockers.length > 0) {
+      throw new Error(`SUPPLIER_DELETE_BLOCKED:${blockers.join(",")}`);
+    }
+
     const docRef = doc(db, COLLECTION_NAME, id);
     await deleteDoc(docRef);
   },

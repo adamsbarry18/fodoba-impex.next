@@ -9,6 +9,7 @@ import {
   query, 
   orderBy, 
   serverTimestamp,
+  deleteDoc,
   where,
   runTransaction
 } from "firebase/firestore";
@@ -16,9 +17,11 @@ import { db } from "@/lib/firebase/client";
 import { Client, ClientPayment, Sale, UserProfile } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestore-utils";
 import { CashService } from "./cash.service";
+import type { ClientDeleteBlocker } from "@/lib/client-utils";
 
 const COLLECTION_NAME = "clients";
 const PAYMENTS_COLLECTION = "client_payments";
+const SALES_COLLECTION = "sales";
 
 function getTimestampSortValue(timestamp: unknown): number {
   if (!timestamp || typeof timestamp !== "object") return 0;
@@ -56,6 +59,18 @@ async function fetchByClientAndStores<T extends { timestamp?: unknown }>(
     .sort((a, b) => getTimestampSortValue(b.timestamp) - getTimestampSortValue(a.timestamp));
 }
 
+async function countClientDocuments(
+  collectionName: string,
+  clientId: string
+): Promise<number> {
+  const q = query(
+    collection(db, collectionName),
+    where("clientId", "==", clientId)
+  );
+  const snap = await getDocs(q);
+  return snap.size;
+}
+
 export const ClientService = {
   async createClient(data: Omit<Client, "id" | "createdAt" | "currentDebt">) {
     const newDocRef = doc(collection(db, COLLECTION_NAME));
@@ -69,7 +84,12 @@ export const ClientService = {
     return client;
   },
 
-  async updateClient(id: string, data: Partial<Client>) {
+  async updateClient(
+    id: string,
+    data: Partial<
+      Pick<Client, "name" | "phone" | "address" | "type" | "status" | "creditCeiling">
+    >
+  ) {
     const docRef = doc(db, COLLECTION_NAME, id);
     await updateDoc(docRef, stripUndefined(data));
   },
@@ -84,6 +104,34 @@ export const ClientService = {
     const q = query(collection(db, COLLECTION_NAME), orderBy("name", "asc"));
     const snap = await getDocs(q);
     return snap.docs.map(doc => doc.data() as Client);
+  },
+
+  async getDeleteBlockers(clientId: string): Promise<ClientDeleteBlocker[]> {
+    const client = await this.getClient(clientId);
+    if (!client) throw new Error("CLIENT_NOT_FOUND");
+
+    const blockers: ClientDeleteBlocker[] = [];
+    if (client.currentDebt > 0) blockers.push("debt");
+
+    const [salesCount, paymentCount] = await Promise.all([
+      countClientDocuments(SALES_COLLECTION, clientId),
+      countClientDocuments(PAYMENTS_COLLECTION, clientId),
+    ]);
+
+    if (salesCount > 0) blockers.push("sales");
+    if (paymentCount > 0) blockers.push("payments");
+
+    return blockers;
+  },
+
+  async deleteClient(id: string) {
+    const blockers = await this.getDeleteBlockers(id);
+    if (blockers.length > 0) {
+      throw new Error(`CLIENT_DELETE_BLOCKED:${blockers.join(",")}`);
+    }
+
+    const docRef = doc(db, COLLECTION_NAME, id);
+    await deleteDoc(docRef);
   },
 
   async recordPayment(params: {
@@ -150,7 +198,7 @@ export const ClientService = {
 
   async getClientSales(clientId: string, storeIds: string[]) {
     return fetchByClientAndStores<Sale>(
-      "sales",
+      SALES_COLLECTION,
       clientId,
       storeIds
     );

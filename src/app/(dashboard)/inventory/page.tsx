@@ -69,6 +69,8 @@ import { INVENTORY_TABLE_COLUMNS } from "@/lib/table-column-presets"
 import { useClientPagination } from "@/hooks/use-client-pagination"
 import { TablePagination } from "@/components/ui/table-pagination"
 import { useT } from "@/i18n/context"
+import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper"
+import { ProductExpirationDisplay } from "@/components/inventory/product-expiration-display"
 
 const FETCH_SIZE = 50
 const TABLE_PAGE_SIZE = 10
@@ -78,6 +80,7 @@ const INVENTORY_COLUMN_LABEL_KEYS: Record<string, string> = {
   sku: "inventory.colSku",
   category: "inventory.colCategory",
   price: "inventory.colPrice",
+  expiration: "inventory.colExpiration",
   stock: "inventory.colStock",
   actions: "inventory.colActions",
 }
@@ -193,6 +196,11 @@ export default function InventoryPage() {
       cancelled = true
     }
   }, [filterCategory, activeStore?.id, t])
+
+  useEffect(() => {
+    if (products.length === 0) return
+    void AppNotificationHelper.scanProductExpirations(products, activeStore?.id)
+  }, [products, activeStore?.id])
 
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
@@ -486,6 +494,9 @@ export default function InventoryPage() {
                       <VisibleTableColumn id="price" isVisible={isVisible}>
                         <TableHead className="text-right">{t("inventory.colPrice")}</TableHead>
                       </VisibleTableColumn>
+                      <VisibleTableColumn id="expiration" isVisible={isVisible}>
+                        <TableHead>{t("inventory.colExpiration")}</TableHead>
+                      </VisibleTableColumn>
                       <VisibleTableColumn id="stock" isVisible={isVisible}>
                         <TableHead className="text-center">{t("inventory.colStock")}</TableHead>
                       </VisibleTableColumn>
@@ -546,6 +557,11 @@ export default function InventoryPage() {
                           <VisibleTableColumn id="price" isVisible={isVisible}>
                             <TableCell className="text-right font-headline font-bold">
                               {p.sellingPriceFCFA.toLocaleString()}
+                            </TableCell>
+                          </VisibleTableColumn>
+                          <VisibleTableColumn id="expiration" isVisible={isVisible}>
+                            <TableCell>
+                              <ProductExpirationDisplay expirationDate={p.expirationDate} />
                             </TableCell>
                           </VisibleTableColumn>
                           <VisibleTableColumn id="stock" isVisible={isVisible}>

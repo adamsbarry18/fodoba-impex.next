@@ -37,7 +37,7 @@ Lors de la rédaction ou mise à jour de documentation dans ce dépôt, suivre c
 
 ## Structure des dossiers
 
-Garder les dossiers plats — ne pas imbriquer pour 2-3 fichiers :
+Garder les dossiers plats - ne pas imbriquer pour 2-3 fichiers :
 
 ```
 ✅ Bon :
@@ -58,8 +58,8 @@ docs/
 ### Descriptions autonomes
 Les documents décrivent **CE QUE le système EST**, pas ce qui a changé.
 
-**Mauvais :** « Nouvelle optimisation CI/CD — le workflow détecte… »
-**Bon :** « Pipeline CI/CD — le workflow détecte… »
+**Mauvais :** « Nouvelle optimisation CI/CD - le workflow détecte… »
+**Bon :** « Pipeline CI/CD - le workflow détecte… »
 
 ### À éviter
 - Titres « New Implementation », « Optimization », « Changes », « Migration »
@@ -68,9 +68,9 @@ Les documents décrivent **CE QUE le système EST**, pas ce qui a changé.
 - Milliers de lignes illisibles
 
 ### Concision et actionnabilité
-- **Exemples plutôt qu'explications** — montrer des commandes
-- **Commandes copiables** — prêtes à exécuter
-- **Moins de 500 lignes** par fichier — scinder si nécessaire
+- **Exemples plutôt qu'explications** - montrer des commandes
+- **Commandes copiables** - prêtes à exécuter
+- **Moins de 500 lignes** par fichier - scinder si nécessaire
 
 ### Sections recommandées
 1. **Quick Start** (< 5 commandes)
@@ -86,15 +86,15 @@ Les documents décrivent **CE QUE le système EST**, pas ce qui a changé.
 - Notifications : collection Firestore `notifications` (pas localStorage)
 - Devise de référence : **FCFA**
 - Rôles : `admin`, `manager`, `seller` (lowercase)
-- **Internationalisation** : UI via `useT()` — langues `fr`, `en`, `pt` ; messages dans `src/i18n/messages/` (clés plates `namespace.key`)
-- Règles Firestore : `firestore.rules` à la racine — documenter le déploiement Console ou `firebase deploy --only firestore:rules`
+- **Internationalisation** : UI via `useT()` - langues `fr`, `en`, `pt` ; messages dans `src/i18n/messages/` (clés plates `namespace.key`)
+- Règles Firestore : `firestore.rules` à la racine - documenter le déploiement Console ou `firebase deploy --only firestore:rules`
 - Requêtes client : filtre `storeId` requis quand les règles utilisent `isStoreAuthorized`
 - Offline/IndexedDB : documenter comme non implémenté tant qu'absent du code
 
 ## Cross-références
 
 - Mettre à jour **toutes** les références lors d'un déplacement/renommage
-- Chemins relatifs : `[CDC](cahier_de_charges.md)` — pas de chemins absolus `/docs/...`
+- Chemins relatifs : `[CDC](cahier_de_charges.md)` - pas de chemins absolus `/docs/...`
 
 ## Checklist avant commit doc
 

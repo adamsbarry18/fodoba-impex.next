@@ -1,6 +1,6 @@
 # FODOBA BUSINESS
 
-Application web de gestion commerciale **multi-boutiques** (gros et détail) — ventes, stocks, caisse, achats, clients et rapports.
+Application web de gestion commerciale **multi-boutiques** (gros et détail) - ventes, stocks, caisse, achats, clients et rapports.
 
 **Domaine** : [fodoba-business.com](https://fodoba-business.com)
 
@@ -87,10 +87,10 @@ L'interface est traduite en **français**, **anglais** et **portugais**.
 
 | Élément | Emplacement |
 |---------|-------------|
-| Langues | `fr` (défaut), `en`, `pt` — [`src/i18n/config.ts`](src/i18n/config.ts) |
-| Messages | [`src/i18n/messages/`](src/i18n/messages/) — clés plates `"module.key"` |
-| Provider | [`src/i18n/context.tsx`](src/i18n/context.tsx) — `I18nProvider` dans `layout.tsx` |
-| Sélecteur langue | Header (`app-header.tsx`) — persistance `localStorage` (`fodoba-locale`) |
+| Langues | `fr` (défaut), `en`, `pt` - [`src/i18n/config.ts`](src/i18n/config.ts) |
+| Messages | [`src/i18n/messages/`](src/i18n/messages/) - clés plates `"module.key"` |
+| Provider | [`src/i18n/context.tsx`](src/i18n/context.tsx) - `I18nProvider` dans `layout.tsx` |
+| Sélecteur langue | Header (`app-header.tsx`) - persistance `localStorage` (`fodoba-locale`) |
 
 **Usage dans les composants client :**
 
@@ -105,10 +105,10 @@ return <h1>{t("purchases.title")}</h1>
 
 **Conventions :**
 
-- Jamais de texte UI en dur — ajouter la clé dans **fr.json, en.json et pt.json**
+- Jamais de texte UI en dur - ajouter la clé dans **fr.json, en.json et pt.json**
 - Constantes avec clés (`payment-methods.ts`, `badge-tones.ts`) → `t(key)` à l'affichage
 - Variables : `t("key", { store: name })` ; rich text : `t.rich(...)`
-- PDF / hors React : `getAppName()`, `getPaymentMethodLabelFr()` — [`src/lib/constants/`](src/lib/constants/)
+- PDF / hors React : `getAppName()`, `getPaymentMethodLabelFr()` - [`src/lib/constants/`](src/lib/constants/)
 
 ## Architecture
 
@@ -174,12 +174,12 @@ src/
 
 | Ressource | Contenu |
 |-----------|---------|
-| [`docs/cahier_de_charges.md`](docs/cahier_de_charges.md) | CDC v1.0 — règles métier |
+| [`docs/cahier_de_charges.md`](docs/cahier_de_charges.md) | CDC v1.0 - règles métier |
 | [`docs/blueprint.md`](docs/blueprint.md) | Spec produit |
-| [`.agents/skills/fodoba/`](.agents/skills/fodoba/) | Skill agent IA — conventions code (`SKILL.md` + `reference.md`) |
+| [`.agents/skills/fodoba/`](.agents/skills/fodoba/) | Skill agent IA - conventions code (`SKILL.md` + `reference.md`) |
 | [`.agents/rules/`](.agents/rules/) | Règles persistantes documentation & code |
 
-Le dossier [`.agents/`](.agents/) regroupe skills et rules pour les assistants IA (Cursor, Copilot, etc.) — indépendant de l'IDE.
+Le dossier [`.agents/`](.agents/) regroupe skills et rules pour les assistants IA (Cursor, Copilot, etc.) - indépendant de l'IDE.
 
 > **Note** : le mode hors-ligne (IndexedDB) est mentionné dans le CDC mais **non implémenté** dans le code actuel.
 
@@ -192,4 +192,4 @@ Le dossier [`.agents/`](.agents/) regroupe skills et rules pour les assistants I
 
 ## Licence
 
-Propriétaire — FODOBA BUSINESS
+Propriétaire - FODOBA BUSINESS

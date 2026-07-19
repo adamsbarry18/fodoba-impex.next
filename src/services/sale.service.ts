@@ -15,6 +15,7 @@ import {
 import { db } from "@/lib/firebase/client";
 import { Sale, SaleItem, UserProfile, Client, StockLevel, Store } from "@/lib/types";
 import { CashService } from "./cash.service";
+import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper";
 
 const COLLECTION_NAME = "sales";
 const STOCKS_COLLECTION = "stocks";
@@ -39,7 +40,7 @@ export const SaleService = {
     const session = await CashService.getActiveSession(store.id);
     if (!session) throw new Error("Aucune session de caisse ouverte pour cette boutique.");
 
-    return await runTransaction(db, async (transaction) => {
+    const result = await runTransaction(db, async (transaction) => {
       // --- ÉTAPE 1 : TOUTES LES LECTURES (READS) ---
       
       // Lecture du client
@@ -158,8 +159,24 @@ export const SaleService = {
         }
       }
 
-      return saleData as Sale;
+      return {
+        sale: saleData as Sale,
+        stockChanges: stockUpdates.map((update) => ({
+          productId: update.item.productId,
+          productName: update.item.name,
+          previousStock: update.previousStock,
+          newStock: update.newQty,
+        })),
+      };
     });
+
+    void AppNotificationHelper.notifySaleCompleted({ sale: result.sale, store });
+    void AppNotificationHelper.notifyStockChanges({
+      storeId: store.id,
+      changes: result.stockChanges,
+    });
+
+    return result.sale;
   },
 
   async listRecentSales(storeId?: string, pageSize = 20, lastVisible?: DocumentSnapshot) {

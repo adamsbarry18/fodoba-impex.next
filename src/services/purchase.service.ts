@@ -19,6 +19,7 @@ import { db } from "@/lib/firebase/client";
 import { Purchase, UserProfile, Product, Supplier, StockLevel } from "@/lib/types";
 import { getLandedCostUnit } from "@/lib/purchase-utils";
 import { stripUndefined } from "@/lib/firestore-utils";
+import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper";
 
 const COLLECTION_NAME = "purchases";
 
@@ -107,12 +108,16 @@ export const PurchaseService = {
   },
 
   async validateReception(purchaseId: string, user: UserProfile) {
-    return await runTransaction(db, async (transaction) => {
-      const purchaseRef = doc(db, COLLECTION_NAME, purchaseId);
-      const purchaseSnap = await transaction.get(purchaseRef);
-      if (!purchaseSnap.exists()) throw new Error("Commande introuvable");
+    const purchaseRef = doc(db, COLLECTION_NAME, purchaseId);
+    const purchaseSnap = await getDoc(purchaseRef);
+    if (!purchaseSnap.exists()) throw new Error("Commande introuvable");
+    const purchasePreview = purchaseSnap.data() as Purchase;
 
-      const purchase = purchaseSnap.data() as Purchase;
+    await runTransaction(db, async (transaction) => {
+      const purchaseSnapInTx = await transaction.get(purchaseRef);
+      if (!purchaseSnapInTx.exists()) throw new Error("Commande introuvable");
+
+      const purchase = purchaseSnapInTx.data() as Purchase;
       if (purchase.status === "RECEIVED") {
         throw new Error("Cette commande a déjà été réceptionnée");
       }
@@ -203,6 +208,14 @@ export const PurchaseService = {
         receivedAt: serverTimestamp(),
         receivedBy: user.uid,
       });
+    });
+
+    void AppNotificationHelper.notifyPurchaseReceived({
+      purchaseId,
+      supplierName: purchasePreview.supplierName,
+      totalFCFA: purchasePreview.totalFCFA,
+      storeId: purchasePreview.storeId,
+      userId: user.uid,
     });
   },
 };

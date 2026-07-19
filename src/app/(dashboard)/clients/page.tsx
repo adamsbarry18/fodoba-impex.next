@@ -26,6 +26,10 @@ import {
   Wallet,
   AlertTriangle,
   CreditCard,
+  MoreVertical,
+  Edit,
+  Trash2,
+  Eye,
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -59,6 +63,14 @@ import { TableListToolbar } from "@/components/ui/table-list-toolbar"
 import { CLIENT_TABLE_COLUMNS } from "@/lib/table-column-presets"
 
 import { useT } from "@/i18n/context"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ClientDeleteDialog } from "@/components/clients/client-delete-dialog"
 
 const PAGE_SIZE = 50
 
@@ -71,6 +83,7 @@ export default function ClientsPage() {
   const [typeFilter, setTypeFilter] = useState<ClientTypeFilter>("all")
   const [statusFilter, setStatusFilter] = useState<ClientStatusFilter>("all")
   const [debtFilter, setDebtFilter] = useState<ClientDebtFilter>("all")
+  const [deleteTarget, setDeleteTarget] = useState<Client | null>(null)
 
   const loadClients = async () => {
     setLoading(true)
@@ -439,21 +452,71 @@ export default function ClientsPage() {
                         </VisibleTableColumn>
                         <VisibleTableColumn id="actions" isVisible={isVisible}>
                           <TableCell className="text-right">
-                            {client.currentDebt > 0 ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                asChild
-                                className="h-8 rounded-lg text-xs font-semibold"
-                              >
-                                <Link href={`/clients/${client.id}?tab=payments&action=payment`}>
-                                  <CreditCard className="mr-1.5 h-3.5 w-3.5" />
-                                  {t("clients.collectBtn")}
-                                </Link>
-                              </Button>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
-                            )}
+                            <div className="flex items-center justify-end gap-2">
+                              {client.currentDebt > 0 && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  asChild
+                                  className="hidden h-8 rounded-lg text-xs font-semibold sm:inline-flex"
+                                >
+                                  <Link href={`/clients/${client.id}?tab=payments&action=payment`}>
+                                    <CreditCard className="mr-1.5 h-3.5 w-3.5" />
+                                    {t("clients.collectBtn")}
+                                  </Link>
+                                </Button>
+                              )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-lg"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48 rounded-xl p-2">
+                                  <DropdownMenuItem asChild className="rounded-lg">
+                                    <Link
+                                      href={`/clients/${client.id}`}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                      {t("clients.viewDetail")}
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem asChild className="rounded-lg">
+                                    <Link
+                                      href={`/clients/${client.id}/edit`}
+                                      className="flex items-center gap-2 text-primary"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                      {t("common.edit")}
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  {client.currentDebt > 0 && (
+                                    <DropdownMenuItem asChild className="rounded-lg sm:hidden">
+                                      <Link
+                                        href={`/clients/${client.id}?tab=payments&action=payment`}
+                                        className="flex items-center gap-2"
+                                      >
+                                        <CreditCard className="h-4 w-4" />
+                                        {t("clients.collectBtn")}
+                                      </Link>
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="rounded-lg text-destructive focus:text-destructive"
+                                    onClick={() => setDeleteTarget(client)}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    {t("common.delete")}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </TableCell>
                         </VisibleTableColumn>
                       </TableRow>
@@ -474,6 +537,13 @@ export default function ClientsPage() {
           )}
         </CardContent>
       </Card>
+
+      <ClientDeleteDialog
+        client={deleteTarget}
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        onDeleted={loadClients}
+      />
     </div>
   )
 }

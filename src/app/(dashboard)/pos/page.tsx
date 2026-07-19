@@ -6,7 +6,7 @@ import { ClientService } from "@/services/client.service"
 import { SaleService } from "@/services/sale.service"
 import { CategoryService } from "@/services/category.service"
 import { CashService } from "@/services/cash.service"
-import { Product, Client, SaleItem, Sale, Category, CashSession, PaymentMethod } from "@/lib/types"
+import { Product, Client, SaleItem, Sale, Category, CashSession, PaymentMethod, PriceTier } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -57,8 +57,12 @@ import Link from "next/link"
 import { useCurrency } from "@/hooks/use-currency"
 import {
   applyCartDiscount,
+  buildSaleItemFromProduct,
   getCartItemCount,
+  getCartLineKey,
   getCartSubtotal,
+  getProductPriceForTier,
+  hasWholesalePrice,
 } from "@/lib/pos-utils"
 import { useSaleTicket } from "@/hooks/use-sale-ticket"
 import { useClientPagination } from "@/hooks/use-client-pagination"
@@ -235,23 +239,64 @@ export default function POSPage() {
   }, [searchTerm])
 
   // Barcode / douchette / caméra
-  const addToCart = (product: Product) => {
+  const addToCart = useCallback((product: Product, tier: PriceTier = "retail") => {
     setCart(prev => {
-      const existing = prev.find(item => item.productId === product.id)
+      const existing = prev.find(
+        item => item.productId === product.id && (item.priceTier ?? "retail") === tier
+      )
       if (existing) {
-        return prev.map(item => 
-          item.productId === product.id 
-            ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * item.unitPrice }
+        return prev.map(item =>
+          item.productId === product.id && (item.priceTier ?? "retail") === tier
+            ? {
+                ...item,
+                quantity: item.quantity + 1,
+                total: (item.quantity + 1) * item.unitPrice,
+              }
             : item
         )
       }
-      return [...prev, {
-        productId: product.id,
-        name: product.name,
-        quantity: 1,
-        unitPrice: product.sellingPriceFCFA,
-        total: product.sellingPriceFCFA
-      }]
+      return [...prev, buildSaleItemFromProduct(product, tier, 1)]
+    })
+  }, [])
+
+  const handlePriceTierChange = (
+    productId: string,
+    currentTier: PriceTier,
+    newTier: PriceTier
+  ) => {
+    if (currentTier === newTier) return
+    setCart(prev => {
+      const lineIndex = prev.findIndex(
+        item => item.productId === productId && (item.priceTier ?? "retail") === currentTier
+      )
+      if (lineIndex === -1) return prev
+
+      const item = prev[lineIndex]
+      const product = products.find(p => p.id === productId)
+      if (!product) return prev
+
+      const targetIndex = prev.findIndex(
+        i => i.productId === productId && (i.priceTier ?? "retail") === newTier
+      )
+
+      if (targetIndex !== -1 && targetIndex !== lineIndex) {
+        const target = prev[targetIndex]
+        const mergedQty = target.quantity + item.quantity
+        return prev
+          .filter((_, i) => i !== lineIndex)
+          .map(i =>
+            i.productId === productId && (i.priceTier ?? "retail") === newTier
+              ? { ...i, quantity: mergedQty, total: mergedQty * i.unitPrice }
+              : i
+          )
+      }
+
+      const unitPrice = getProductPriceForTier(product, newTier)
+      return prev.map((i, idx) =>
+        idx === lineIndex
+          ? { ...i, priceTier: newTier, unitPrice, total: i.quantity * unitPrice }
+          : i
+      )
     })
   }
 
@@ -277,9 +322,10 @@ export default function POSPage() {
 
   useGlobalBarcodeListener(handleProductScan)
 
-  const updateQty = (id: string, delta: number) => {
+  const updateQty = (lineKey: string, delta: number) => {
     setCart(prev => prev.map(item => {
-      if (item.productId === id) {
+      const key = getCartLineKey(item.productId, item.priceTier ?? "retail")
+      if (key === lineKey) {
         const newQty = Math.max(0, item.quantity + delta)
         return { ...item, quantity: newQty, total: newQty * item.unitPrice }
       }
@@ -288,12 +334,13 @@ export default function POSPage() {
   }
 
   // Direct Inline Price Edit
-  const handlePriceEdit = (id: string, newPrice: number) => {
-    setCart(prev => prev.map(item => 
-      item.productId === id 
+  const handlePriceEdit = (lineKey: string, newPrice: number) => {
+    setCart(prev => prev.map(item => {
+      const key = getCartLineKey(item.productId, item.priceTier ?? "retail")
+      return key === lineKey
         ? { ...item, unitPrice: newPrice, total: item.quantity * newPrice }
         : item
-    ))
+    }))
   }
 
   const subtotal = getCartSubtotal(cart)
@@ -576,6 +623,11 @@ export default function POSPage() {
                             <div className="text-primary font-extrabold text-base font-headline">
                               {formatAmount(product.sellingPriceFCFA, "FCFA")}
                             </div>
+                            {hasWholesalePrice(product) && (
+                              <p className="text-[9px] text-muted-foreground">
+                                {t("pos.wholesalePrice")}: {formatAmount(getProductPriceForTier(product, "wholesale"), "FCFA")}
+                              </p>
+                            )}
                           </div>
                           <div className="bg-primary/10 p-2 rounded-xl text-primary group-hover:bg-primary group-hover:text-white transition-all duration-200 active:scale-90">
                             <Plus className="w-4 h-4" />
@@ -614,7 +666,12 @@ export default function POSPage() {
                               </StatusBadge>
                             </td>
                             <td className="py-2.5 px-5 text-right font-bold text-foreground">
-                              {formatAmount(product.sellingPriceFCFA, "FCFA")}
+                              <div>{formatAmount(product.sellingPriceFCFA, "FCFA")}</div>
+                              {hasWholesalePrice(product) && (
+                                <div className="text-[9px] font-normal text-muted-foreground">
+                                  {t("pos.wholesalePrice")}: {formatAmount(getProductPriceForTier(product, "wholesale"), "FCFA")}
+                                </div>
+                              )}
                             </td>
                             <td className="py-2.5 px-5 text-center">
                               <Button 
@@ -839,12 +896,47 @@ export default function POSPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {cart.map((item) => (
-                        <div key={item.productId} className="group flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3 transition-shadow hover:shadow-sm">
-                          <div className="min-w-0 flex-1 space-y-1">
+                      {cart.map((item) => {
+                        const lineKey = getCartLineKey(item.productId, item.priceTier ?? "retail")
+                        const currentTier = item.priceTier ?? "retail"
+                        const product = products.find(p => p.id === item.productId)
+                        const wholesaleAvailable = product ? hasWholesalePrice(product) : false
+
+                        return (
+                        <div key={lineKey} className="group flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3 transition-shadow hover:shadow-sm">
+                          <div className="min-w-0 flex-1 space-y-1.5">
                             <p className="truncate text-xs font-bold leading-tight text-foreground">
                               {item.name}
                             </p>
+
+                            {wholesaleAvailable && (
+                              <div className="flex rounded-lg border border-border bg-muted/30 p-0.5 w-fit">
+                                <button
+                                  type="button"
+                                  className={cn(
+                                    "rounded-md px-2 py-0.5 text-[9px] font-bold uppercase transition-colors",
+                                    currentTier === "retail"
+                                      ? "bg-background text-foreground shadow-sm"
+                                      : "text-muted-foreground hover:text-foreground"
+                                  )}
+                                  onClick={() => handlePriceTierChange(item.productId, currentTier, "retail")}
+                                >
+                                  {t("pos.priceTier.retail")}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={cn(
+                                    "rounded-md px-2 py-0.5 text-[9px] font-bold uppercase transition-colors",
+                                    currentTier === "wholesale"
+                                      ? "bg-background text-foreground shadow-sm"
+                                      : "text-muted-foreground hover:text-foreground"
+                                  )}
+                                  onClick={() => handlePriceTierChange(item.productId, currentTier, "wholesale")}
+                                >
+                                  {t("pos.priceTier.wholesale")}
+                                </button>
+                              </div>
+                            )}
 
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="flex items-center gap-1.5">
@@ -855,7 +947,7 @@ export default function POSPage() {
                                   type="number"
                                   value={item.unitPrice}
                                   onChange={(e) =>
-                                    handlePriceEdit(item.productId, Number(e.target.value))
+                                    handlePriceEdit(lineKey, Number(e.target.value))
                                   }
                                   className="h-6 w-20 rounded border border-input bg-background px-1.5 text-right text-[10px] font-semibold focus-visible:ring-primary/20"
                                 />
@@ -873,7 +965,7 @@ export default function POSPage() {
                                 variant="ghost" 
                                 size="icon" 
                                 className="h-6 w-6 bg-background rounded hover:bg-secondary transition-colors" 
-                                onClick={() => updateQty(item.productId, -1)}
+                                onClick={() => updateQty(lineKey, -1)}
                               >
                                 <Minus className="h-3 w-3 text-muted-foreground" />
                               </Button>
@@ -882,7 +974,7 @@ export default function POSPage() {
                                 variant="ghost" 
                                 size="icon" 
                                 className="h-6 w-6 bg-background rounded hover:bg-secondary transition-colors" 
-                                onClick={() => updateQty(item.productId, 1)}
+                                onClick={() => updateQty(lineKey, 1)}
                               >
                                 <Plus className="h-3 w-3 text-muted-foreground" />
                               </Button>
@@ -891,13 +983,14 @@ export default function POSPage() {
                               variant="ghost" 
                               size="icon" 
                               className="h-7 w-7 text-muted-foreground/30 hover:text-destructive hover:bg-destructive/10 transition-colors rounded-lg flex-shrink-0" 
-                              onClick={() => updateQty(item.productId, -item.quantity)}
+                              onClick={() => updateQty(lineKey, -item.quantity)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </ScrollArea>

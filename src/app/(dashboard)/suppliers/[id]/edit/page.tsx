@@ -48,7 +48,14 @@ export default function EditSupplierPage() {
 
   const onSubmit = async (values: Supplier) => {
     try {
-      await SupplierService.updateSupplier(params.id as string, values)
+      await SupplierService.updateSupplier(params.id as string, {
+        name: values.name,
+        country: values.country,
+        city: values.city,
+        type: values.type,
+        defaultCurrency: values.defaultCurrency,
+        paymentTerms: values.paymentTerms,
+      })
       toast.success(t("suppliers.updateSuccess"))
       router.push(`/suppliers/${params.id}`)
     } catch (error) {

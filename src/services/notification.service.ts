@@ -6,23 +6,41 @@ import {
   setDoc, 
   updateDoc, 
   query, 
-  where, 
   orderBy, 
   limit, 
   serverTimestamp,
   deleteDoc,
   writeBatch,
-  onSnapshot
+  onSnapshot,
+  where
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { AppNotification } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestore-utils";
 
 const COLLECTION_NAME = "notifications";
+const MAX_NOTIFICATIONS = 50;
+
+function applyNotificationFilters(
+  notifications: AppNotification[],
+  filters: { storeId?: string; userId?: string }
+): AppNotification[] {
+  let notes = notifications;
+
+  if (filters.storeId) {
+    notes = notes.filter((n) => !n.storeId || n.storeId === filters.storeId);
+  }
+
+  if (filters.userId) {
+    notes = notes.filter((n) => !n.userId || n.userId === filters.userId);
+  }
+
+  return notes;
+}
 
 export const NotificationService = {
   /**
-   * Crée une nouvelle notification
+   * Notifications in-app persistées dans Firestore (pas de push FCM).
    */
   async createNotification(data: Omit<AppNotification, "id" | "timestamp" | "read">) {
     const newDocRef = doc(collection(db, COLLECTION_NAME));
@@ -36,17 +54,11 @@ export const NotificationService = {
     return notification;
   },
 
-  /**
-   * Marquer comme lu
-   */
   async markAsRead(id: string) {
     const docRef = doc(db, COLLECTION_NAME, id);
     await updateDoc(docRef, { read: true });
   },
 
-  /**
-   * Marquer plusieurs notifications comme lues
-   */
   async markAllAsRead(ids: string[]) {
     if (ids.length === 0) return;
     const batch = writeBatch(db);
@@ -54,45 +66,72 @@ export const NotificationService = {
     await batch.commit();
   },
 
-  /**
-   * Supprimer une notification
-   */
   async deleteNotification(id: string) {
     const docRef = doc(db, COLLECTION_NAME, id);
     await deleteDoc(docRef);
   },
 
-  /**
-   * Supprimer toutes les notifications d'un utilisateur/boutique
-   */
-  async clearAll(filters: { storeId?: string, userId?: string }) {
-    let q = query(collection(db, COLLECTION_NAME));
-    if (filters.storeId) q = query(q, where("storeId", "==", filters.storeId));
-    if (filters.userId) q = query(q, where("userId", "==", filters.userId));
-    
+  async hasExpirationAlert(productId: string, expirationDate: string): Promise<boolean> {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where("type", "==", "EXPIRATION_ALERT"),
+      limit(50)
+    );
     const snap = await getDocs(q);
+    return snap.docs.some((docSnap) => {
+      const notification = docSnap.data() as AppNotification;
+      return (
+        notification.relatedProductId === productId &&
+        notification.relatedExpirationDate === expirationDate
+      );
+    });
+  },
+
+  async clearAll(filters: { storeId?: string; userId?: string }) {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      orderBy("timestamp", "desc"),
+      limit(MAX_NOTIFICATIONS)
+    );
+    const snap = await getDocs(q);
+    const targets = applyNotificationFilters(
+      snap.docs.map((d) => d.data() as AppNotification),
+      filters
+    );
+
+    if (targets.length === 0) return;
+
     const batch = writeBatch(db);
-    snap.docs.forEach(d => batch.delete(d.ref));
+    targets.forEach((notification) => {
+      batch.delete(doc(db, COLLECTION_NAME, notification.id));
+    });
     await batch.commit();
   },
 
-  /**
-   * S'abonner aux notifications en temps réel
-   */
-  subscribe(filters: { storeId?: string, userId?: string }, callback: (notifications: AppNotification[]) => void) {
-    let q = query(collection(db, COLLECTION_NAME), orderBy("timestamp", "desc"), limit(50));
-    
-    // Note: Pour un prototype, on filtre en mémoire si possible ou on utilise des index si configurés.
-    // Ici on simplifie pour éviter les erreurs d'index composite.
-    
-    return onSnapshot(q, (snap) => {
-      let notes = snap.docs.map(d => d.data() as AppNotification);
-      
-      if (filters.storeId) {
-        notes = notes.filter(n => n.storeId === filters.storeId || !n.storeId);
+  subscribe(
+    filters: { storeId?: string; userId?: string },
+    callback: (notifications: AppNotification[]) => void,
+    onError?: (error: Error) => void
+  ) {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      orderBy("timestamp", "desc"),
+      limit(MAX_NOTIFICATIONS)
+    );
+
+    return onSnapshot(
+      q,
+      (snap) => {
+        const notes = applyNotificationFilters(
+          snap.docs.map((d) => d.data() as AppNotification),
+          filters
+        );
+        callback(notes);
+      },
+      (error) => {
+        console.error("[NotificationService.subscribe]", error);
+        onError?.(error);
       }
-      
-      callback(notes);
-    });
-  }
+    );
+  },
 };

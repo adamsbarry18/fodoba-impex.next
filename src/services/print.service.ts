@@ -8,6 +8,7 @@ import { formatPdfNumber } from '@/lib/utils';
 import { getPaymentMethodLabelFr, PAYMENT_METHOD_IDS } from '@/lib/constants/payment-methods';
 import { getAppName } from '@/lib/constants/branding';
 import { normalizeProduct } from '@/lib/product-utils';
+import { formatSaleItemName } from '@/lib/pos-utils';
 
 /**
  * Service pour la génération et l'impression des documents PDF officiels.
@@ -52,7 +53,7 @@ export const PrintService = {
       startY: y,
       margin: { left: 5, right: 5 },
       body: sale.items.map(item => [
-        item.name,
+        formatSaleItemName(item),
         `${item.quantity} x ${formatPdfNumber(item.unitPrice)}`,
         formatPdfNumber(item.total)
       ]),
@@ -93,7 +94,7 @@ export const PrintService = {
     autoTable(doc, {
       startY: y + 15,
       head: [['Désignation', 'Qté', 'Prix Unit.', 'Total (FCFA)']],
-      body: sale.items.map(i => [i.name, i.quantity, formatPdfNumber(i.unitPrice), formatPdfNumber(i.total)]),
+      body: sale.items.map(i => [formatSaleItemName(i), i.quantity, formatPdfNumber(i.unitPrice), formatPdfNumber(i.total)]),
       headStyles: { fillColor: [29, 217, 124] }
     });
 

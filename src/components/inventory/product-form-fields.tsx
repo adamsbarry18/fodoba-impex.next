@@ -23,8 +23,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { FieldWithAdd } from "@/components/forms/field-with-add"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 import { computeInitialStockTotal } from "@/lib/product-utils"
-import { Coins, ImageIcon, Scale, Tags, X } from "lucide-react"
+import { Coins, ImageIcon, Scale, Tags, X, Info } from "lucide-react"
 import { useT } from "@/i18n/context"
 
 type ProductFormFieldsProps = {
@@ -35,6 +36,7 @@ type ProductFormFieldsProps = {
   imageFile?: File | null
   onImageFileChange?: (file: File | null) => void
   showReferences?: boolean
+  productId?: string
 }
 
 export function ProductFormFields({
@@ -45,6 +47,7 @@ export function ProductFormFields({
   imageFile,
   onImageFileChange,
   showReferences = mode === "edit",
+  productId,
 }: ProductFormFieldsProps) {
   const t = useT()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -234,6 +237,29 @@ export function ProductFormFields({
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="lowStockThreshold"
+              render={({ field }) => (
+                <FormItem className="max-w-xs">
+                  <FormLabel>{t("inventory.form.lowStockThreshold")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      className="h-10 rounded-xl"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormDescription className="text-[11px]">
+                    {t("inventory.form.lowStockThresholdHint")}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
 
@@ -406,6 +432,24 @@ export function ProductFormFields({
             )}
 
             {mode === "edit" && (
+              <div className="rounded-xl border border-dashed bg-muted/10 p-4 text-xs text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <div className="space-y-2">
+                    <p>{t("inventory.form.stockManagedOnDetail")}</p>
+                    {productId && (
+                      <Button variant="link" asChild className="h-auto p-0 text-xs font-semibold">
+                        <Link href={`/inventory/${productId}`}>
+                          {t("inventory.form.viewProductDetail")}
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {mode === "edit" && (
               <FormField
                 control={form.control}
                 name="active"
@@ -542,25 +586,6 @@ export function ProductFormFields({
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="lowStockThreshold"
-              render={({ field }) => (
-                <FormItem className="max-w-xs">
-                  <FormLabel>{t("inventory.form.lowStockThreshold")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={0}
-                      className="h-10 rounded-xl"
-                      {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
           </CardContent>
         </Card>
       )}

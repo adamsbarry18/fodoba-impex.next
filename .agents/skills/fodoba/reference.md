@@ -31,11 +31,11 @@ Fichier : `src/app/layout.tsx`
 
 | Élément | Fichier / usage |
 |---------|-----------------|
-| Langues | `fr` (défaut), `en`, `pt` — `src/i18n/config.ts` |
+| Langues | `fr` (défaut), `en`, `pt` - `src/i18n/config.ts` |
 | Persistance | `localStorage` clé `fodoba-locale` |
 | Messages | `src/i18n/messages/{fr,en,pt}.json` (~1500 clés, format plat `"module.key"`) |
-| Conversion | `nestMessages()` — plat → imbriqué pour next-intl v4+ |
-| Provider | `I18nProvider` + `NextIntlClientProvider` — `src/i18n/context.tsx` |
+| Conversion | `nestMessages()` - plat → imbriqué pour next-intl v4+ |
+| Provider | `I18nProvider` + `NextIntlClientProvider` - `src/i18n/context.tsx` |
 | Traduction UI | `const t = useT()` → `t("common.save")` |
 | Locale | `useLocale()` → `{ locale, setLocale }` (sélecteur dans `app-header.tsx`) |
 | Rich text | `t.rich("key", { store: name, strong: (c) => <strong>{c}</strong> })` |
@@ -43,7 +43,7 @@ Fichier : `src/app/layout.tsx`
 | Colonnes table | `useTranslatedTableColumns(tableKey, columns, labelKeys)` |
 | Modes paiement | `usePaymentMethodLabel()` ou `t(getPaymentMethodLabel(id))` |
 | Badges preset | `StatusBadge preset="…" value="…"` sans `children` (traduit via `badge-tones.ts`) |
-| Hors React | `getAppName()`, `getPaymentMethodLabelFr()` — `src/lib/constants/` |
+| Hors React | `getAppName()`, `getPaymentMethodLabelFr()` - `src/lib/constants/` |
 | PDF | `print.service.ts` utilise `getAppName()` ; corps des PDF encore majoritairement FR |
 
 ### Namespaces courants
@@ -54,14 +54,14 @@ Fichier : `src/app/layout.tsx`
 
 1. Ajouter la clé dans **fr.json, en.json et pt.json** (même clé, texte adapté)
 2. Dans le composant client : `import { useT } from "@/i18n/context"` puis `t("module.key")`
-3. Si variable : `t("module.key", { name: value })` — ne pas oublier les paramètres requis
+3. Si variable : `t("module.key", { name: value })` - ne pas oublier les paramètres requis
 4. `npm run typecheck`
 
 ## Conventions
 
 - Routes : anglais kebab-case (`/inventory/transfers/new`, `/reconciliation`)
 - Rôles Firestore : `"admin"`, `"manager"`, `"seller"` (lowercase)
-- Permissions : `"action:ressource"` — `permissions.ts`
+- Permissions : `"action:ressource"` - `permissions.ts`
 - Services : `{Domain}Service` dans `{domain}.service.ts`
 - Champs mixtes : `nom`/`prenom`/`boutiqueIds` (profil) vs `storeId`/`activeStore` (contexte)
 - localStorage boutique : clé `activeStoreId`
@@ -76,7 +76,7 @@ Fichier : `src/app/layout.tsx`
 import { app, auth, db } from '@/lib/firebase/client';
 ```
 
-Config : `NEXT_PUBLIC_FIREBASE_*` — `.env.example` → `.env.local`
+Config : `NEXT_PUBLIC_FIREBASE_*` - `.env.example` → `.env.local`
 
 ### Pattern données
 
@@ -132,9 +132,9 @@ Collections couvertes : `users`, `stores`, `products`, `categories`, `stocks`, `
 
 ### Auth
 
-- Erreurs auth mappées via clés i18n — `auth-utils.ts` / `AuthService.handleAuthError()`
-- Bootstrap : premier user → admin auto si `users` vide — `AuthContext.tsx`
-- Création collaborateur : app Firebase secondaire — `UserService.createCollaborator`
+- Erreurs auth mappées via clés i18n - `auth-utils.ts` / `AuthService.handleAuthError()`
+- Bootstrap : premier user → admin auto si `users` vide - `AuthContext.tsx`
+- Création collaborateur : app Firebase secondaire - `UserService.createCollaborator`
 
 ## Contextes & hooks
 
@@ -154,8 +154,8 @@ Collections couvertes : `users`, `stores`, `products`, `categories`, `stocks`, `
 
 Rôles et permissions dans `src/lib/auth/permissions.ts`.
 
-Garde UI : `RoleGuard` — `src/components/auth/role-guard.tsx`  
-Nav : `APP_NAVIGATION` — clés `nav.*`, filtrée par `usePermissions()`
+Garde UI : `RoleGuard` - `src/components/auth/role-guard.tsx`  
+Nav : `APP_NAVIGATION` - clés `nav.*`, filtrée par `usePermissions()`
 
 ## UI
 
@@ -219,7 +219,7 @@ Voir routes : POS (`pos/`), Caisse (`reconciliation/`), Achats (`purchases/`), S
 ## CI/CD
 
 - Push/PR `main`/`dev` → `validate` (lint + typecheck + build)
-- Déploiement Vercel : `workflow_dispatch` — `.github/workflows/ci-cd.yml`
+- Déploiement Vercel : `workflow_dispatch` - `.github/workflows/ci-cd.yml`
 
 ## Documentation projet
 
@@ -228,7 +228,7 @@ Voir routes : POS (`pos/`), Caisse (`reconciliation/`), Achats (`purchases/`), S
 | `README.md` | Setup, architecture, i18n, déploiement |
 | `.env.example` | Variables Firebase |
 | `firestore.rules` | Règles sécurité Firestore |
-| `docs/cahier_de_charges.md` | CDC v1.0 — source métier |
+| `docs/cahier_de_charges.md` | CDC v1.0 - source métier |
 | `docs/blueprint.md` | Spec produit |
 | `.agents/skills/fodoba/` | Skill agent IA (conventions code) |
 | `.agents/rules/` | Règles persistantes (code + documentation) |

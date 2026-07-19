@@ -107,11 +107,13 @@ export function BarcodeScanField({
         )}
       </div>
 
-      <BarcodeCameraDialog
-        open={cameraOpen}
-        onOpenChange={setCameraOpen}
-        onScan={onScan}
-      />
+      {cameraOpen && (
+        <BarcodeCameraDialog
+          open={cameraOpen}
+          onOpenChange={setCameraOpen}
+          onScan={onScan}
+        />
+      )}
     </>
   )
 }

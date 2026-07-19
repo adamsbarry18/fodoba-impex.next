@@ -24,6 +24,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Plus,
   Loader2,
   Truck,
@@ -37,6 +43,7 @@ import {
   ClipboardList,
   CheckCircle2,
   Clock,
+  MoreVertical,
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -444,32 +451,42 @@ export default function PurchasesPage() {
                         </VisibleTableColumn>
                         <VisibleTableColumn id="actions" isVisible={isVisible}>
                           <TableCell className="pr-4 text-right sm:pr-6">
-                            <div className="flex justify-end gap-2">
-                              {can("manage:purchases") && canEditPurchase(p.status) && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
                                 <Button
-                                  variant="outline"
-                                  size="sm"
-                                  asChild
-                                  className="h-8 rounded-lg text-xs font-semibold"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-lg"
                                 >
-                                  <Link href={`/purchases/${p.id}/edit`}>
-                                    <Edit className="mr-1.5 h-3.5 w-3.5" />
-                                    {t("common.edit")}
-                                  </Link>
+                                  <MoreVertical className="h-4 w-4" />
                                 </Button>
-                              )}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                asChild
-                                className="h-8 rounded-lg text-xs font-semibold"
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="end"
+                                className="w-44 rounded-xl p-2"
                               >
-                                <Link href={`/purchases/${p.id}`}>
-                                  <Eye className="mr-1.5 h-3.5 w-3.5" />
-                                  {t("purchases.viewDetail")}
-                                </Link>
-                              </Button>
-                            </div>
+                                <DropdownMenuItem asChild className="rounded-lg">
+                                  <Link
+                                    href={`/purchases/${p.id}`}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                    {t("purchases.viewDetail")}
+                                  </Link>
+                                </DropdownMenuItem>
+                                {can("manage:purchases") && canEditPurchase(p.status) && (
+                                  <DropdownMenuItem asChild className="rounded-lg">
+                                    <Link
+                                      href={`/purchases/${p.id}/edit`}
+                                      className="flex items-center gap-2 text-primary"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                      {t("common.edit")}
+                                    </Link>
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </VisibleTableColumn>
                       </TableRow>

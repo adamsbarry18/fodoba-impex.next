@@ -25,6 +25,10 @@ import {
   RefreshCw,
   Wallet,
   Banknote,
+  MoreVertical,
+  Edit,
+  Trash2,
+  Eye,
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -55,6 +59,14 @@ import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { TableListToolbar } from "@/components/ui/table-list-toolbar"
 import { SUPPLIER_TABLE_COLUMNS } from "@/lib/table-column-presets"
 import { useT } from "@/i18n/context"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { SupplierDeleteDialog } from "@/components/suppliers/supplier-delete-dialog"
 
 const SUPPLIER_COLUMN_LABEL_KEYS: Record<string, string> = {
   supplier: "suppliers.colSupplier",
@@ -76,6 +88,7 @@ export default function SuppliersPage() {
   const [typeFilter, setTypeFilter] = useState<SupplierTypeFilter>("all")
   const [currencyFilter, setCurrencyFilter] = useState<CurrencyCode | "all">("all")
   const [debtFilter, setDebtFilter] = useState<SupplierDebtFilter>("all")
+  const [deleteTarget, setDeleteTarget] = useState<Supplier | null>(null)
 
   const loadSuppliers = async () => {
     setLoading(true)
@@ -443,21 +456,71 @@ export default function SuppliersPage() {
                       </VisibleTableColumn>
                       <VisibleTableColumn id="actions" isVisible={isVisible}>
                         <TableCell className="text-right">
-                          {supplier.currentDebt > 0 ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              asChild
-                              className="h-8 rounded-lg text-xs font-semibold"
-                            >
-                              <Link href={`/suppliers/${supplier.id}?tab=payments`}>
-                                <Wallet className="mr-1.5 h-3.5 w-3.5" />
-                                {t("suppliers.payBtn")}
-                              </Link>
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
-                          )}
+                          <div className="flex items-center justify-end gap-2">
+                            {supplier.currentDebt > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                className="hidden h-8 rounded-lg text-xs font-semibold sm:inline-flex"
+                              >
+                                <Link href={`/suppliers/${supplier.id}?tab=payments`}>
+                                  <Wallet className="mr-1.5 h-3.5 w-3.5" />
+                                  {t("suppliers.payBtn")}
+                                </Link>
+                              </Button>
+                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-lg"
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48 rounded-xl p-2">
+                                <DropdownMenuItem asChild className="rounded-lg">
+                                  <Link
+                                    href={`/suppliers/${supplier.id}`}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                    {t("suppliers.viewDetail")}
+                                  </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild className="rounded-lg">
+                                  <Link
+                                    href={`/suppliers/${supplier.id}/edit`}
+                                    className="flex items-center gap-2 text-primary"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                    {t("common.edit")}
+                                  </Link>
+                                </DropdownMenuItem>
+                                {supplier.currentDebt > 0 && (
+                                  <DropdownMenuItem asChild className="rounded-lg sm:hidden">
+                                    <Link
+                                      href={`/suppliers/${supplier.id}?tab=payments`}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <Wallet className="h-4 w-4" />
+                                      {t("suppliers.payBtn")}
+                                    </Link>
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="rounded-lg text-destructive focus:text-destructive"
+                                  onClick={() => setDeleteTarget(supplier)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  {t("common.delete")}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       </VisibleTableColumn>
                     </TableRow>
@@ -477,6 +540,13 @@ export default function SuppliersPage() {
           )}
         </CardContent>
       </Card>
+
+      <SupplierDeleteDialog
+        supplier={deleteTarget}
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        onDeleted={loadSuppliers}
+      />
     </div>
   )
 }

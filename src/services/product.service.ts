@@ -18,6 +18,7 @@ import { db } from "@/lib/firebase/client";
 import { Product, StockLevel } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestore-utils";
 import { computeInitialStockTotal } from "@/lib/product-utils";
+import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper";
 
 const COLLECTION_NAME = "products";
 const STOCKS_COLLECTION = "stocks";
@@ -31,6 +32,7 @@ export const ProductService = {
       createdAt: serverTimestamp(),
     };
     await setDoc(newDocRef, stripUndefined(product));
+    void AppNotificationHelper.notifyProductExpiration({ product });
     return product;
   },
 
@@ -52,6 +54,11 @@ export const ProductService = {
     if (totalStock > 0) {
       await this.setStockLevel(product.id, options.storeId, totalStock);
     }
+
+    void AppNotificationHelper.notifyProductExpiration({
+      product,
+      storeId: options.storeId,
+    });
 
     return product;
   },
@@ -84,9 +91,16 @@ export const ProductService = {
     return url;
   },
 
-  async updateProduct(id: string, data: Partial<Product>) {
+  async updateProduct(id: string, data: Partial<Product>, options?: { storeId?: string }) {
     const docRef = doc(db, COLLECTION_NAME, id);
     await updateDoc(docRef, stripUndefined(data));
+    const product = await this.getProduct(id);
+    if (product) {
+      void AppNotificationHelper.notifyProductExpiration({
+        product,
+        storeId: options?.storeId,
+      });
+    }
   },
 
   async getProduct(id: string) {

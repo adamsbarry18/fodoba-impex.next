@@ -20,6 +20,7 @@ import {
   Receipt,
   Download,
   Wallet,
+  Trash2,
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -43,6 +44,7 @@ import { usePaymentMethodLabel } from "@/hooks/use-payment-method-label"
 import { POS_PAYMENT_METHODS } from "@/lib/constants/payment-methods"
 import { useT, useLocale } from "@/i18n/context"
 import { getDateLocale } from "@/i18n/get-date-locale"
+import { ClientDeleteDialog } from "@/components/clients/client-delete-dialog"
 
 export default function ClientDetailsPage() {
   const params = useParams()
@@ -59,6 +61,7 @@ export default function ClientDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("history")
 
   const authorizedStoreIds = useMemo(
@@ -254,6 +257,14 @@ export default function ClientDetailsPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          <Button
+            variant="outline"
+            className="text-destructive hover:text-destructive"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            {t("common.delete")}
+          </Button>
         </div>
       </div>
 
@@ -486,6 +497,13 @@ export default function ClientDetailsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ClientDeleteDialog
+        client={client}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onDeleted={() => router.push("/clients")}
+      />
     </div>
   )
 }

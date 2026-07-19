@@ -17,6 +17,7 @@ import { applyReturnSelection } from "@/hooks/use-return-selection"
 import { ENTITY_ROUTES } from "@/lib/navigation/return-to"
 import { normalizeProduct } from "@/lib/product-utils"
 import { ProductFormFields } from "@/components/inventory/product-form-fields"
+import { useStore } from "@/lib/contexts/StoreContext"
 import { useT } from "@/i18n/context"
 
 export default function EditProductPage() {
@@ -26,6 +27,7 @@ export default function EditProductPage() {
   const [loading, setLoading] = useState(true)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const t = useT()
+  const { activeStore } = useStore()
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(ProductSchema) as unknown as Resolver<ProductFormValues>,
@@ -78,13 +80,17 @@ export default function EditProductPage() {
         imageUrl = await ProductService.uploadProductImage(productId, imageFile)
       }
 
-      await ProductService.updateProduct(productId, {
-        ...values,
-        imageUrl,
-        manufacturingDate: values.manufacturingDate || undefined,
-        expirationDate: values.expirationDate || undefined,
-        packagingUnit: values.packagingUnit || undefined,
-      })
+      await ProductService.updateProduct(
+        productId,
+        {
+          ...values,
+          imageUrl,
+          manufacturingDate: values.manufacturingDate || undefined,
+          expirationDate: values.expirationDate || undefined,
+          packagingUnit: values.packagingUnit || undefined,
+        },
+        { storeId: activeStore?.id }
+      )
       toast.success(t("inventory.updatedSuccess"))
       router.push("/inventory")
     } catch (error: unknown) {
@@ -129,6 +135,7 @@ export default function EditProductPage() {
             categoryReturnPath={editReturnPath}
             imageFile={imageFile}
             onImageFileChange={setImageFile}
+            productId={params.id as string}
           />
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

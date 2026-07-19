@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react"
-import { Package, ShoppingCart, Truck, Info } from "lucide-react"
+import { Package, ShoppingCart, Truck, Info, CalendarClock } from "lucide-react"
 import type { AppNotification, AppNotificationType } from "@/lib/types"
 import { format, formatDistanceToNow, isToday, isYesterday } from "date-fns"
 import { fr } from "date-fns/locale"
@@ -14,6 +14,7 @@ export const NOTIFICATION_TYPE_META: Record<
   SALE: { label: "Vente", Icon: ShoppingCart },
   PURCHASE: { label: "Achat", Icon: Truck },
   INFO: { label: "Information", Icon: Info },
+  EXPIRATION_ALERT: { label: "Expiration", Icon: CalendarClock },
 }
 
 export function toNotificationDate(ts: AppNotification["timestamp"]): Date | null {

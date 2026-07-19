@@ -23,6 +23,7 @@ export const INVENTORY_TABLE_COLUMNS: TableColumnDef[] = [
   { id: "sku", label: "SKU / Code-barres", defaultVisible: true },
   { id: "category", label: "Catégorie", defaultVisible: false },
   { id: "price", label: "Prix (FCFA)", defaultVisible: true },
+  { id: "expiration", label: "Expiration", defaultVisible: true },
   { id: "stock", label: "Stock", defaultVisible: true },
   { id: "actions", label: "Actions", locked: true },
 ]

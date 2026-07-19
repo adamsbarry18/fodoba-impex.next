@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Non utilisé — images produits sur Vercel Blob (voir README).
+// Non utilisé - images produits sur Vercel Blob (voir README).
 
 service firebase.storage {
   match /b/{bucket}/o {
