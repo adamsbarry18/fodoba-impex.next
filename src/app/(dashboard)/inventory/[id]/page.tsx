@@ -204,16 +204,16 @@ export default function ProductDetailsPage() {
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-stretch">
         <Card className={`${cardClassName} lg:col-span-4`}>
           {product.imageUrl ? (
-            <CardContent className="p-0">
+            <CardContent className="flex max-h-[220px] items-center justify-center overflow-hidden bg-muted/10 p-4 sm:max-h-[240px]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={product.imageUrl}
                 alt={product.name}
-                className="aspect-[4/3] w-full object-cover lg:aspect-auto lg:min-h-[280px] lg:h-full"
+                className="max-h-[188px] w-full max-w-full object-contain sm:max-h-[208px]"
               />
             </CardContent>
           ) : (
-            <CardContent className="flex aspect-[4/3] flex-col items-center justify-center gap-3 bg-muted/20 lg:min-h-[280px] lg:h-full">
+            <CardContent className="flex h-[220px] flex-col items-center justify-center gap-3 bg-muted/20 sm:h-[240px]">
               <div className="rounded-2xl bg-muted/40 p-4">
                 <ImageIcon className="h-8 w-8 text-muted-foreground/60" />
               </div>

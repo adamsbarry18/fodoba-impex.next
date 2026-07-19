@@ -61,7 +61,12 @@ import {
   getCartSubtotal,
 } from "@/lib/pos-utils"
 import { useSaleTicket } from "@/hooks/use-sale-ticket"
+import { useClientPagination } from "@/hooks/use-client-pagination"
+import { TablePagination } from "@/components/ui/table-pagination"
 import { useT } from "@/i18n/context"
+
+const POS_FETCH_SIZE = 48
+const POS_PAGE_SIZE = 12
 
 export default function POSPage() {
   const { activeStore } = useStore()
@@ -108,13 +113,13 @@ export default function POSPage() {
       setLoading(true)
       try {
         const [prodResult, clientResult, categoriesResult] = await Promise.all([
-          ProductService.listProducts({ active: true }, 24),
+          ProductService.listProducts({ active: true }, POS_FETCH_SIZE),
           ClientService.listClients(),
           CategoryService.listCategories()
         ])
         setProducts(prodResult.products)
         setLastVisible(prodResult.lastVisible)
-        setHasMore(prodResult.products.length === 24)
+        setHasMore(prodResult.products.length === POS_FETCH_SIZE)
         setClients(clientResult)
         setCategories(categoriesResult)
 
@@ -171,7 +176,7 @@ export default function POSPage() {
       
       const result = await ProductService.listProducts(
         filters, 
-        24, 
+        POS_FETCH_SIZE, 
         isLoadMore ? lastVisible : undefined
       )
       
@@ -182,7 +187,7 @@ export default function POSPage() {
       }
       
       setLastVisible(result.lastVisible)
-      setHasMore(result.products.length === 24)
+      setHasMore(result.products.length === POS_FETCH_SIZE)
     } catch (error) {
       toast.error(t("pos.errorLoadingItems"))
     } finally {
@@ -369,6 +374,20 @@ export default function POSPage() {
     [clients, selectedClientId]
   )
 
+  const catalogResetKey = `${selectedCategoryId}|${searchTerm.trim()}`
+  const {
+    paginatedItems: visibleProducts,
+    page: catalogPage,
+    setPage: setCatalogPage,
+    totalPages: catalogTotalPages,
+    totalItems: catalogTotalItems,
+    rangeStart: catalogRangeStart,
+    rangeEnd: catalogRangeEnd,
+  } = useClientPagination(products, {
+    pageSize: POS_PAGE_SIZE,
+    resetKey: catalogResetKey,
+  })
+
   const refreshCashSession = () => {
     if (!activeStore?.id) return
     CashService.getActiveSession(activeStore.id)
@@ -530,7 +549,7 @@ export default function POSPage() {
               {viewMode === 'grid' ? (
                 /* 1. Grid Visual Mode */
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {products.map((product) => (
+                  {visibleProducts.map((product) => (
                     <Card 
                       key={product.id} 
                       className="cursor-pointer hover:border-primary/20 hover:shadow-md transition-all shadow-sm border bg-card rounded-2xl overflow-hidden group relative flex flex-col justify-between"
@@ -581,7 +600,7 @@ export default function POSPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border text-xs">
-                        {products.map((product) => (
+                        {visibleProducts.map((product) => (
                           <tr 
                             key={product.id}
                             className="group hover:bg-muted/30 transition-colors duration-150 cursor-pointer"
@@ -618,16 +637,29 @@ export default function POSPage() {
                 </Card>
               )}
 
-              {/* Load More Button */}
-              {hasMore && !searchTerm && (
-                <div className="flex justify-center py-6">
-                  <Button 
-                    variant="ghost" 
-                    onClick={handleLoadMore} 
+              <TablePagination
+                page={catalogPage}
+                totalPages={catalogTotalPages}
+                totalItems={catalogTotalItems}
+                rangeStart={catalogRangeStart}
+                rangeEnd={catalogRangeEnd}
+                onPageChange={setCatalogPage}
+                className="rounded-2xl border bg-card"
+              />
+
+              {hasMore && !searchTerm && catalogPage === catalogTotalPages && (
+                <div className="flex justify-center pb-2">
+                  <Button
+                    variant="ghost"
+                    onClick={handleLoadMore}
                     disabled={loadingMore}
-                    className="text-muted-foreground font-bold text-xs hover:text-primary transition-colors h-9 rounded-xl border border-border bg-card px-4"
+                    className="h-9 rounded-xl border border-border bg-card px-4 text-xs font-bold text-muted-foreground hover:text-primary"
                   >
-                    {loadingMore ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
+                    {loadingMore ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <ChevronDown className="mr-2 h-4 w-4" />
+                    )}
                     {t("pos.loadMore", { count: products.length })}
                   </Button>
                 </div>

@@ -66,9 +66,12 @@ import { useTranslatedTableColumns } from "@/hooks/use-translated-table-columns"
 import { TableColumnToggle } from "@/components/ui/table-column-toggle"
 import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { INVENTORY_TABLE_COLUMNS } from "@/lib/table-column-presets"
+import { useClientPagination } from "@/hooks/use-client-pagination"
+import { TablePagination } from "@/components/ui/table-pagination"
 import { useT } from "@/i18n/context"
 
-const PAGE_SIZE = 25
+const FETCH_SIZE = 50
+const TABLE_PAGE_SIZE = 10
 
 const INVENTORY_COLUMN_LABEL_KEYS: Record<string, string> = {
   product: "inventory.colProduct",
@@ -115,7 +118,7 @@ export default function InventoryPage() {
             {
               categoryId: filterCategory === "all" ? undefined : filterCategory,
             },
-            PAGE_SIZE,
+            FETCH_SIZE,
             loadMore && !options?.reset ? lastVisible : undefined
           ),
           loadMore ? Promise.resolve(null) : CategoryService.listCategories(),
@@ -128,7 +131,7 @@ export default function InventoryPage() {
           : prodData.products
         setProducts(newProducts)
         setLastVisible(prodData.lastVisible)
-        setHasMore(prodData.products.length === PAGE_SIZE)
+        setHasMore(prodData.products.length === FETCH_SIZE)
 
         const productIds = prodData.products.map((p) => p.id)
         const newStocks = await ProductService.getStockLevelsForProducts(
@@ -162,7 +165,7 @@ export default function InventoryPage() {
         const [prodData, catData] = await Promise.all([
           ProductService.listProducts(
             { categoryId: filterCategory === "all" ? undefined : filterCategory },
-            PAGE_SIZE
+            FETCH_SIZE
           ),
           CategoryService.listCategories(),
         ])
@@ -171,7 +174,7 @@ export default function InventoryPage() {
         setProducts(prodData.products)
         setCategories(catData)
         setLastVisible(prodData.lastVisible)
-        setHasMore(prodData.products.length === PAGE_SIZE)
+        setHasMore(prodData.products.length === FETCH_SIZE)
 
         const newStocks = await ProductService.getStockLevelsForProducts(
           prodData.products.map((p) => p.id),
@@ -211,6 +214,20 @@ export default function InventoryPage() {
       return matchesSearch && matchesStock
     })
   }, [products, searchTerm, stocks, stockFilter])
+
+  const filterKey = `${searchTerm}|${filterCategory}|${stockFilter}`
+  const {
+    paginatedItems: visibleProducts,
+    page,
+    setPage,
+    totalPages,
+    totalItems: filteredTotal,
+    rangeStart,
+    rangeEnd,
+  } = useClientPagination(filteredProducts, {
+    pageSize: TABLE_PAGE_SIZE,
+    resetKey: filterKey,
+  })
 
   const stats = useMemo(
     () => ({
@@ -417,8 +434,8 @@ export default function InventoryPage() {
             <CardTitle className="text-base">{t("inventory.listTitle")}</CardTitle>
             <CardDescription className="text-xs">
               {hasActiveFilters
-                ? t("inventory.listDescriptionFiltered", { count: filteredProducts.length })
-                : t("inventory.listDescription", { count: filteredProducts.length })}
+                ? t("inventory.listDescriptionFiltered", { count: filteredTotal })
+                : t("inventory.listDescription", { count: filteredTotal })}
             </CardDescription>
           </div>
           <TableColumnToggle
@@ -478,7 +495,7 @@ export default function InventoryPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredProducts.map((p) => {
+                    {visibleProducts.map((p) => {
                       const stock = stocks[p.id] ?? 0
                       const status = getStockStatus(stock, p.lowStockThreshold)
                       const category = categories.find((c) => c.id === p.categoryId)?.name
@@ -609,13 +626,23 @@ export default function InventoryPage() {
                 </Table>
               </div>
 
-              {hasMore && (
-                <div className="flex justify-center border-t p-4">
+              <TablePagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={filteredTotal}
+                rangeStart={rangeStart}
+                rangeEnd={rangeEnd}
+                onPageChange={setPage}
+              />
+
+              {hasMore && !hasActiveFilters && page === totalPages && (
+                <div className="flex justify-center border-t p-3">
                   <Button
                     variant="ghost"
+                    size="sm"
                     onClick={() => loadData({ loadMore: true })}
                     disabled={loadingMore}
-                    className="rounded-xl font-semibold"
+                    className="rounded-xl text-xs font-semibold"
                   >
                     {loadingMore ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
