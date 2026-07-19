@@ -1,0 +1,34 @@
+rules_version = '2';
+
+// Non utilisé — images produits sur Vercel Blob (voir README).
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getProfile() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActif() {
+      return isSignedIn() && getProfile().actif == true;
+    }
+
+    function canManageCatalog() {
+      return isActif()
+        && (getProfile().role == 'admin' || getProfile().role == 'manager');
+    }
+
+    // Images produits : products/{productId}/{timestamp}_{filename}
+    match /products/{productId}/{fileName} {
+      allow read: if isActif();
+      allow create, update: if canManageCatalog()
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if canManageCatalog();
+    }
+  }
+}

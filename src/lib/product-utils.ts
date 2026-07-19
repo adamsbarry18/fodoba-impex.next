@@ -7,9 +7,95 @@ export const PRODUCT_UNITS = [
   { value: "Sac", label: "Sac" },
   { value: "Carton", label: "Carton" },
   { value: "Bouteille", label: "Bouteille" },
+  { value: "Boîte", label: "Boîte" },
+  { value: "Paquet", label: "Paquet" },
 ] as const
 
 export type StockFilter = "all" | "low" | "out"
+
+export function normalizeProduct(product: Product): Product {
+  return {
+    ...product,
+    unitsPerPack: product.unitsPerPack ?? 1,
+    retailQtyFactor: product.retailQtyFactor ?? 1,
+    wholesalePriceFCFA: product.wholesalePriceFCFA ?? 0,
+    packagingUnit: product.packagingUnit ?? product.conditionnement ?? "",
+  }
+}
+
+/** Génère un SKU court et lisible (ex. `JDO-A3K9M`, ~8–10 car.). */
+export function generateProductSku(name: string): string {
+  const normalized = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+
+  const words = normalized.split(/[^a-zA-Z0-9]+/).filter((w) => w.length > 0)
+
+  let prefix: string
+  if (words.length >= 2) {
+    prefix = words
+      .slice(0, 4)
+      .map((w) => (/^\d/.test(w) ? w[0] : w[0]))
+      .join("")
+      .toUpperCase()
+      .slice(0, 4)
+  } else if (words.length === 1) {
+    prefix = words[0].toUpperCase().slice(0, 4)
+  } else {
+    prefix = "PRD"
+  }
+
+  if (prefix.length < 2) prefix = "PRD"
+
+  const timePart = Date.now().toString(36).slice(-3).toUpperCase()
+  const randomPart = Math.random().toString(36).slice(2, 5).toUpperCase()
+  return `${prefix}-${timePart}${randomPart}`
+}
+
+/** Stock total en unités détail : (gros × conditionnement) + détail loose */
+export function computeInitialStockTotal(
+  initialPackaging: number,
+  unitsPerPack: number,
+  detailStock = 0
+): number {
+  const packs = Math.max(0, initialPackaging)
+  const ratio = Math.max(1, unitsPerPack)
+  const loose = Math.max(0, detailStock)
+  return packs * ratio + loose
+}
+
+export function decomposeStock(totalRetail: number, unitsPerPack: number) {
+  const ratio = Math.max(1, unitsPerPack)
+  if (ratio <= 1) {
+    return { packs: 0, loose: Math.max(0, totalRetail) }
+  }
+  const safeTotal = Math.max(0, totalRetail)
+  const packs = Math.floor(safeTotal / ratio)
+  const loose = safeTotal % ratio
+  return { packs, loose }
+}
+
+export function formatStockBreakdown(
+  stock: number,
+  product: Product,
+  separator = " + "
+): string | null {
+  const normalized = normalizeProduct(product)
+  const ratio = normalized.unitsPerPack
+  if (ratio <= 1 || !normalized.packagingUnit) return null
+
+  const { packs, loose } = decomposeStock(stock, ratio)
+  const parts: string[] = []
+  if (packs > 0) {
+    parts.push(`${packs} ${normalized.packagingUnit}`)
+  }
+  if (loose > 0) {
+    parts.push(`${loose} ${normalized.unit}`)
+  }
+  if (parts.length === 0) return `0 ${normalized.unit}`
+  return parts.join(separator)
+}
 
 export function isLowStock(stock: number, threshold: number): boolean {
   return stock > 0 && stock <= threshold

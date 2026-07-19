@@ -1,83 +1,62 @@
 
 "use client"
 
-import { useForm } from "react-hook-form"
+import { useForm, type UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ProductSchema, Product, Category } from "@/lib/types"
+import { ProductCreateFormSchema, ProductCreateFormValues, ProductFormValues, Category } from "@/lib/types"
 import { ProductService } from "@/services/product.service"
 import { CategoryService } from "@/services/category.service"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormDescription,
-} from "@/components/ui/form"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Form } from "@/components/ui/form"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import {
-  ArrowLeft,
-  Loader2,
-  Save,
-  Barcode,
-  Package,
-  Tags,
-  Scale,
-  Coins,
-  Info,
-} from "lucide-react"
+import { ArrowLeft, Loader2, Save, Package } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useCreateReturn } from "@/hooks/use-create-return"
 import { ENTITY_ROUTES, readReturnContext } from "@/lib/navigation/return-to"
-import { FieldWithAdd } from "@/components/forms/field-with-add"
 import { applyReturnSelection } from "@/hooks/use-return-selection"
-import { PRODUCT_UNITS } from "@/lib/product-utils"
-import { useCurrency } from "@/hooks/use-currency"
-import { StatusBadge } from "@/components/ui/status-badge"
+import { generateProductSku } from "@/lib/product-utils"
+import { useStore } from "@/lib/contexts/StoreContext"
+import { ProductFormFields } from "@/components/inventory/product-form-fields"
 import { useT } from "@/i18n/context"
 
 export default function NewProductPage() {
   const router = useRouter()
+  const { activeStore } = useStore()
   const { redirectAfterCreate, cancelHref } = useCreateReturn(
     "/inventory",
     ENTITY_ROUTES.product.param
   )
-  const { formatAmount, rates } = useCurrency()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const t = useT()
 
-  const form = useForm<Omit<Product, "id" | "createdAt">>({
-    resolver: zodResolver(ProductSchema.omit({ id: true, createdAt: true })),
+  const form = useForm<ProductCreateFormValues>({
+    resolver: zodResolver(ProductCreateFormSchema),
     defaultValues: {
       name: "",
       sku: "",
       barcode: "",
       categoryId: "",
-      unit: "Kg",
-      conditionnement: "",
+      imageUrl: undefined,
+      packagingUnit: "",
+      unit: "Pièce",
+      unitsPerPack: 1,
+      retailQtyFactor: 1,
+      initialStockPackaging: 0,
+      detailStock: undefined,
+      manufacturingDate: "",
+      expirationDate: "",
       purchasePriceRef: 0,
+      wholesalePriceFCFA: 0,
       sellingPriceFCFA: 0,
       lowStockThreshold: 10,
       active: true,
       prices: { GNF: 0, USD: 0, EUR: 0 },
     },
   })
-
-  const sellingPrice = form.watch("sellingPriceFCFA")
 
   useEffect(() => {
     let cancelled = false
@@ -113,9 +92,43 @@ export default function NewProductPage() {
     }
   }, [form, t])
 
-  const onSubmit = async (values: Omit<Product, "id" | "createdAt">) => {
+  const onSubmit = async (values: ProductCreateFormValues) => {
+    if (!activeStore) {
+      toast.error(t("inventory.selectStoreForStock"))
+      return
+    }
+
     try {
-      const product = await ProductService.createProduct(values)
+      const {
+        initialStockPackaging,
+        detailStock,
+        ...productData
+      } = values
+
+      const payload = {
+        ...productData,
+        sku: generateProductSku(values.name),
+        manufacturingDate: values.manufacturingDate || undefined,
+        expirationDate: values.expirationDate || undefined,
+        packagingUnit: values.packagingUnit || undefined,
+        imageUrl: undefined as string | undefined,
+      }
+
+      const product = await ProductService.createProductWithInitialStock(payload, {
+        storeId: activeStore.id,
+        initialStockPackaging,
+        detailStock,
+      })
+
+      if (imageFile) {
+        try {
+          const imageUrl = await ProductService.uploadProductImage(product.id, imageFile)
+          await ProductService.updateProduct(product.id, { imageUrl })
+        } catch {
+          toast.error(t("inventory.imageUploadError"))
+        }
+      }
+
       if (!readReturnContext(ENTITY_ROUTES.product.param).returnTo) {
         toast.success(t("common.successProductAdded"))
       }
@@ -156,330 +169,15 @@ export default function NewProductPage() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-              <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Tags className="h-4 w-4 text-primary" />
-                  {t("inventory.form.identification")}
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  {t("inventory.form.identificationDesc")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 p-4 sm:p-6">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>{t("inventory.form.commercialName")}</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder={t("inventory.form.commercialNamePlaceholder")}
-                          className="h-10 rounded-xl"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="sku"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel required>{t("inventory.form.sku")}</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder={t("inventory.form.skuPlaceholder")}
-                            className="h-10 rounded-xl font-mono uppercase"
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="barcode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t("inventory.form.barcode")}</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Barcode className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                              className="h-10 rounded-xl pl-10 font-mono"
-                              placeholder={t("inventory.form.barcodePlaceholder")}
-                              {...field}
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="categoryId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>{t("inventory.form.category")}</FormLabel>
-                      <FieldWithAdd entity="category" returnTo="/inventory/new">
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-10 rounded-xl">
-                              <SelectValue placeholder={t("inventory.form.chooseCategory")} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent className="rounded-xl">
-                            {categories.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id}>
-                                {cat.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FieldWithAdd>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-              <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Scale className="h-4 w-4 text-primary" />
-                  {t("inventory.form.logisticsUnits")}
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  {t("inventory.form.logisticsUnitsDesc")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 p-4 sm:p-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="unit"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel required>{t("inventory.form.sellUnit")}</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-10 rounded-xl">
-                              <SelectValue placeholder={t("inventory.form.unit")} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent className="rounded-xl">
-                            {PRODUCT_UNITS.map((u) => (
-                              <SelectItem key={u.value} value={u.value}>
-                                {u.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="lowStockThreshold"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel required>{t("inventory.form.lowStockThreshold")}</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            className="h-10 rounded-xl"
-                            {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="conditionnement"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("inventory.form.packaging")}</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder={t("inventory.form.packagingPlaceholder")}
-                          className="h-10 rounded-xl"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription className="text-[11px]">
-                        {t("inventory.form.packagingHint")}
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex items-start gap-3 rounded-xl border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
-                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  <p>
-                    {t.rich("inventory.form.initialStockHint", {
-                      strong: (chunks) => (
-                        <strong className="text-foreground">{chunks}</strong>
-                      ),
-                    })}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-            <CardHeader className="border-b bg-muted/20 p-4 sm:p-6">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Coins className="h-4 w-4 text-primary" />
-                {t("inventory.form.pricing")}
-              </CardTitle>
-              <CardDescription className="text-xs">{t("inventory.form.pricingDesc")}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 p-4 sm:p-6">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                <FormField
-                  control={form.control}
-                  name="purchasePriceRef"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("inventory.form.purchasePriceRef")}</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          className="h-10 rounded-xl"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormDescription className="text-[10px]">
-                        {t("inventory.form.unitCostHint")}
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="sellingPriceFCFA"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>{t("inventory.form.sellPriceFcfa")}</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          className="h-10 rounded-xl font-headline font-bold"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="prices.GNF"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("inventory.form.priceGnf")}</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          className="h-10 rounded-xl"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="prices.USD"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("inventory.form.priceUsd")}</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          className="h-10 rounded-xl"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="prices.EUR"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("inventory.form.priceEur")}</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          className="h-10 rounded-xl"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {sellingPrice > 0 && (
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-primary/5 p-3">
-                  <span className="text-xs text-muted-foreground">
-                    {t("inventory.form.indicativeEquivalents")}
-                  </span>
-                  <StatusBadge tone="primary-soft" className="text-[10px]">
-                    {formatAmount(sellingPrice, "FCFA")}
-                  </StatusBadge>
-                  {rates.USD > 0 && (
-                    <StatusBadge tone="success" className="text-[10px]">
-                      ≈ {(sellingPrice / rates.USD).toFixed(2)} USD
-                    </StatusBadge>
-                  )}
-                  {rates.EUR > 0 && (
-                    <StatusBadge tone="info" className="text-[10px]">
-                      ≈ {(sellingPrice / rates.EUR).toFixed(2)} EUR
-                    </StatusBadge>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <ProductFormFields
+            form={form as UseFormReturn<ProductFormValues>}
+            categories={categories}
+            mode="create"
+            categoryReturnPath="/inventory/new"
+            imageFile={imageFile}
+            onImageFileChange={setImageFile}
+            showReferences={false}
+          />
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button

@@ -56,7 +56,9 @@ import {
   countLowStock,
   countOutOfStock,
   estimateStockValue,
+  formatStockBreakdown,
   getStockStatus,
+  normalizeProduct,
   type StockFilter,
 } from "@/lib/product-utils"
 import { cn } from "@/lib/utils"
@@ -480,6 +482,12 @@ export default function InventoryPage() {
                       const stock = stocks[p.id] ?? 0
                       const status = getStockStatus(stock, p.lowStockThreshold)
                       const category = categories.find((c) => c.id === p.categoryId)?.name
+                      const normalized = normalizeProduct(p)
+                      const stockBreakdown = formatStockBreakdown(
+                        stock,
+                        normalized,
+                        t("inventory.stockBreakdownSeparator")
+                      )
 
                       return (
                         <TableRow
@@ -491,6 +499,13 @@ export default function InventoryPage() {
                               <p className="text-sm font-semibold">{p.name}</p>
                               <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                                 {p.unit}
+                                {normalized.packagingUnit && normalized.unitsPerPack > 1
+                                  ? ` · ${t("inventory.detail.unitsPerPack", {
+                                      count: normalized.unitsPerPack,
+                                      unit: p.unit,
+                                      packaging: normalized.packagingUnit,
+                                    })}`
+                                  : ""}
                               </p>
                             </TableCell>
                           </VisibleTableColumn>
@@ -529,6 +544,11 @@ export default function InventoryPage() {
                                 >
                                   {stock}
                                 </span>
+                                {stockBreakdown && (
+                                  <span className="text-[9px] text-muted-foreground">
+                                    {stockBreakdown}
+                                  </span>
+                                )}
                                 {status === "low" && (
                                   <StatusBadge tone="warning" className="text-[8px]">
                                     {t("badges.stockStatus.low")}

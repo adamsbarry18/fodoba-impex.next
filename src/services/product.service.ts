@@ -17,6 +17,7 @@ import {
 import { db } from "@/lib/firebase/client";
 import { Product, StockLevel } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestore-utils";
+import { computeInitialStockTotal } from "@/lib/product-utils";
 
 const COLLECTION_NAME = "products";
 const STOCKS_COLLECTION = "stocks";
@@ -31,6 +32,56 @@ export const ProductService = {
     };
     await setDoc(newDocRef, stripUndefined(product));
     return product;
+  },
+
+  async createProductWithInitialStock(
+    data: Omit<Product, "id" | "createdAt">,
+    options: {
+      storeId: string
+      initialStockPackaging?: number
+      detailStock?: number
+    }
+  ) {
+    const product = await this.createProduct(data);
+    const totalStock = computeInitialStockTotal(
+      options.initialStockPackaging ?? 0,
+      data.unitsPerPack ?? 1,
+      options.detailStock ?? 0
+    );
+
+    if (totalStock > 0) {
+      await this.setStockLevel(product.id, options.storeId, totalStock);
+    }
+
+    return product;
+  },
+
+  /** Enregistre l'image dans public/uploads/ et retourne l'URL relative (ex. /uploads/products/…). */
+  async uploadProductImage(productId: string, file: File): Promise<string> {
+    const maxSize = 4.5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new Error("Image too large (max 4.5 MB)");
+    }
+    if (!file.type.startsWith("image/")) {
+      throw new Error("File must be an image");
+    }
+
+    const formData = new FormData();
+    formData.append("productId", productId);
+    formData.append("file", file);
+
+    const response = await fetch("/api/uploads/product-image", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { message?: string } | null;
+      throw new Error(body?.message || "Upload failed");
+    }
+
+    const { url } = (await response.json()) as { url: string };
+    return url;
   },
 
   async updateProduct(id: string, data: Partial<Product>) {
@@ -159,6 +210,18 @@ export const ProductService = {
       results[pid] = await this.getStockLevel(pid, storeId);
     }));
     return results;
+  },
+
+  async setStockLevel(productId: string, storeId: string, quantity: number) {
+    const stockId = `${storeId}_${productId}`;
+    const docRef = doc(db, STOCKS_COLLECTION, stockId);
+    const stock: StockLevel = {
+      productId,
+      storeId,
+      quantity: Math.max(0, quantity),
+      lastUpdated: serverTimestamp(),
+    };
+    await setDoc(docRef, stock);
   },
 
   async updateStockLevel(productId: string, storeId: string, delta: number) {

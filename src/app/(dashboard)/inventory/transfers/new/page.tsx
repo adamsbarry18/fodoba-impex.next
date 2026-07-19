@@ -248,7 +248,7 @@ export default function NewTransferPage() {
     <div className="mx-auto max-w-4xl space-y-6 pb-8">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild className="rounded-xl">
-          <Link href="/inventory">
+          <Link href="/inventory/history">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>

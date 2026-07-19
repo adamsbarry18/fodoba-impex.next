@@ -26,6 +26,7 @@ import { usePermissions } from "@/hooks/use-permissions"
 import { toast } from "sonner"
 import { QRCodeSVG } from "qrcode.react"
 import { useT } from "@/i18n/context"
+import { formatStockBreakdown, normalizeProduct } from "@/lib/product-utils"
 
 export default function ProductDetailsPage() {
   const params = useParams()
@@ -124,6 +125,8 @@ export default function ProductDetailsPage() {
   }
   if (!product) return null
 
+  const normalized = normalizeProduct(product)
+
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div className="flex items-center justify-between">
@@ -182,6 +185,11 @@ export default function ProductDetailsPage() {
               {stores.map((store) => {
                 const qty = stockLevels[store.id] || 0
                 const isCurrent = store.id === activeStore?.id
+                const stockBreakdown = formatStockBreakdown(
+                  qty,
+                  normalized,
+                  t("inventory.stockBreakdownSeparator")
+                )
                 return (
                   <div
                     key={store.id}
@@ -208,11 +216,16 @@ export default function ProductDetailsPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="font-headline text-2xl font-bold text-gray-900">
-                      {qty}{" "}
-                      <span className="ml-1 text-[10px] font-bold uppercase text-gray-400">
-                        {product.unit}
-                      </span>
+                    <div className="text-right">
+                      <div className="font-headline text-2xl font-bold text-gray-900">
+                        {qty}{" "}
+                        <span className="ml-1 text-[10px] font-bold uppercase text-gray-400">
+                          {product.unit}
+                        </span>
+                      </div>
+                      {stockBreakdown && (
+                        <p className="mt-1 text-[10px] text-gray-400">{stockBreakdown}</p>
+                      )}
                     </div>
                   </div>
                 )
@@ -270,6 +283,57 @@ export default function ProductDetailsPage() {
         </div>
 
         <div className="space-y-8">
+          {product.imageUrl && (
+            <Card className="overflow-hidden rounded-[32px] border-none bg-white shadow-sm ring-1 ring-gray-100">
+              <CardContent className="p-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={product.imageUrl}
+                  alt={product.name}
+                  className="h-48 w-full object-cover"
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="overflow-hidden rounded-[32px] border-none bg-white shadow-sm ring-1 ring-gray-100">
+            <CardHeader className="p-8 pb-4">
+              <CardTitle className="text-lg">{t("inventory.detail.packagingInfo")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 p-8 pt-0">
+              {normalized.packagingUnit && normalized.unitsPerPack > 1 && (
+                <div className="flex items-center justify-between border-b border-gray-50 py-4">
+                  <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
+                    {t("inventory.form.unitsPerPack")}
+                  </span>
+                  <span className="font-bold text-gray-700">
+                    {t("inventory.detail.unitsPerPack", {
+                      count: normalized.unitsPerPack,
+                      unit: product.unit,
+                      packaging: normalized.packagingUnit,
+                    })}
+                  </span>
+                </div>
+              )}
+              {product.manufacturingDate && (
+                <div className="flex items-center justify-between border-b border-gray-50 py-4">
+                  <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
+                    {t("inventory.detail.manufacturingDate")}
+                  </span>
+                  <span className="font-bold text-gray-700">{product.manufacturingDate}</span>
+                </div>
+              )}
+              {product.expirationDate && (
+                <div className="flex items-center justify-between border-b border-gray-50 py-4">
+                  <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
+                    {t("inventory.detail.expirationDate")}
+                  </span>
+                  <span className="font-bold text-gray-700">{product.expirationDate}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="overflow-hidden rounded-[32px] border-none bg-white shadow-sm ring-1 ring-gray-100">
             <CardHeader className="p-8 pb-0 text-center">
               <CardTitle className="text-lg">{t("inventory.detail.digitalIdTitle")}</CardTitle>
@@ -299,12 +363,32 @@ export default function ProductDetailsPage() {
             <CardContent className="space-y-1 p-8 pt-0">
               <div className="flex items-center justify-between border-b border-gray-50 py-4">
                 <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
-                  {t("inventory.detail.sellPriceFcfa")}
+                  {t("inventory.form.retailPrice")}
                 </span>
                 <span className="font-headline text-lg font-bold text-primary">
                   {product.sellingPriceFCFA.toLocaleString()}
                 </span>
               </div>
+              {(normalized.wholesalePriceFCFA ?? 0) > 0 && (
+                <div className="flex items-center justify-between border-b border-gray-50 py-4">
+                  <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
+                    {t("inventory.detail.wholesalePrice")}
+                  </span>
+                  <span className="font-bold text-gray-700">
+                    {normalized.wholesalePriceFCFA.toLocaleString()}
+                  </span>
+                </div>
+              )}
+              {product.purchasePriceRef > 0 && (
+                <div className="flex items-center justify-between border-b border-gray-50 py-4">
+                  <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
+                    {t("inventory.detail.purchasePrice")}
+                  </span>
+                  <span className="font-bold text-gray-700">
+                    {product.purchasePriceRef.toLocaleString()}
+                  </span>
+                </div>
+              )}
               {product.prices?.GNF && (
                 <div className="flex items-center justify-between border-b border-gray-50 py-4">
                   <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">

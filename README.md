@@ -41,6 +41,30 @@ Points clés des règles :
 - Auto-édition profil : `prenom`, `nom`, `phone`, `photoURL` uniquement
 - Admin : gestion complète des `users`, `stores`, `currencies`, etc.
 
+### Images produits (Vercel Blob)
+
+Les images sont stockées sur **Vercel Blob** (store `fodoba-impex-blob`, région CDG1). L’URL publique est enregistrée dans Firestore (`imageUrl`).
+
+**Setup local :**
+
+```bash
+vercel link
+vercel env pull .env.local
+```
+
+Variable requise : `BLOB_READ_WRITE_TOKEN` (ajoutée automatiquement à la connexion du store).
+
+**Flux :**
+
+1. Fichier choisi dans le formulaire (optionnel).
+2. Création du produit dans Firestore.
+3. `POST /api/uploads/product-image` → `@vercel/blob` `put()` → `products/{productId}/{timestamp}.jpg`
+4. URL publique (`https://….public.blob.vercel-storage.com/…`) sauvée dans **`imageUrl`**.
+
+Sans `BLOB_READ_WRITE_TOKEN` (dev hors Vercel), repli sur `public/uploads/` en local.
+
+Limites upload serveur : **4,5 Mo**, types `image/*`. Le store Blob doit être en accès **Public** pour afficher les images directement dans l’app.
+
 ### Rôles
 
 | Rôle | Code Firestore | Périmètre |

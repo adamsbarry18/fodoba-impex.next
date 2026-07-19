@@ -7,6 +7,7 @@ import { Sale, Store, Purchase, StockMovement, Product, CashSession } from '@/li
 import { formatPdfNumber } from '@/lib/utils';
 import { getPaymentMethodLabelFr, PAYMENT_METHOD_IDS } from '@/lib/constants/payment-methods';
 import { getAppName } from '@/lib/constants/branding';
+import { normalizeProduct } from '@/lib/product-utils';
 
 /**
  * Service pour la génération et l'impression des documents PDF officiels.
@@ -357,14 +358,20 @@ export const PrintService = {
     doc.text(product.name, 20, y);
     y += 8;
 
+    const normalized = normalizeProduct(product)
+
     const infoRows: string[][] = [
       ['Référence (SKU)', product.sku],
       ['Code-barres', product.barcode || '-'],
       ['Catégorie', categoryName || product.categoryId],
-      ['Unité', product.unit],
-      ['Conditionnement', product.conditionnement || '-'],
-      ['Prix de vente FCFA', `${formatPdfNumber(product.sellingPriceFCFA)} FCFA`],
+      ['Unité détail', product.unit],
+      ['Packaging', normalized.packagingUnit || '-'],
+      ['Conditionnement', normalized.unitsPerPack > 1 ? `${normalized.unitsPerPack} ${product.unit} / ${normalized.packagingUnit || 'colis'}` : '-'],
+      ['Prix détail FCFA', `${formatPdfNumber(product.sellingPriceFCFA)} FCFA`],
+      ['Prix engros FCFA', `${formatPdfNumber(normalized.wholesalePriceFCFA)} FCFA`],
       ['Prix d\'achat réf.', `${formatPdfNumber(product.purchasePriceRef)} FCFA`],
+      ['Date fabrication', product.manufacturingDate || '-'],
+      ['Date expiration', product.expirationDate || '-'],
       ['Seuil d\'alerte', String(product.lowStockThreshold)],
       ['Statut', product.active ? 'Actif' : 'Inactif'],
     ];

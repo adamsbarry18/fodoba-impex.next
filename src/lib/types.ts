@@ -42,14 +42,26 @@ export type Category = z.infer<typeof CategorySchema>;
 
 export const ProductSchema = z.object({
   id: z.string(),
-  name: z.string().min(3, "Le nom est requis"),
+  name: z.string().min(2, "Le nom est requis"),
   sku: z.string().min(2, "Le SKU/Référence est requis"),
   barcode: z.string().optional(),
   categoryId: z.string().min(1, "La catégorie est requise"),
-  unit: z.string().min(1, "L'unité est requise"),
+  imageUrl: z.string().optional(),
+  /** Unité de gros (ex. Carton, Sac) */
+  packagingUnit: z.string().optional(),
+  /** Unité de détail / vente (ex. Pièce, Bouteille) */
+  unit: z.string().min(1, "L'unité détail est requise"),
+  /** Nombre d'unités détail par unité de gros */
+  unitsPerPack: z.number().min(1).default(1),
+  /** Quantité minimale ou facteur de vente au détail */
+  retailQtyFactor: z.number().min(1).default(1),
+  /** @deprecated — préférer packagingUnit + unitsPerPack */
   conditionnement: z.string().optional(),
   purchasePriceRef: z.number().min(0).default(0),
+  wholesalePriceFCFA: z.number().min(0).default(0),
   sellingPriceFCFA: z.number().min(0),
+  manufacturingDate: z.string().optional(),
+  expirationDate: z.string().optional(),
   prices: z.object({
     GNF: z.number().optional(),
     USD: z.number().optional(),
@@ -60,7 +72,28 @@ export const ProductSchema = z.object({
   createdAt: z.any().optional(),
 });
 
+/** Champs formulaire création (stock initial boutique active) */
+export const ProductCreateFormSchema = ProductSchema.omit({
+  id: true,
+  createdAt: true,
+  sku: true,
+}).extend({
+  sku: z.string().optional(),
+  initialStockPackaging: z.number().min(0).default(0),
+  detailStock: z.number().min(0).optional(),
+});
+
 export type Product = z.infer<typeof ProductSchema>;
+export type ProductCreateFormValues = z.infer<typeof ProductCreateFormSchema>;
+
+/** Valeurs communes aux formulaires création / édition produit */
+export type ProductFormValues = Omit<Product, "id" | "createdAt" | "sku"> & {
+  id?: string
+  createdAt?: unknown
+  sku?: string
+  initialStockPackaging?: number
+  detailStock?: number
+}
 
 export const StockLevelSchema = z.object({
   productId: z.string(),
