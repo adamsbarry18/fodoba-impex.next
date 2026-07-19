@@ -28,6 +28,7 @@ import {
   Loader2,
   Truck,
   Eye,
+  Edit,
   Calendar,
   User,
   Search,
@@ -47,7 +48,9 @@ import {
   formatPurchaseRef,
   PURCHASE_STATUS_ICONS,
   toPurchaseDate,
+  canEditPurchase,
 } from "@/lib/purchase-utils"
+import { usePermissions } from "@/hooks/use-permissions"
 import { cn } from "@/lib/utils"
 import { useTranslatedTableColumns } from "@/hooks/use-translated-table-columns"
 import { TableColumnToggle } from "@/components/ui/table-column-toggle"
@@ -68,6 +71,7 @@ const PAGE_SIZE = 50
 
 export default function PurchasesPage() {
   const { activeStore } = useStore()
+  const { can } = usePermissions()
   const t = useT()
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [loading, setLoading] = useState(true)
@@ -440,17 +444,32 @@ export default function PurchasesPage() {
                         </VisibleTableColumn>
                         <VisibleTableColumn id="actions" isVisible={isVisible}>
                           <TableCell className="pr-4 text-right sm:pr-6">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              asChild
-                              className="h-8 rounded-lg text-xs font-semibold"
-                            >
-                              <Link href={`/purchases/${p.id}`}>
-                                <Eye className="mr-1.5 h-3.5 w-3.5" />
-                                {t("purchases.viewDetail")}
-                              </Link>
-                            </Button>
+                            <div className="flex justify-end gap-2">
+                              {can("manage:purchases") && canEditPurchase(p.status) && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  asChild
+                                  className="h-8 rounded-lg text-xs font-semibold"
+                                >
+                                  <Link href={`/purchases/${p.id}/edit`}>
+                                    <Edit className="mr-1.5 h-3.5 w-3.5" />
+                                    {t("common.edit")}
+                                  </Link>
+                                </Button>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                className="h-8 rounded-lg text-xs font-semibold"
+                              >
+                                <Link href={`/purchases/${p.id}`}>
+                                  <Eye className="mr-1.5 h-3.5 w-3.5" />
+                                  {t("purchases.viewDetail")}
+                                </Link>
+                              </Button>
+                            </div>
                           </TableCell>
                         </VisibleTableColumn>
                       </TableRow>

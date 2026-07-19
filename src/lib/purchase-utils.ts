@@ -53,3 +53,7 @@ export function toPurchaseDate(ts: Purchase["timestamp"]): Date | null {
   if (!ts) return null
   return ts.toDate ? ts.toDate() : new Date(ts)
 }
+
+export function canEditPurchase(status: PurchaseStatus): boolean {
+  return status === "DRAFT" || status === "ORDERED"
+}

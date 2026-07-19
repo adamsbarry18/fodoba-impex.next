@@ -11,6 +11,7 @@ import {
   limit, 
   serverTimestamp,
   runTransaction,
+  updateDoc,
   DocumentSnapshot,
   startAfter
 } from "firebase/firestore";
@@ -37,6 +38,36 @@ export const PurchaseService = {
     const docRef = doc(db, COLLECTION_NAME, id);
     const snap = await getDoc(docRef);
     return snap.exists() ? (snap.data() as Purchase) : null;
+  },
+
+  async updatePurchase(
+    id: string,
+    data: Partial<
+      Pick<
+        Purchase,
+        | "supplierId"
+        | "supplierName"
+        | "items"
+        | "expenses"
+        | "subtotalFCFA"
+        | "expensesTotalFCFA"
+        | "totalFCFA"
+        | "status"
+        | "notes"
+      >
+    >
+  ) {
+    const existing = await this.getPurchase(id);
+    if (!existing) throw new Error("Commande introuvable");
+    if (existing.status !== "DRAFT" && existing.status !== "ORDERED") {
+      throw new Error("Seules les commandes non réceptionnées peuvent être modifiées");
+    }
+    if (data.status && data.status !== "DRAFT" && data.status !== "ORDERED") {
+      throw new Error("Statut de commande invalide");
+    }
+
+    const docRef = doc(db, COLLECTION_NAME, id);
+    await updateDoc(docRef, stripUndefined(data));
   },
 
   async listPurchases(filters?: { storeId?: string; supplierId?: string }, pageSize = 20, lastVisible?: DocumentSnapshot) {

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
   ArrowLeft,
+  Edit,
   Loader2,
   CheckCircle2,
   Package,
@@ -25,7 +26,8 @@ import { toast } from "sonner"
 import { format } from "date-fns"
 import { useAuth } from "@/lib/contexts/AuthContext"
 import { useStore } from "@/lib/contexts/StoreContext"
-import { formatPurchaseRef, getLandedCostUnit, PURCHASE_STATUS_ICONS } from "@/lib/purchase-utils"
+import { formatPurchaseRef, getLandedCostUnit, PURCHASE_STATUS_ICONS, canEditPurchase } from "@/lib/purchase-utils"
+import { usePermissions } from "@/hooks/use-permissions"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { PurchaseReceptionDialog } from "@/components/purchases/purchase-reception-dialog"
 import { useT } from "@/i18n/context"
@@ -35,6 +37,7 @@ export default function PurchaseDetailsPage() {
   const router = useRouter()
   const { userProfile } = useAuth()
   const { activeStore } = useStore()
+  const { can } = usePermissions()
   const t = useT()
   const [purchase, setPurchase] = useState<Purchase | null>(null)
   const [loading, setLoading] = useState(true)
@@ -125,6 +128,7 @@ export default function PurchaseDetailsPage() {
 
   const isReceived = purchase.status === "RECEIVED"
   const canReceive = purchase.status === "ORDERED"
+  const canEdit = can("manage:purchases") && canEditPurchase(purchase.status)
   const StatusIcon = PURCHASE_STATUS_ICONS[purchase.status]
 
   return (
@@ -159,6 +163,14 @@ export default function PurchaseDetailsPage() {
             )}
             {t("purchases.purchaseOrderBtn")}
           </Button>
+          {canEdit && (
+            <Button asChild variant="outline" className="rounded-xl font-semibold">
+              <Link href={`/purchases/${purchase.id}/edit`}>
+                <Edit className="mr-2 h-4 w-4" />
+                {t("common.edit")}
+              </Link>
+            </Button>
+          )}
           {canReceive && (
             <Button
               className="rounded-xl bg-emerald-600 font-semibold hover:bg-emerald-700"
