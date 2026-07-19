@@ -1,5 +1,5 @@
 ---
-description: Conventions de code FODOBA IMPEX (services, Firestore, UI, RBAC, i18n)
+description: Conventions de code FODOBA BUSINESS (services, Firestore, UI, RBAC, i18n)
 globs: src/**/*.{ts,tsx}
 alwaysApply: false
 ---

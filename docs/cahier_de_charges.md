@@ -1,7 +1,7 @@
 # CAHIER DES CHARGES  
 ## Logiciel de Gestion Commerciale Multi-Boutiques
 
-### FODOBA IMPEX  
+### FODOBA BUSINESS  
 **Commerce de gros et détail - Produits alimentaires**  
 
 **Version 1.0 -Mai 2026**
@@ -11,7 +11,7 @@
 | Élément | Détail |
 |---|---|
 | **Projet** | Logiciel de gestion commerciale multi-boutiques |
-| **Client** | FODOBA IMPEX -Gros et détail alimentaire |
+| **Client** | FODOBA BUSINESS -Gros et détail alimentaire |
 | **Secteur** | Distribution et commerce de produits alimentaires |
 | **Devises** | GNF, FCFA (référence), USD, EUR |
 | **Version** | v1.0 -Document définitif corrigé |
@@ -42,7 +42,7 @@
 
 ## 1.1 Contexte
 
-FODOBA IMPEX est une entreprise de distribution alimentaire (gros et détail) opérant sur plusieurs points de vente. Elle approvisionne une clientèle variée : particuliers, revendeurs et grossistes en produits alimentaires.
+FODOBA BUSINESS est une entreprise de distribution alimentaire (gros et détail) opérant sur plusieurs points de vente. Elle approvisionne une clientèle variée : particuliers, revendeurs et grossistes en produits alimentaires.
 
 La gestion actuelle est manuelle ou basée sur des tableurs, ce qui rend difficile le suivi fiable des ventes, stocks, achats, dépenses et trésorerie sur l’ensemble des boutiques.
 
@@ -157,7 +157,7 @@ Historique consultable par l’Admin.
 
 # 4. Gestion des Devises et Taux de Change
 
-FODOBA IMPEX fonctionne en multi-devises avec le FCFA comme devise de référence.
+FODOBA BUSINESS fonctionne en multi-devises avec le FCFA comme devise de référence.
 
 ## 4.1 Devises supportées
 

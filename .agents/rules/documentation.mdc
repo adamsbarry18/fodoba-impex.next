@@ -1,5 +1,5 @@
 ---
-description: Règles pour rédiger et organiser la documentation du dépôt FODOBA IMPEX
+description: Règles pour rédiger et organiser la documentation du dépôt FODOBA BUSINESS
 globs: docs/**,README.md,**/*.md
 alwaysApply: false
 ---

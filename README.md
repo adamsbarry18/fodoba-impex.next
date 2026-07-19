@@ -1,6 +1,8 @@
-# FODOBA IMPEX
+# FODOBA BUSINESS
 
 Application web de gestion commerciale **multi-boutiques** (gros et détail) — ventes, stocks, caisse, achats, clients et rapports.
+
+**Domaine** : [fodoba-business.com](https://fodoba-business.com)
 
 **Stack** : Next.js 15 · React 19 · TypeScript · Firebase (Auth + Firestore) · next-intl · shadcn/ui · Tailwind
 
@@ -190,4 +192,4 @@ Le dossier [`.agents/`](.agents/) regroupe skills et rules pour les assistants I
 
 ## Licence
 
-Propriétaire — FODOBA IMPEX
+Propriétaire — FODOBA BUSINESS

@@ -11,7 +11,7 @@ import { AuthLayoutWrapper } from "@/components/auth/auth-layout-wrapper";
 import { I18nProvider } from "@/i18n/context";
 
 export const metadata: Metadata = {
-  title: 'Fodoba impex',
+  title: 'Fodoba Business',
   description: 'Gestion Commerciale Multi-Boutiques',
   icons: {
     icon: [

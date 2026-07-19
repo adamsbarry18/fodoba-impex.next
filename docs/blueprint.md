@@ -1,8 +1,8 @@
-# **App Name**: FODOBA IMPEX
+# **App Name**: FODOBA BUSINESS
 
 ## Core Features:
 
-- Global Multi-Store Dashboard: Unified analytical view of real-time sales, expenses, and cash flow across all FODOBA IMPEX branches using a clean tabbed interface.
+- Global Multi-Store Dashboard: Unified analytical view of real-time sales, expenses, and cash flow across all FODOBA BUSINESS branches using a clean tabbed interface.
 - Intelligent POS Terminal: Adaptive point-of-sale interface supporting split payments, mobile money integrations (Orange/MTN), and immediate thermal PDF ticket generation.
 - Live Matrix Inventory: Centralized Firestore tracking of products with barcode scanning capability, category hierarchy, and multi-location stock synchronization.
 - Landed Cost Intelligence Tool: Automated reasoning tool to calculate final product costs by factoring in purchase price, transport, customs, and dynamic exchange rate conversions.

@@ -1,9 +1,9 @@
 ---
 name: fodoba
 description: >-
-  Standards et conventions du projet FODOBA IMPEX (Next.js 15, Firebase, retail multi-boutiques).
+  Standards et conventions du projet FODOBA BUSINESS (Next.js 15, Firebase, retail multi-boutiques).
   Couvre services Firestore, useStore, RBAC, i18n (fr/en/pt), règles de sécurité, devises FCFA,
-  sonner, RHF+zod, POS/achats/stock/caisses. À utiliser pour toute tâche sur fodoba-impex.next.
+  sonner, RHF+zod, POS/achats/stock/caisses. À utiliser pour toute tâche sur fodoba-business.
 ---
 
 # Fodoba

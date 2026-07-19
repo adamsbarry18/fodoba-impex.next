@@ -7,5 +7,5 @@ const nestedFrMessages = nestMessages(frMessages)
 
 /** Nom de l'application (PDF, exports hors composants React). */
 export function getAppName(): string {
-  return getNestedMessage(nestedFrMessages, APP_NAME_I18N_KEY) ?? "FODOBA IMPEX"
+  return getNestedMessage(nestedFrMessages, APP_NAME_I18N_KEY) ?? "FODOBA BUSINESS"
 }
