@@ -5,6 +5,11 @@ import path from "path"
 
 const MAX_SIZE = 4.5 * 1024 * 1024
 const ALLOWED_EXT = new Set(["jpg", "jpeg", "png", "webp", "gif"])
+const BLOB_ACCESS = process.env.BLOB_ACCESS === "public" ? "public" : "private"
+
+function productImageViewUrl(pathname: string): string {
+  return `/api/uploads/product-image/view?pathname=${encodeURIComponent(pathname)}`
+}
 
 function resolveExtension(file: File): string {
   const fromName = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "")
@@ -55,10 +60,12 @@ export async function POST(req: NextRequest) {
 
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const blob = await put(pathname, file, {
-        access: "public",
+        access: BLOB_ACCESS,
         addRandomSuffix: false,
       })
-      return NextResponse.json({ url: blob.url })
+      const url =
+        BLOB_ACCESS === "public" ? blob.url : productImageViewUrl(blob.pathname)
+      return NextResponse.json({ url })
     }
 
     const url = await saveLocal(productId, file, filename)

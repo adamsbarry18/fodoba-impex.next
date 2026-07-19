@@ -18,6 +18,7 @@ import {
   Plus,
   Minus,
   Download,
+  ImageIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -127,18 +128,41 @@ export default function ProductDetailsPage() {
 
   const normalized = normalizeProduct(product)
 
+  const cardClassName =
+    "overflow-hidden rounded-[32px] border-none bg-white shadow-sm ring-1 ring-gray-100"
+
+  const metaRowClassName =
+    "flex items-center justify-between border-b border-gray-50 py-3 last:border-b-0"
+  const metaLabelClassName =
+    "text-[11px] font-bold uppercase tracking-wider text-gray-400"
+  const metaValueClassName = "text-right font-bold text-gray-700"
+
+  const hasPackagingInfo =
+    (normalized.packagingUnit && normalized.unitsPerPack > 1) ||
+    !!product.manufacturingDate ||
+    !!product.expirationDate
+
+  const hasFinancialInfo =
+    product.sellingPriceFCFA > 0 ||
+    (normalized.wholesalePriceFCFA ?? 0) > 0 ||
+    product.purchasePriceRef > 0 ||
+    !!product.prices?.GNF ||
+    !!product.prices?.USD
+
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-7xl space-y-6 pb-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" asChild>
+          <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl" asChild>
             <Link href="/inventory">
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">{product.name}</h1>
-            <div className="mt-1 flex items-center gap-2">
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+              {product.name}
+            </h1>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
               <Badge
                 variant="secondary"
                 className="rounded-md bg-gray-100 px-2 py-0.5 font-mono text-[10px] text-gray-500"
@@ -150,10 +174,10 @@ export default function ProductDetailsPage() {
             </div>
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex shrink-0 gap-3">
           <Button
             variant="outline"
-            className="rounded-xl font-bold"
+            className="flex-1 rounded-xl font-bold sm:flex-none"
             onClick={handleDownloadPdf}
             disabled={generatingPdf}
           >
@@ -165,7 +189,10 @@ export default function ProductDetailsPage() {
             {t("inventory.detail.productSheet")}
           </Button>
           {canEdit && (
-            <Button asChild className="rounded-xl bg-primary font-bold hover:bg-primary/90">
+            <Button
+              asChild
+              className="flex-1 rounded-xl bg-primary font-bold hover:bg-primary/90 sm:flex-none"
+            >
               <Link href={`/inventory/${product.id}/edit`}>
                 <Edit className="mr-2 h-4 w-4" /> {t("inventory.edit")}
               </Link>
@@ -174,245 +201,254 @@ export default function ProductDetailsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <div className="space-y-8 lg:col-span-2">
-          <Card className="overflow-hidden rounded-[32px] border-none bg-white shadow-sm ring-1 ring-gray-100">
-            <CardHeader className="p-8 pb-4">
-              <CardTitle className="text-xl">{t("inventory.detail.stockByStoreTitle")}</CardTitle>
-              <CardDescription>{t("inventory.detail.stockByStoreDesc")}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 p-8 pt-4">
-              {stores.map((store) => {
-                const qty = stockLevels[store.id] || 0
-                const isCurrent = store.id === activeStore?.id
-                const stockBreakdown = formatStockBreakdown(
-                  qty,
-                  normalized,
-                  t("inventory.stockBreakdownSeparator")
-                )
-                return (
-                  <div
-                    key={store.id}
-                    className={`flex items-center justify-between rounded-2xl border p-4 transition-all ${isCurrent ? "border-primary/20 bg-primary/5 ring-1 ring-primary/10" : "border-gray-100 bg-white"}`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={`h-2.5 w-2.5 rounded-full ${qty > product.lowStockThreshold ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.4)]"}`}
-                      />
-                      <div>
-                        <div className="font-bold text-gray-900">
-                          {store.name}
-                          {isCurrent && (
-                            <Badge
-                              variant="secondary"
-                              className="ml-3 border-none bg-primary/10 text-[9px] font-bold uppercase tracking-widest text-primary"
-                            >
-                              {t("inventory.detail.myStore")}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                          {store.code}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-headline text-2xl font-bold text-gray-900">
-                        {qty}{" "}
-                        <span className="ml-1 text-[10px] font-bold uppercase text-gray-400">
-                          {product.unit}
-                        </span>
-                      </div>
-                      {stockBreakdown && (
-                        <p className="mt-1 text-[10px] text-gray-400">{stockBreakdown}</p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-stretch">
+        <Card className={`${cardClassName} lg:col-span-4`}>
+          {product.imageUrl ? (
+            <CardContent className="p-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={product.imageUrl}
+                alt={product.name}
+                className="aspect-[4/3] w-full object-cover lg:aspect-auto lg:min-h-[280px] lg:h-full"
+              />
             </CardContent>
-          </Card>
-
-          {canAdjust && (
-            <Card className="overflow-hidden rounded-[32px] border-none bg-white shadow-sm ring-1 ring-gray-100">
-              <CardHeader className="p-8 pb-4">
-                <CardTitle className="flex items-center gap-3 text-xl">
-                  <div className="rounded-xl bg-primary/10 p-2">
-                    <Package className="h-5 w-5 text-primary" />
-                  </div>
-                  {t("inventory.detail.manualAdjustTitle")}
-                </CardTitle>
-                <CardDescription>
-                  {t.rich("inventory.detail.manualAdjustDesc", {
-                    store: activeStore?.name ?? "",
-                    strong: (chunks) => <strong>{chunks}</strong>,
-                  })}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-8 pt-4">
-                <div className="flex items-center gap-8">
-                  <div className="min-w-[140px] rounded-2xl border border-gray-100 bg-gray-50 p-6 text-center">
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                      {t("inventory.detail.current")}
-                    </p>
-                    <p className="font-headline text-4xl font-bold text-gray-900">
-                      {stockLevels[activeStore?.id || ""] || 0}
-                    </p>
-                  </div>
-                  <div className="flex flex-1 gap-4">
-                    <Button
-                      variant="outline"
-                      className="h-14 flex-1 rounded-2xl border-gray-200 font-bold text-gray-600"
-                      onClick={() => handleManualAdjustment(-1)}
-                      disabled={adjusting}
-                    >
-                      <Minus className="mr-2 h-5 w-5" /> {t("inventory.detail.removeOne")}
-                    </Button>
-                    <Button
-                      className="h-14 flex-1 rounded-2xl bg-primary font-bold shadow-lg shadow-primary/20 hover:bg-primary/90"
-                      onClick={() => handleManualAdjustment(1)}
-                      disabled={adjusting}
-                    >
-                      <Plus className="mr-2 h-5 w-5" /> {t("inventory.detail.addOne")}
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        <div className="space-y-8">
-          {product.imageUrl && (
-            <Card className="overflow-hidden rounded-[32px] border-none bg-white shadow-sm ring-1 ring-gray-100">
-              <CardContent className="p-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={product.imageUrl}
-                  alt={product.name}
-                  className="h-48 w-full object-cover"
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          <Card className="overflow-hidden rounded-[32px] border-none bg-white shadow-sm ring-1 ring-gray-100">
-            <CardHeader className="p-8 pb-4">
-              <CardTitle className="text-lg">{t("inventory.detail.packagingInfo")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 p-8 pt-0">
-              {normalized.packagingUnit && normalized.unitsPerPack > 1 && (
-                <div className="flex items-center justify-between border-b border-gray-50 py-4">
-                  <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
-                    {t("inventory.form.unitsPerPack")}
-                  </span>
-                  <span className="font-bold text-gray-700">
-                    {t("inventory.detail.unitsPerPack", {
-                      count: normalized.unitsPerPack,
-                      unit: product.unit,
-                      packaging: normalized.packagingUnit,
-                    })}
-                  </span>
-                </div>
-              )}
-              {product.manufacturingDate && (
-                <div className="flex items-center justify-between border-b border-gray-50 py-4">
-                  <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
-                    {t("inventory.detail.manufacturingDate")}
-                  </span>
-                  <span className="font-bold text-gray-700">{product.manufacturingDate}</span>
-                </div>
-              )}
-              {product.expirationDate && (
-                <div className="flex items-center justify-between border-b border-gray-50 py-4">
-                  <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
-                    {t("inventory.detail.expirationDate")}
-                  </span>
-                  <span className="font-bold text-gray-700">{product.expirationDate}</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="overflow-hidden rounded-[32px] border-none bg-white shadow-sm ring-1 ring-gray-100">
-            <CardHeader className="p-8 pb-0 text-center">
-              <CardTitle className="text-lg">{t("inventory.detail.digitalIdTitle")}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center gap-6 p-8">
-              <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
-                <QRCodeSVG value={product.id} size={160} />
+          ) : (
+            <CardContent className="flex aspect-[4/3] flex-col items-center justify-center gap-3 bg-muted/20 lg:min-h-[280px] lg:h-full">
+              <div className="rounded-2xl bg-muted/40 p-4">
+                <ImageIcon className="h-8 w-8 text-muted-foreground/60" />
               </div>
-              <div className="space-y-3 text-center">
-                <Badge
-                  variant="secondary"
-                  className="rounded-lg border-none bg-gray-100 px-3 py-1 font-mono font-bold text-gray-500"
+              <p className="text-xs font-medium text-muted-foreground">
+                {t("inventory.form.image")}
+              </p>
+            </CardContent>
+          )}
+        </Card>
+
+        {(hasPackagingInfo || hasFinancialInfo) && (
+          <Card className={`${cardClassName} lg:col-span-5`}>
+            <CardContent className="grid h-full gap-0 p-6 sm:grid-cols-2 sm:gap-6 sm:p-8">
+              {hasPackagingInfo && (
+                <div className="space-y-1 sm:border-r sm:border-gray-100 sm:pr-6">
+                  <p className="mb-3 text-sm font-bold text-gray-900">
+                    {t("inventory.detail.packagingInfo")}
+                  </p>
+                  {normalized.packagingUnit && normalized.unitsPerPack > 1 && (
+                    <div className={metaRowClassName}>
+                      <span className={metaLabelClassName}>
+                        {t("inventory.form.unitsPerPack")}
+                      </span>
+                      <span className={metaValueClassName}>
+                        {t("inventory.detail.unitsPerPack", {
+                          count: normalized.unitsPerPack,
+                          unit: product.unit,
+                          packaging: normalized.packagingUnit,
+                        })}
+                      </span>
+                    </div>
+                  )}
+                  {product.manufacturingDate && (
+                    <div className={metaRowClassName}>
+                      <span className={metaLabelClassName}>
+                        {t("inventory.detail.manufacturingDate")}
+                      </span>
+                      <span className={metaValueClassName}>{product.manufacturingDate}</span>
+                    </div>
+                  )}
+                  {product.expirationDate && (
+                    <div className={metaRowClassName}>
+                      <span className={metaLabelClassName}>
+                        {t("inventory.detail.expirationDate")}
+                      </span>
+                      <span className={metaValueClassName}>{product.expirationDate}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {hasFinancialInfo && (
+                <div className="space-y-1">
+                  <p className="mb-3 text-sm font-bold text-gray-900">
+                    {t("inventory.detail.financialInfoTitle")}
+                  </p>
+                  <div className={metaRowClassName}>
+                    <span className={metaLabelClassName}>{t("inventory.form.retailPrice")}</span>
+                    <span className="font-headline text-lg font-bold text-primary">
+                      {product.sellingPriceFCFA.toLocaleString()}
+                    </span>
+                  </div>
+                  {(normalized.wholesalePriceFCFA ?? 0) > 0 && (
+                    <div className={metaRowClassName}>
+                      <span className={metaLabelClassName}>
+                        {t("inventory.detail.wholesalePrice")}
+                      </span>
+                      <span className={metaValueClassName}>
+                        {normalized.wholesalePriceFCFA!.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {product.purchasePriceRef > 0 && (
+                    <div className={metaRowClassName}>
+                      <span className={metaLabelClassName}>
+                        {t("inventory.detail.purchasePrice")}
+                      </span>
+                      <span className={metaValueClassName}>
+                        {product.purchasePriceRef.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {product.prices?.GNF ? (
+                    <div className={metaRowClassName}>
+                      <span className={metaLabelClassName}>{t("inventory.detail.priceGnf")}</span>
+                      <span className={metaValueClassName}>
+                        {product.prices.GNF.toLocaleString()}
+                      </span>
+                    </div>
+                  ) : null}
+                  {product.prices?.USD ? (
+                    <div className={metaRowClassName}>
+                      <span className={metaLabelClassName}>{t("inventory.detail.priceUsd")}</span>
+                      <span className={metaValueClassName}>
+                        ${product.prices.USD.toLocaleString()}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        <Card
+          className={`${cardClassName} ${hasPackagingInfo || hasFinancialInfo ? "lg:col-span-3" : "lg:col-span-8"}`}
+        >
+          <CardContent className="flex h-full flex-col items-center justify-center gap-4 p-6 sm:flex-row sm:p-8 lg:flex-col">
+            <div className="shrink-0 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+              <QRCodeSVG value={product.id} size={120} />
+            </div>
+            <div className="space-y-2 text-center sm:text-left lg:text-center">
+              <p className="text-sm font-bold text-gray-900">
+                {t("inventory.detail.digitalIdTitle")}
+              </p>
+              <Badge
+                variant="secondary"
+                className="rounded-lg border-none bg-gray-100 px-3 py-1 font-mono text-[11px] font-bold text-gray-500"
+              >
+                {product.barcode || t("inventory.detail.noBarcode")}
+              </Badge>
+              <p className="text-xs font-medium leading-relaxed text-gray-400">
+                {t("inventory.detail.qrHint")}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-6">
+        <Card className={cardClassName}>
+          <CardHeader className="p-6 pb-2 sm:p-8 sm:pb-4">
+            <CardTitle className="text-xl">{t("inventory.detail.stockByStoreTitle")}</CardTitle>
+            <CardDescription>{t("inventory.detail.stockByStoreDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 p-6 pt-2 sm:p-8 sm:pt-4">
+            {stores.map((store) => {
+              const qty = stockLevels[store.id] || 0
+              const isCurrent = store.id === activeStore?.id
+              const stockBreakdown = formatStockBreakdown(
+                qty,
+                normalized,
+                t("inventory.stockBreakdownSeparator")
+              )
+              return (
+                <div
+                  key={store.id}
+                  className={`flex items-center justify-between rounded-2xl border p-4 transition-all ${isCurrent ? "border-primary/20 bg-primary/5 ring-1 ring-primary/10" : "border-gray-100 bg-white"}`}
                 >
-                  {product.barcode || t("inventory.detail.noBarcode")}
-                </Badge>
-                <p className="text-xs font-medium leading-relaxed text-gray-400">
-                  {t("inventory.detail.qrHint")}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`h-2.5 w-2.5 rounded-full ${qty > product.lowStockThreshold ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.4)]"}`}
+                    />
+                    <div>
+                      <div className="font-bold text-gray-900">
+                        {store.name}
+                        {isCurrent && (
+                          <Badge
+                            variant="secondary"
+                            className="ml-3 border-none bg-primary/10 text-[9px] font-bold uppercase tracking-widest text-primary"
+                          >
+                            {t("inventory.detail.myStore")}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                        {store.code}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-headline text-2xl font-bold text-gray-900">
+                      {qty}{" "}
+                      <span className="ml-1 text-[10px] font-bold uppercase text-gray-400">
+                        {product.unit}
+                      </span>
+                    </div>
+                    {stockBreakdown && (
+                      <p className="mt-1 text-[10px] text-gray-400">{stockBreakdown}</p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
 
-          <Card className="overflow-hidden rounded-[32px] border-none bg-white shadow-sm ring-1 ring-gray-100">
-            <CardHeader className="p-8 pb-4">
-              <CardTitle className="text-lg">{t("inventory.detail.financialInfoTitle")}</CardTitle>
+        {canAdjust && (
+          <Card className={cardClassName}>
+            <CardHeader className="p-6 pb-2 sm:p-8 sm:pb-4">
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <div className="rounded-xl bg-primary/10 p-2">
+                  <Package className="h-5 w-5 text-primary" />
+                </div>
+                {t("inventory.detail.manualAdjustTitle")}
+              </CardTitle>
+              <CardDescription>
+                {t.rich("inventory.detail.manualAdjustDesc", {
+                  store: activeStore?.name ?? "",
+                  strong: (chunks) => <strong>{chunks}</strong>,
+                })}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-1 p-8 pt-0">
-              <div className="flex items-center justify-between border-b border-gray-50 py-4">
-                <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
-                  {t("inventory.form.retailPrice")}
-                </span>
-                <span className="font-headline text-lg font-bold text-primary">
-                  {product.sellingPriceFCFA.toLocaleString()}
-                </span>
+            <CardContent className="p-6 pt-2 sm:p-8 sm:pt-4">
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+                <div className="min-w-[140px] rounded-2xl border border-gray-100 bg-gray-50 p-6 text-center">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                    {t("inventory.detail.current")}
+                  </p>
+                  <p className="font-headline text-4xl font-bold text-gray-900">
+                    {stockLevels[activeStore?.id || ""] || 0}
+                  </p>
+                </div>
+                <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:gap-4">
+                  <Button
+                    variant="outline"
+                    className="h-14 flex-1 rounded-2xl border-gray-200 font-bold text-gray-600"
+                    onClick={() => handleManualAdjustment(-1)}
+                    disabled={adjusting}
+                  >
+                    <Minus className="mr-2 h-5 w-5" /> {t("inventory.detail.removeOne")}
+                  </Button>
+                  <Button
+                    className="h-14 flex-1 rounded-2xl bg-primary font-bold shadow-lg shadow-primary/20 hover:bg-primary/90"
+                    onClick={() => handleManualAdjustment(1)}
+                    disabled={adjusting}
+                  >
+                    <Plus className="mr-2 h-5 w-5" /> {t("inventory.detail.addOne")}
+                  </Button>
+                </div>
               </div>
-              {(normalized.wholesalePriceFCFA ?? 0) > 0 && (
-                <div className="flex items-center justify-between border-b border-gray-50 py-4">
-                  <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
-                    {t("inventory.detail.wholesalePrice")}
-                  </span>
-                  <span className="font-bold text-gray-700">
-                    {normalized.wholesalePriceFCFA.toLocaleString()}
-                  </span>
-                </div>
-              )}
-              {product.purchasePriceRef > 0 && (
-                <div className="flex items-center justify-between border-b border-gray-50 py-4">
-                  <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
-                    {t("inventory.detail.purchasePrice")}
-                  </span>
-                  <span className="font-bold text-gray-700">
-                    {product.purchasePriceRef.toLocaleString()}
-                  </span>
-                </div>
-              )}
-              {product.prices?.GNF && (
-                <div className="flex items-center justify-between border-b border-gray-50 py-4">
-                  <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
-                    {t("inventory.detail.priceGnf")}
-                  </span>
-                  <span className="font-bold text-gray-700">
-                    {product.prices.GNF.toLocaleString()}
-                  </span>
-                </div>
-              )}
-              {product.prices?.USD && (
-                <div className="flex items-center justify-between border-b border-gray-50 py-4">
-                  <span className="text-[13px] font-bold uppercase tracking-wider text-gray-400">
-                    {t("inventory.detail.priceUsd")}
-                  </span>
-                  <span className="font-bold text-gray-700">
-                    ${product.prices.USD.toLocaleString()}
-                  </span>
-                </div>
-              )}
             </CardContent>
           </Card>
-        </div>
-      </div>
+        )}
+      </section>
     </div>
   )
 }

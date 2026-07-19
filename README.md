@@ -43,7 +43,11 @@ Points clés des règles :
 
 ### Images produits (Vercel Blob)
 
-Les images sont stockées sur **Vercel Blob** (store `fodoba-impex-blob`, région CDG1). L’URL publique est enregistrée dans Firestore (`imageUrl`).
+Les images sont stockées sur **Vercel Blob** (store `fodoba-impex-blob`, région CDG1). L’URL est enregistrée dans Firestore (`imageUrl`).
+
+**Store Private (défaut)** : le fichier est privé sur Blob ; l’app sert l’image via `/api/uploads/product-image/view?pathname=…`.
+
+**Store Public** : définir `BLOB_ACCESS=public` pour enregistrer l’URL Blob directe dans Firestore.
 
 **Setup local :**
 
@@ -59,11 +63,11 @@ Variable requise : `BLOB_READ_WRITE_TOKEN` (ajoutée automatiquement à la conne
 1. Fichier choisi dans le formulaire (optionnel).
 2. Création du produit dans Firestore.
 3. `POST /api/uploads/product-image` → `@vercel/blob` `put()` → `products/{productId}/{timestamp}.jpg`
-4. URL publique (`https://….public.blob.vercel-storage.com/…`) sauvée dans **`imageUrl`**.
+4. URL sauvée dans **`imageUrl`** (proxy app si store Private, URL Blob directe si Public).
 
 Sans `BLOB_READ_WRITE_TOKEN` (dev hors Vercel), repli sur `public/uploads/` en local.
 
-Limites upload serveur : **4,5 Mo**, types `image/*`. Le store Blob doit être en accès **Public** pour afficher les images directement dans l’app.
+Limites upload serveur : **4,5 Mo**, types `image/*`.
 
 ### Rôles
 
