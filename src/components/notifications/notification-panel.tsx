@@ -65,6 +65,7 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
   const [activeTab, setActiveTab] = useState<NotificationTab>("all")
   const [markingAll, setMarkingAll] = useState(false)
   const [clearing, setClearing] = useState(false)
+  const [clearDialogOpen, setClearDialogOpen] = useState(false)
 
   const filtered = filterNotifications(notifications, activeTab)
 
@@ -86,6 +87,7 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
     try {
       await clearAll()
       toast.success(t("notifications.clearSuccess"))
+      setClearDialogOpen(false)
     } catch {
       toast.error(t("notifications.clearError"))
     } finally {
@@ -139,7 +141,7 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
                 </Button>
               )}
               {notifications.length > 0 && (
-                <AlertDialog>
+                <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
                   <AlertDialogTrigger asChild>
                     <Button
                       variant="ghost"
@@ -164,7 +166,10 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
                       <AlertDialogAction
                         className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         disabled={clearing}
-                        onClick={handleClearAll}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          void handleClearAll()
+                        }}
                       >
                         {clearing ? (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

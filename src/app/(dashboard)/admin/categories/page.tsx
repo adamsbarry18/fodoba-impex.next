@@ -491,8 +491,11 @@ export default function CategoriesPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleDelete}
               disabled={deleting}
+              onClick={(event) => {
+                event.preventDefault()
+                void handleDelete()
+              }}
             >
               {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {t("common.delete")}
