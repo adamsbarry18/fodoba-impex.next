@@ -1,9 +1,9 @@
 
 "use client"
 
-import { useForm, type Resolver } from "react-hook-form"
+import { useForm, type Resolver, type UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ProductSchema, ProductFormValues, Category } from "@/lib/types"
+import { ProductEditFormSchema, ProductEditFormValues, Category, ProductFormValues } from "@/lib/types"
 import { ProductService } from "@/services/product.service"
 import { InventoryService } from "@/services/inventory.service"
 import { CategoryService } from "@/services/category.service"
@@ -36,8 +36,8 @@ export default function EditProductPage() {
   const { can } = usePermissions()
   const canAdjustStock = can("adjust:stock")
 
-  const form = useForm<ProductFormValues>({
-    resolver: zodResolver(ProductSchema) as unknown as Resolver<ProductFormValues>,
+  const form = useForm<ProductEditFormValues>({
+    resolver: zodResolver(ProductEditFormSchema) as unknown as Resolver<ProductEditFormValues>,
     defaultValues: {
       initialStockPackaging: 0,
       detailStock: 0,
@@ -100,10 +100,17 @@ export default function EditProductPage() {
     init()
   }, [params.id, form, router, t, activeStore?.id])
 
-  const onSubmit = async (values: ProductFormValues) => {
+  const onSubmit = async (values: ProductEditFormValues) => {
     try {
       const productId = params.id as string
-      let imageUrl = values.imageUrl
+      const {
+        initialStockPackaging,
+        detailStock,
+        id: _id,
+        createdAt: _createdAt,
+        ...productFields
+      } = values
+      let imageUrl = productFields.imageUrl
 
       if (imageFile) {
         imageUrl = await ProductService.uploadProductImage(productId, imageFile)
@@ -112,20 +119,20 @@ export default function EditProductPage() {
       await ProductService.updateProduct(
         productId,
         {
-          ...values,
+          ...productFields,
           imageUrl,
-          manufacturingDate: values.manufacturingDate || undefined,
-          expirationDate: values.expirationDate || undefined,
-          packagingUnit: values.packagingUnit || undefined,
+          manufacturingDate: productFields.manufacturingDate || undefined,
+          expirationDate: productFields.expirationDate || undefined,
+          packagingUnit: productFields.packagingUnit || undefined,
         },
         { storeId: activeStore?.id }
       )
 
       if (activeStore && userProfile && canAdjustStock) {
         const newTotal = computeInitialStockTotal(
-          values.initialStockPackaging ?? 0,
-          values.unitsPerPack ?? 1,
-          values.detailStock ?? 0
+          initialStockPackaging ?? 0,
+          productFields.unitsPerPack ?? 1,
+          detailStock ?? 0
         )
         const delta = newTotal - originalStockTotalRef.current
 
@@ -179,7 +186,7 @@ export default function EditProductPage() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <ProductFormFields
-            form={form}
+            form={form as unknown as UseFormReturn<ProductFormValues>}
             categories={categories}
             mode="edit"
             categoryReturnPath={editReturnPath}

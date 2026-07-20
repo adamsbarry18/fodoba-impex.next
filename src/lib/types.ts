@@ -86,6 +86,14 @@ export const ProductCreateFormSchema = ProductSchema.omit({
 export type Product = z.infer<typeof ProductSchema>;
 export type ProductCreateFormValues = z.infer<typeof ProductCreateFormSchema>;
 
+/** Champs formulaire édition (stock boutique active en plus du produit) */
+export const ProductEditFormSchema = ProductSchema.extend({
+  initialStockPackaging: z.number().min(0).default(0),
+  detailStock: z.number().min(0).optional(),
+});
+
+export type ProductEditFormValues = z.infer<typeof ProductEditFormSchema>;
+
 /** Valeurs communes aux formulaires création / édition produit */
 export type ProductFormValues = Omit<Product, "id" | "createdAt" | "sku"> & {
   id?: string
