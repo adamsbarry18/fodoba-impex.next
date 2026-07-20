@@ -16,6 +16,11 @@ export type SalePrintLabels = {
   date: string
   total: string
   totalGeneral: string
+  subtotal: string
+  discount: string
+  amountPaid: string
+  remainingDue: string
+  paymentsTitle: string
   titleInvoice: string
   tableDesignation: string
   tableQty: string
@@ -98,7 +103,7 @@ export type ProductSheetPrintLabels = {
   retailUnit: string
   packagingUnit: string
   packagingContent: string
-  packagingValue: string
+  formatPackagingValue: (count: number, unit: string, packaging: string) => string
   packagingFallback: string
   retailPrice: string
   wholesalePrice: string
@@ -172,6 +177,11 @@ export function getPrintLabels(t: TranslateFn): PrintLabels {
       date: t("print.date"),
       total: t("print.total"),
       totalGeneral: t("print.totalGeneral"),
+      subtotal: t("print.sale.subtotal"),
+      discount: t("print.sale.discount"),
+      amountPaid: t("print.sale.amountPaid"),
+      remainingDue: t("print.sale.remainingDue"),
+      paymentsTitle: t("print.sale.paymentsTitle"),
       titleInvoice: t("print.saleInvoiceTitle"),
       tableDesignation: t("print.table.designation"),
       tableQty: t("print.table.qty"),
@@ -249,7 +259,8 @@ export function getPrintLabels(t: TranslateFn): PrintLabels {
       retailUnit: t("print.product.retailUnit"),
       packagingUnit: t("inventory.form.packagingUnit"),
       packagingContent: t("inventory.form.unitsPerPack"),
-      packagingValue: t("print.product.packagingValue"),
+      formatPackagingValue: (count, unit, packaging) =>
+        t("print.product.packagingValue", { count, unit, packaging }),
       packagingFallback: t("inventory.form.packagingFallback"),
       retailPrice: t("inventory.form.retailPrice"),
       wholesalePrice: t("inventory.form.wholesalePrice"),

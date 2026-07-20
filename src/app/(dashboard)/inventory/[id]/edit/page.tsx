@@ -5,6 +5,7 @@ import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { ProductSchema, ProductFormValues, Category } from "@/lib/types"
 import { ProductService } from "@/services/product.service"
+import { InventoryService } from "@/services/inventory.service"
 import { CategoryService } from "@/services/category.service"
 import { Button } from "@/components/ui/button"
 import { Form } from "@/components/ui/form"
@@ -12,12 +13,14 @@ import { useRouter, useParams } from "next/navigation"
 import { toast } from "sonner"
 import { ArrowLeft, Loader2, Save, Package } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { applyReturnSelection } from "@/hooks/use-return-selection"
 import { ENTITY_ROUTES } from "@/lib/navigation/return-to"
-import { normalizeProduct } from "@/lib/product-utils"
+import { computeInitialStockTotal, decomposeStock, normalizeProduct } from "@/lib/product-utils"
 import { ProductFormFields } from "@/components/inventory/product-form-fields"
 import { useStore } from "@/lib/contexts/StoreContext"
+import { useAuth } from "@/lib/contexts/AuthContext"
+import { usePermissions } from "@/hooks/use-permissions"
 import { useT } from "@/i18n/context"
 
 export default function EditProductPage() {
@@ -26,11 +29,19 @@ export default function EditProductPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [imageFile, setImageFile] = useState<File | null>(null)
+  const originalStockTotalRef = useRef(0)
   const t = useT()
   const { activeStore } = useStore()
+  const { userProfile } = useAuth()
+  const { can } = usePermissions()
+  const canAdjustStock = can("adjust:stock")
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(ProductSchema) as unknown as Resolver<ProductFormValues>,
+    defaultValues: {
+      initialStockPackaging: 0,
+      detailStock: 0,
+    },
   })
 
   const editReturnPath = `/inventory/${params.id}/edit`
@@ -38,12 +49,30 @@ export default function EditProductPage() {
   useEffect(() => {
     const init = async () => {
       try {
+        const productId = params.id as string
         const [prod, cats] = await Promise.all([
-          ProductService.getProduct(params.id as string),
+          ProductService.getProduct(productId),
           CategoryService.listCategories(),
         ])
         if (prod) {
-          form.reset(normalizeProduct(prod))
+          const normalized = normalizeProduct(prod)
+          let initialStockPackaging = 0
+          let detailStock = 0
+          let stockTotal = 0
+
+          if (activeStore) {
+            stockTotal = await ProductService.getStockLevel(productId, activeStore.id)
+            const decomposed = decomposeStock(stockTotal, normalized.unitsPerPack)
+            initialStockPackaging = decomposed.packs
+            detailStock = decomposed.loose
+          }
+
+          originalStockTotalRef.current = stockTotal
+          form.reset({
+            ...normalized,
+            initialStockPackaging,
+            detailStock,
+          })
         } else {
           toast.error(t("common.errorProductNotFound"))
           router.push("/inventory")
@@ -69,7 +98,7 @@ export default function EditProductPage() {
       }
     }
     init()
-  }, [params.id, form, router, t])
+  }, [params.id, form, router, t, activeStore?.id])
 
   const onSubmit = async (values: ProductFormValues) => {
     try {
@@ -91,6 +120,27 @@ export default function EditProductPage() {
         },
         { storeId: activeStore?.id }
       )
+
+      if (activeStore && userProfile && canAdjustStock) {
+        const newTotal = computeInitialStockTotal(
+          values.initialStockPackaging ?? 0,
+          values.unitsPerPack ?? 1,
+          values.detailStock ?? 0
+        )
+        const delta = newTotal - originalStockTotalRef.current
+
+        if (delta !== 0) {
+          await InventoryService.recordMovement({
+            productId,
+            storeId: activeStore.id,
+            type: "CORRECTION",
+            delta,
+            user: userProfile,
+            reason: t("inventory.form.stockCorrectionReason"),
+          })
+        }
+      }
+
       toast.success(t("inventory.updatedSuccess"))
       router.push("/inventory")
     } catch (error: unknown) {
@@ -98,7 +148,7 @@ export default function EditProductPage() {
         toast.error(t("inventory.imageUploadError"))
         return
       }
-      toast.error(t("common.errorUpdate"))
+      toast.error(error instanceof Error ? error.message : t("common.errorUpdate"))
     }
   }
 
@@ -136,6 +186,8 @@ export default function EditProductPage() {
             imageFile={imageFile}
             onImageFileChange={setImageFile}
             productId={params.id as string}
+            activeStoreName={activeStore?.name}
+            canAdjustStock={canAdjustStock}
           />
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

@@ -37,6 +37,9 @@ type ProductFormFieldsProps = {
   onImageFileChange?: (file: File | null) => void
   showReferences?: boolean
   productId?: string
+  /** Boutique active — permet l'édition du stock en mode modification */
+  activeStoreName?: string
+  canAdjustStock?: boolean
 }
 
 export function ProductFormFields({
@@ -48,27 +51,30 @@ export function ProductFormFields({
   onImageFileChange,
   showReferences = mode === "edit",
   productId,
+  activeStoreName,
+  canAdjustStock = true,
 }: ProductFormFieldsProps) {
   const t = useT()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
 
-  const initialPackaging =
-    mode === "create" ? form.watch("initialStockPackaging") : undefined
-  const detailStock = mode === "create" ? form.watch("detailStock") : undefined
+  const showStockFields =
+    mode === "create" || (mode === "edit" && !!activeStoreName && canAdjustStock)
+  const initialPackaging = showStockFields ? form.watch("initialStockPackaging") : undefined
+  const detailStock = showStockFields ? form.watch("detailStock") : undefined
   const unitsPerPack = form.watch("unitsPerPack")
   const imageUrl = form.watch("imageUrl")
   const packagingUnit = form.watch("packagingUnit")
   const retailUnit = form.watch("unit")
 
   const computedStock = useMemo(() => {
-    if (mode !== "create") return null
+    if (!showStockFields) return null
     return computeInitialStockTotal(
       Number(initialPackaging) || 0,
       unitsPerPack ?? 1,
       detailStock ?? 0
     )
-  }, [mode, initialPackaging, detailStock, unitsPerPack])
+  }, [showStockFields, initialPackaging, detailStock, unitsPerPack])
 
   const previewSrc = imagePreview || imageUrl || null
 
@@ -359,7 +365,7 @@ export function ProductFormFields({
               {t("inventory.form.unitsPerPackHint")}
             </FormDescription>
 
-            {mode === "create" && (
+            {showStockFields && (
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -407,8 +413,12 @@ export function ProductFormFields({
               </div>
             )}
 
-            {mode === "create" && (
+            {showStockFields && (
               <FormDescription className="text-[11px]">
+                {mode === "edit" && activeStoreName
+                  ? t("inventory.form.editStockStoreHint", { store: activeStoreName })
+                  : null}
+                {mode === "edit" && activeStoreName ? " · " : null}
                 {t("inventory.form.initialStockPackagingHint", {
                   unit: packagingUnit || t("inventory.form.packagingFallback"),
                 })}
@@ -417,7 +427,7 @@ export function ProductFormFields({
               </FormDescription>
             )}
 
-            {mode === "create" && computedStock !== null && (
+            {showStockFields && computedStock !== null && (
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs">
                 <p className="font-semibold text-primary">
                   {t("inventory.form.computedStockTitle")}
@@ -431,7 +441,16 @@ export function ProductFormFields({
               </div>
             )}
 
-            {mode === "edit" && (
+            {mode === "edit" && !activeStoreName && (
+              <div className="rounded-xl border border-dashed bg-muted/10 p-4 text-xs text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <p>{t("inventory.form.selectStoreForStock")}</p>
+                </div>
+              </div>
+            )}
+
+            {mode === "edit" && activeStoreName && !canAdjustStock && (
               <div className="rounded-xl border border-dashed bg-muted/10 p-4 text-xs text-muted-foreground">
                 <div className="flex items-start gap-2">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />

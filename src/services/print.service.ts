@@ -42,6 +42,67 @@ function drawSaleClientLines(
   return y;
 }
 
+function drawSalePaymentSummary(
+  doc: jsPDF,
+  sale: Sale,
+  saleLabels: SalePrintLabels,
+  labels: PrintLabels,
+  pageWidth: number,
+  startY: number,
+  fontSize = 8
+): number {
+  let y = startY;
+  const rightX = pageWidth - 5;
+  const lineHeight = fontSize === 8 ? 4 : 5;
+
+  doc.setFontSize(fontSize);
+  doc.setFont('helvetica', 'normal');
+
+  if (sale.discount > 0) {
+    doc.text(`${saleLabels.subtotal}: ${formatPdfNumber(sale.subtotal)} FCFA`, 5, y);
+    y += lineHeight;
+    doc.text(`${saleLabels.discount}: -${formatPdfNumber(sale.discount)} FCFA`, 5, y);
+    y += lineHeight;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(fontSize + (fontSize === 8 ? 1 : 2));
+  doc.text(`${saleLabels.total}:`, 5, y);
+  doc.text(`${formatPdfNumber(sale.total)} FCFA`, rightX, y, { align: 'right' });
+  y += lineHeight + 1;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(fontSize);
+
+  const paidPayments = sale.payments.filter((payment) => payment.amount > 0);
+  if (paidPayments.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${saleLabels.paymentsTitle}:`, 5, y);
+    y += lineHeight;
+    doc.setFont('helvetica', 'normal');
+    for (const payment of paidPayments) {
+      const methodLabel = labels.resolvePaymentMethod(payment.method);
+      doc.text(
+        `- ${methodLabel}: ${formatPdfNumber(payment.amount)} FCFA`,
+        5,
+        y
+      );
+      y += lineHeight;
+    }
+  }
+
+  doc.text(`${saleLabels.amountPaid}: ${formatPdfNumber(sale.amountPaid)} FCFA`, 5, y);
+  y += lineHeight;
+
+  if (sale.debtAmount > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${saleLabels.remainingDue}: ${formatPdfNumber(sale.debtAmount)} FCFA`, 5, y);
+    y += lineHeight;
+  }
+
+  return y;
+}
+
 /**
  * Service pour la génération et l'impression des documents PDF officiels.
  * Les libellés sont injectés via getPrintLabels(t) pour respecter la locale active.
@@ -49,9 +110,21 @@ function drawSaleClientLines(
 export const PrintService = {
   async generateThermalTicket(sale: Sale, store: Store, labels: PrintLabels) {
     const saleLabels = labels.sale;
+    const paymentLineCount =
+      (sale.discount > 0 ? 2 : 0) +
+      1 +
+      (sale.payments.filter((p) => p.amount > 0).length > 0
+        ? sale.payments.filter((p) => p.amount > 0).length + 1
+        : 0) +
+      1 +
+      (sale.debtAmount > 0 ? 1 : 0);
+    const ticketHeight = Math.min(
+      280,
+      Math.max(200, 130 + sale.items.length * 6 + paymentLineCount * 5)
+    );
     const doc = new jsPDF({
       unit: 'mm',
-      format: [80, 200],
+      format: [80, ticketHeight],
     });
 
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -90,16 +163,11 @@ export const PrintService = {
       styles: { fontSize: 8, cellPadding: 1 },
     });
 
-    y = (doc as any).lastAutoTable.finalY + 5;
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${saleLabels.total}:`, 5, y);
-    doc.text(`${formatPdfNumber(sale.total)} FCFA`, pageWidth - 5, y, { align: 'right' });
+    y = drawSalePaymentSummary(doc, sale, saleLabels, labels, pageWidth, (doc as any).lastAutoTable.finalY + 4, 8) + 4;
 
     try {
       const qrDataUrl = await QRCode.toDataURL(sale.id);
-      doc.addImage(qrDataUrl, 'PNG', pageWidth / 2 - 10, y + 8, 20, 20);
+      doc.addImage(qrDataUrl, 'PNG', pageWidth / 2 - 10, y, 20, 20);
     } catch {}
 
     doc.save(`Ticket_${sale.id.slice(-6).toUpperCase()}.pdf`);
@@ -134,10 +202,8 @@ export const PrintService = {
       headStyles: { fillColor: [29, 217, 124] }
     });
 
-    y = (doc as any).lastAutoTable.finalY + 10;
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${saleLabels.totalGeneral}: ${formatPdfNumber(sale.total)} FCFA`, 190, y, { align: 'right' });
+    y = (doc as any).lastAutoTable.finalY + 8;
+    drawSalePaymentSummary(doc, sale, saleLabels, labels, 190, y, 10);
 
     doc.save(`Vente_${sale.id.slice(-6)}.pdf`);
   },
@@ -420,10 +486,11 @@ export const PrintService = {
     const normalized = normalizeProduct(product);
     const packagingLabel =
       normalized.unitsPerPack > 1
-        ? l.packagingValue
-            .replace("{count}", String(normalized.unitsPerPack))
-            .replace("{unit}", product.unit)
-            .replace("{packaging}", normalized.packagingUnit || l.packagingFallback)
+        ? l.formatPackagingValue(
+            normalized.unitsPerPack,
+            product.unit,
+            normalized.packagingUnit || l.packagingFallback
+          )
         : '-';
 
     const infoRows: string[][] = [
