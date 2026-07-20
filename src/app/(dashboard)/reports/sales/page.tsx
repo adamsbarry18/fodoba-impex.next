@@ -31,6 +31,10 @@ import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { TableListToolbar } from "@/components/ui/table-list-toolbar"
 import { SALES_REPORT_TABLE_COLUMNS } from "@/lib/table-column-presets"
 import { SaleTicketButton } from "@/components/sales/sale-ticket-button"
+import { SaleClientInfo } from "@/components/sales/sale-client-info"
+import { PrintService } from "@/services/print.service"
+import { getPrintLabels } from "@/lib/print-labels"
+import { downloadSalesCsv } from "@/lib/sales-export-utils"
 import { useT } from "@/i18n/context"
 
 const PAGE_SIZE = 50
@@ -56,6 +60,7 @@ export default function SalesReportPage() {
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"))
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"))
   const [storeId, setStoreId] = useState("all")
+  const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null)
 
   const salesResetKey = `${startDate}|${endDate}|${storeId}|${sales.length}`
   const {
@@ -101,6 +106,73 @@ export default function SalesReportPage() {
     loadData()
   }, [startDate, endDate, storeId])
 
+  const handleExportCsv = () => {
+    if (sales.length === 0) {
+      toast.error(t("reports.sales.noSalesExport"))
+      return
+    }
+
+    try {
+      downloadSalesCsv(sales, stores, {
+        walkIn: t("pos.walkInClient"),
+        headers: {
+          date: t("reports.sales.colDate"),
+          ref: "Ref",
+          client: t("reports.sales.colClient"),
+          phone: t("common.phone"),
+          clientType: t("clients.form.clientType"),
+          seller: t("print.seller"),
+          store: t("reports.sales.colStore"),
+          total: t("reports.sales.colTotal"),
+          status: t("reports.sales.colStatus"),
+          payment: t("reports.sales.colPayment"),
+        },
+        paymentComplete: t("badges.salePayment.complete"),
+        paymentPartial: t("badges.salePayment.partial"),
+        clientTypeParticulier: t("badges.clientType.particulier"),
+        clientTypeGrossiste: t("badges.clientType.grossiste"),
+      })
+      toast.success(t("reports.sales.exportCsvSuccess"))
+    } catch {
+      toast.error(t("reports.sales.exportError"))
+    }
+  }
+
+  const handleExportPdf = async () => {
+    if (sales.length === 0) {
+      toast.error(t("reports.sales.noSalesExport"))
+      return
+    }
+
+    setExporting("pdf")
+    try {
+      const reportStore =
+        storeId === "all"
+          ? null
+          : stores.find((store) => store.id === storeId) ??
+            (await StoreService.getStore(storeId))
+
+      await PrintService.generateSalesReport(
+        sales,
+        reportStore,
+        {
+          startDate: format(new Date(startDate), "dd/MM/yyyy"),
+          endDate: format(new Date(endDate), "dd/MM/yyyy"),
+          storeLabel:
+            storeId === "all"
+              ? t("reports.sales.storeAll")
+              : reportStore?.name || storeId,
+        },
+        getPrintLabels(t)
+      )
+      toast.success(t("reports.sales.exportPdfSuccess"))
+    } catch {
+      toast.error(t("reports.sales.exportError"))
+    } finally {
+      setExporting(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -116,11 +188,20 @@ export default function SalesReportPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" /> CSV
+          <Button variant="outline" onClick={handleExportCsv} disabled={loading || exporting !== null}>
+            <Download className="mr-2 h-4 w-4" /> {t("reports.sales.exportCsv")}
           </Button>
-          <Button variant="outline">
-            <Printer className="mr-2 h-4 w-4" /> PDF
+          <Button
+            variant="outline"
+            onClick={handleExportPdf}
+            disabled={loading || exporting !== null}
+          >
+            {exporting === "pdf" ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="mr-2 h-4 w-4" />
+            )}
+            {t("reports.sales.exportPdf")}
           </Button>
         </div>
       </div>
@@ -286,10 +367,8 @@ export default function SalesReportPage() {
                         </VisibleTableColumn>
                         <VisibleTableColumn id="client" isVisible={isVisible}>
                           <TableCell>
-                            <div className="flex flex-col">
-                              <span className="text-xs font-medium">
-                                {s.clientName || t("common.walkIn")}
-                              </span>
+                            <div className="flex flex-col gap-1">
+                              <SaleClientInfo sale={s} showPhone={false} />
                               <span className="text-[9px] italic text-muted-foreground">
                                 {t("reports.sales.bySeller", { name: s.sellerName })}
                               </span>

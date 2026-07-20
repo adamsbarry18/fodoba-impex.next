@@ -138,6 +138,8 @@ export const SaleService = {
       if (client) {
         saleData.clientId = client.id;
         saleData.clientName = client.name;
+        saleData.clientPhone = client.phone;
+        saleData.clientType = client.type;
       }
 
       transaction.set(saleRef, saleData);

@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation"
 import { PurchaseService } from "@/services/purchase.service"
 import { StoreService } from "@/services/store.service"
 import { PrintService } from "@/services/print.service"
+import { getPrintLabels } from "@/lib/print-labels"
 import { Purchase } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -108,7 +109,7 @@ export default function PurchaseDetailsPage() {
         return
       }
 
-      await PrintService.generatePurchaseOrder(purchase, store)
+      await PrintService.generatePurchaseOrder(purchase, store, getPrintLabels(t))
       toast.success(t("purchases.pdfSuccess"))
     } catch {
       toast.error(t("common.errorExportPdf"))

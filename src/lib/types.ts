@@ -250,6 +250,10 @@ export const SaleSchema = z.object({
   sellerName: z.string(),
   clientId: z.string().optional(),
   clientName: z.string().optional(),
+  /** Snapshot téléphone au moment de la vente */
+  clientPhone: z.string().optional(),
+  /** Snapshot type client au moment de la vente */
+  clientType: z.enum(["particulier", "grossiste"]).optional(),
   timestamp: z.any(),
   items: z.array(SaleItemSchema),
   subtotal: z.number(),

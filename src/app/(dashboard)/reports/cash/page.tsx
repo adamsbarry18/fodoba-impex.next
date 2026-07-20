@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { CashService } from "@/services/cash.service"
 import { PrintService } from "@/services/print.service"
+import { getPrintLabels } from "@/lib/print-labels"
 import { CashSession } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -81,10 +82,15 @@ export default function CashReportPage() {
     }
     setExporting(true)
     try {
-      await PrintService.generateCashAuditReport(sessions, activeStore, {
-        totalVariance: summary.totalVariance,
-        reliabilityPercent: summary.reliabilityPercent,
-      })
+      await PrintService.generateCashAuditReport(
+        sessions,
+        activeStore,
+        {
+          totalVariance: summary.totalVariance,
+          reliabilityPercent: summary.reliabilityPercent,
+        },
+        getPrintLabels(t)
+      )
       toast.success(t("common.successExportPdfConsolidated"))
     } catch {
       toast.error(t("common.errorExportPdf"))

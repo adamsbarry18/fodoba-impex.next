@@ -7,6 +7,7 @@ import { SaleService } from "@/services/sale.service"
 import { CategoryService } from "@/services/category.service"
 import { CashService } from "@/services/cash.service"
 import { Product, Client, SaleItem, Sale, Category, CashSession, PaymentMethod, PriceTier } from "@/lib/types"
+import { getSaleClientDisplayName } from "@/lib/sale-client-utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -1084,9 +1085,16 @@ export default function POSPage() {
               {t("pos.saleRecordedDesc")}
             </DialogDescription>
             {lastSale && (
-              <p className="mt-3 font-mono text-sm font-bold text-primary">
-                #{lastSale.id.slice(-6).toUpperCase()} - {formatAmount(lastSale.total, "FCFA")}
-              </p>
+              <>
+                <p className="mt-3 font-mono text-sm font-bold text-primary">
+                  #{lastSale.id.slice(-6).toUpperCase()} - {formatAmount(lastSale.total, "FCFA")}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {t("pos.saleForClient", {
+                    name: getSaleClientDisplayName(lastSale, t("pos.walkInClient")),
+                  })}
+                </p>
+              </>
             )}
           </div>
           <div className="space-y-2 border-t bg-muted/20 p-4">

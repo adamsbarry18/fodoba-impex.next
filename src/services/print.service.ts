@@ -5,20 +5,50 @@ import QRCode from 'qrcode';
 import { format } from 'date-fns';
 import { Sale, Store, Purchase, StockMovement, Product, CashSession } from '@/lib/types';
 import { formatPdfNumber } from '@/lib/utils';
-import { getPaymentMethodLabelFr, PAYMENT_METHOD_IDS } from '@/lib/constants/payment-methods';
+import { PAYMENT_METHOD_IDS } from '@/lib/constants/payment-methods';
 import { getAppName } from '@/lib/constants/branding';
 import { normalizeProduct } from '@/lib/product-utils';
 import { formatSaleItemName } from '@/lib/pos-utils';
+import { buildSaleClientReceiptLines, isRegisteredSaleClient } from '@/lib/sale-client-utils';
+import type {
+  CashAuditPrintLabels,
+  PrintLabels,
+  ProductSheetPrintLabels,
+  PurchasePrintLabels,
+  SalePrintLabels,
+  SalesReportPrintLabels,
+  StockHistoryPrintLabels,
+  TransferPrintLabels,
+} from '@/lib/print-labels';
+
+export type { SalePrintLabels } from '@/lib/print-labels';
+
+function drawSaleClientLines(
+  doc: jsPDF,
+  sale: Sale,
+  labels: SalePrintLabels,
+  x: number,
+  startY: number,
+  fontSize = 9
+): number {
+  doc.setFontSize(fontSize);
+  doc.setFont('helvetica', 'normal');
+  const lines = buildSaleClientReceiptLines(sale, labels);
+  let y = startY;
+  for (const line of lines) {
+    doc.text(line, x, y);
+    y += fontSize === 8 ? 4 : 5;
+  }
+  return y;
+}
 
 /**
  * Service pour la génération et l'impression des documents PDF officiels.
- * Gère les Reçus, Bons de commande, Bons de transfert et Rapports.
+ * Les libellés sont injectés via getPrintLabels(t) pour respecter la locale active.
  */
 export const PrintService = {
-  /**
-   * Génère un ticket thermique (80mm) pour une vente.
-   */
-  async generateThermalTicket(sale: Sale, store: Store) {
+  async generateThermalTicket(sale: Sale, store: Store, labels: PrintLabels) {
+    const saleLabels = labels.sale;
     const doc = new jsPDF({
       unit: 'mm',
       format: [80, 200],
@@ -37,23 +67,22 @@ export const PrintService = {
     y += 4;
     doc.text(store.address, pageWidth / 2, y, { align: 'center' });
     y += 4;
-    doc.text(`Tél: ${store.phone}`, pageWidth / 2, y, { align: 'center' });
+    doc.text(`${labels.phoneShort}: ${store.phone}`, pageWidth / 2, y, { align: 'center' });
     y += 8;
 
     doc.setFontSize(9);
-    doc.text(`Facture: #${sale.id.slice(-6).toUpperCase()}`, 5, y);
+    doc.text(`${saleLabels.invoice}: #${sale.id.slice(-6).toUpperCase()}`, 5, y);
     y += 5;
     const dateStr = sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'dd/MM/yyyy HH:mm') : format(new Date(), 'dd/MM/yyyy HH:mm');
-    doc.text(`Date: ${dateStr}`, 5, y);
+    doc.text(`${saleLabels.date}: ${dateStr}`, 5, y);
     y += 5;
-    doc.text(`Vendeur: ${sale.sellerName}`, 5, y);
-    y += 10;
+    y = drawSaleClientLines(doc, sale, saleLabels, 5, y, 8) + 5;
 
     autoTable(doc, {
       startY: y,
       margin: { left: 5, right: 5 },
       body: sale.items.map(item => [
-        formatSaleItemName(item),
+        formatSaleItemName(item, saleLabels.wholesaleSuffix),
         `${item.quantity} x ${formatPdfNumber(item.unitPrice)}`,
         formatPdfNumber(item.total)
       ]),
@@ -65,63 +94,74 @@ export const PrintService = {
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text('TOTAL:', 5, y);
+    doc.text(`${saleLabels.total}:`, 5, y);
     doc.text(`${formatPdfNumber(sale.total)} FCFA`, pageWidth - 5, y, { align: 'right' });
-    y += 8;
 
     try {
       const qrDataUrl = await QRCode.toDataURL(sale.id);
-      doc.addImage(qrDataUrl, 'PNG', pageWidth / 2 - 10, y, 20, 20);
+      doc.addImage(qrDataUrl, 'PNG', pageWidth / 2 - 10, y + 8, 20, 20);
     } catch {}
 
     doc.save(`Ticket_${sale.id.slice(-6).toUpperCase()}.pdf`);
   },
 
-  /**
-   * Génère une facture A4 détaillée.
-   */
-  async generateA4Invoice(sale: Sale, store: Store) {
+  async generateA4Invoice(sale: Sale, store: Store, labels: PrintLabels) {
+    const saleLabels = labels.sale;
     const doc = new jsPDF('p', 'mm', 'a4');
-    this.drawHeader(doc, 'FACTURE DE VENTE', store);
+    this.drawHeader(doc, saleLabels.titleInvoice, store, labels.phoneShort);
     
     let y = 50;
     doc.setFontSize(10);
-    doc.text(`N° Facture: #${sale.id.slice(-6).toUpperCase()}`, 20, y);
-    doc.text(`Date: ${sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'dd/MM/yyyy') : ''}`, 20, y + 5);
-    doc.text(`Client: ${sale.clientName || 'Client de passage'}`, 140, y);
-    doc.text(`Vendeur: ${sale.sellerName}`, 140, y + 5);
+    doc.text(`${saleLabels.invoiceNumber}: #${sale.id.slice(-6).toUpperCase()}`, 20, y);
+    doc.text(`${saleLabels.date}: ${sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'dd/MM/yyyy') : ''}`, 20, y + 5);
+    drawSaleClientLines(doc, sale, saleLabels, 140, y);
+    const tableStartY = isRegisteredSaleClient(sale) && (sale.clientPhone || sale.clientType) ? y + 25 : y + 20;
 
     autoTable(doc, {
-      startY: y + 15,
-      head: [['Désignation', 'Qté', 'Prix Unit.', 'Total (FCFA)']],
-      body: sale.items.map(i => [formatSaleItemName(i), i.quantity, formatPdfNumber(i.unitPrice), formatPdfNumber(i.total)]),
+      startY: tableStartY,
+      head: [[
+        saleLabels.tableDesignation,
+        saleLabels.tableQty,
+        saleLabels.tableUnitPrice,
+        saleLabels.tableTotal,
+      ]],
+      body: sale.items.map(i => [
+        formatSaleItemName(i, saleLabels.wholesaleSuffix),
+        i.quantity,
+        formatPdfNumber(i.unitPrice),
+        formatPdfNumber(i.total),
+      ]),
       headStyles: { fillColor: [29, 217, 124] }
     });
 
     y = (doc as any).lastAutoTable.finalY + 10;
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL GÉNÉRAL: ${formatPdfNumber(sale.total)} FCFA`, 190, y, { align: 'right' });
+    doc.text(`${saleLabels.totalGeneral}: ${formatPdfNumber(sale.total)} FCFA`, 190, y, { align: 'right' });
 
     doc.save(`Vente_${sale.id.slice(-6)}.pdf`);
   },
 
-  /**
-   * Génère un Bon de Commande Fournisseur (P2 Achats).
-   */
-  async generatePurchaseOrder(purchase: Purchase, store: Store) {
+  async generatePurchaseOrder(purchase: Purchase, store: Store, labels: PrintLabels) {
+    const l = labels.purchase;
     const doc = new jsPDF('p', 'mm', 'a4');
-    this.drawHeader(doc, 'BON DE COMMANDE', store);
+    this.drawHeader(doc, l.title, store, labels.phoneShort);
     
     let y = 50;
     doc.setFontSize(10);
-    doc.text(`Commande: #${purchase.id.slice(-6).toUpperCase()}`, 20, y);
-    doc.text(`Fournisseur: ${purchase.supplierName}`, 140, y);
-    doc.text(`Statut: ${purchase.status}`, 140, y + 5);
+    doc.text(`${l.order}: #${purchase.id.slice(-6).toUpperCase()}`, 20, y);
+    const orderDate = purchase.timestamp?.toDate
+      ? format(purchase.timestamp.toDate(), 'dd/MM/yyyy')
+      : format(new Date(), 'dd/MM/yyyy');
+    doc.text(`${l.date}: ${orderDate}`, 20, y + 5);
+    doc.text(`${l.store}: ${purchase.storeName}`, 20, y + 10);
+    doc.text(`${l.supplier}: ${purchase.supplierName}`, 140, y);
+    doc.text(`${l.status}: ${labels.resolvePurchaseStatus(purchase.status)}`, 140, y + 5);
+    doc.text(`${l.preparedBy}: ${purchase.performedByName}`, 140, y + 10);
 
     autoTable(doc, {
-      startY: y + 15,
-      head: [['Produit', 'Qté', 'Coût Unit.', 'Devise', 'Total FCFA']],
+      startY: y + 22,
+      head: [[l.product, l.qty, l.unitCost, l.currency, l.totalFcfa]],
       body: purchase.items.map(i => [
         i.name, 
         i.quantity, 
@@ -132,48 +172,48 @@ export const PrintService = {
       headStyles: { fillColor: [79, 70, 229] }
     });
 
+    if (purchase.notes) {
+      const notesY = (doc as any).lastAutoTable.finalY + 8;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${l.notes}:`, 20, notesY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(purchase.notes, 20, notesY + 5, { maxWidth: 170 });
+    }
+
     doc.save(`Commande_${purchase.id.slice(-6)}.pdf`);
   },
 
-  /**
-   * Génère un Bon de Transfert entre boutiques (P3 Transferts).
-   */
-  async generateTransferNote(movement: StockMovement) {
+  async generateTransferNote(movement: StockMovement, labels: PrintLabels) {
+    const l = labels.transfer;
     const doc = new jsPDF('p', 'mm', 'a4');
     doc.setFontSize(22);
-    doc.text(`${getAppName()} - BON DE TRANSFERT`, 20, 20);
+    doc.text(`${getAppName()} - ${l.title}`, 20, 20);
     
     let y = 40;
     doc.setFontSize(10);
-    doc.text(`Référence: #${movement.id.slice(-6).toUpperCase()}`, 20, y);
-    doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy')}`, 20, y + 5);
-    doc.text(`Responsable: ${movement.performedByName}`, 20, y + 10);
+    doc.text(`${l.reference}: #${movement.id.slice(-6).toUpperCase()}`, 20, y);
+    doc.text(`${l.date}: ${format(new Date(), 'dd/MM/yyyy')}`, 20, y + 5);
+    doc.text(`${l.responsible}: ${movement.performedByName}`, 20, y + 10);
     
     autoTable(doc, {
       startY: y + 20,
-      head: [['Article', 'Quantité', 'Unité', 'Source']],
-      body: [[movement.productName, Math.abs(movement.delta), 'Pce', movement.storeName]],
+      head: [[l.article, l.quantity, l.unit, l.source]],
+      body: [[movement.productName, Math.abs(movement.delta), l.pieceUnit, movement.storeName]],
       headStyles: { fillColor: [59, 130, 246] }
     });
 
     doc.save(`Transfert_${movement.id.slice(-6)}.pdf`);
   },
 
-  /**
-   * Export PDF de l'historique des mouvements de stock.
-   */
-  async generateStockHistoryReport(movements: StockMovement[], store: Store) {
+  async generateStockHistoryReport(
+    movements: StockMovement[],
+    store: Store,
+    labels: PrintLabels
+  ) {
+    const l = labels.stockHistory;
     const doc = new jsPDF('p', 'mm', 'a4');
-    this.drawHeader(doc, 'HISTORIQUE DES FLUX STOCK', store);
-
-    const typeLabels: Record<StockMovement['type'], string> = {
-      PURCHASE: 'Achat / Entrée',
-      SALE: 'Vente',
-      TRANSFER_IN: 'Transfert (Entrée)',
-      TRANSFER_OUT: 'Transfert (Sortie)',
-      RETURN: 'Retour Client',
-      CORRECTION: 'Correction Inventaire',
-    };
+    this.drawHeader(doc, l.title, store, labels.phoneShort);
 
     const formatTs = (ts: StockMovement['timestamp']) => {
       if (!ts) return '-';
@@ -181,20 +221,29 @@ export const PrintService = {
       return format(date, 'dd/MM/yyyy HH:mm');
     };
 
+    const generatedAt = format(new Date(), 'dd/MM/yyyy HH:mm');
     let y = 50;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Boutique : ${store.name} (${store.code})`, 20, y);
-    doc.text(`Généré le : ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 20, y + 5);
-    doc.text(`Mouvements exportés : ${movements.length}`, 20, y + 10);
+    doc.text(`${l.store} : ${store.name} (${store.code})`, 20, y);
+    doc.text(`${l.generatedOn} ${generatedAt}`, 20, y + 5);
+    doc.text(`${l.exportedMovements} : ${movements.length}`, 20, y + 10);
 
     autoTable(doc, {
       startY: y + 18,
-      head: [['Date', 'Produit', 'Type', 'Variation', 'Stock final', 'Auteur', 'Motif']],
+      head: [[
+        l.tableDate,
+        l.tableProduct,
+        l.tableType,
+        l.tableDelta,
+        l.tableFinalStock,
+        l.tableAuthor,
+        l.tableReason,
+      ]],
       body: movements.map((m) => [
         formatTs(m.timestamp),
         m.productName,
-        typeLabels[m.type] || m.type,
+        labels.resolveStockMovementType(m.type),
         m.delta > 0 ? `+${m.delta}` : String(m.delta),
         String(m.newStock),
         m.performedByName,
@@ -213,16 +262,15 @@ export const PrintService = {
     doc.save(`Historique_Flux_${safeCode}_${format(new Date(), 'yyyyMMdd')}.pdf`);
   },
 
-  /**
-   * Rapport PDF consolidé d'audit caisse (sessions + synthèse par ligne).
-   */
   async generateCashAuditReport(
     sessions: CashSession[],
     store: Store,
-    summary: { totalVariance: number; reliabilityPercent: number }
+    summary: { totalVariance: number; reliabilityPercent: number },
+    labels: PrintLabels
   ) {
+    const l = labels.cashAudit;
     const doc = new jsPDF('p', 'mm', 'a4');
-    this.drawHeader(doc, 'RAPPORT D\'AUDIT CAISSE', store);
+    this.drawHeader(doc, l.title, store, labels.phoneShort);
 
     const formatTs = (ts: CashSession['openedAt']) => {
       if (!ts) return '-';
@@ -236,22 +284,35 @@ export const PrintService = {
       return Object.values(s.variances).every((v) => v === 0);
     }).length;
 
+    const generatedAt = format(new Date(), 'dd/MM/yyyy HH:mm');
     let y = 50;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Boutique : ${store.name} (${store.code})`, 20, y);
-    doc.text(`Généré le : ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 20, y + 5);
-    doc.text(`Sessions analysées : ${sessions.length} (${closedSessions.length} clôturées)`, 20, y + 10);
+    doc.text(`${l.store} : ${store.name} (${store.code})`, 20, y);
+    doc.text(`${l.generatedOn} ${generatedAt}`, 20, y + 5);
     doc.text(
-      `Écart global : ${formatPdfNumber(summary.totalVariance)} FCFA - Fiabilité : ${summary.reliabilityPercent}%`,
+      `${l.sessionsAnalyzed} : ${sessions.length} (${closedSessions.length})`,
+      20,
+      y + 10
+    );
+    doc.text(
+      `${l.globalVariance} : ${formatPdfNumber(summary.totalVariance)} FCFA - ${l.reliability} : ${summary.reliabilityPercent}%`,
       20,
       y + 15
     );
-    doc.text(`Clôtures conformes : ${conformCount} / ${closedSessions.length || sessions.length}`, 20, y + 20);
+    doc.text(`${l.conformClosures} : ${conformCount} / ${closedSessions.length || sessions.length}`, 20, y + 20);
 
     autoTable(doc, {
       startY: y + 26,
-      head: [['Ouverture', 'Clôture', 'Caissier', 'Attendu', 'Réel', 'Écart', 'Statut']],
+      head: [[
+        l.tableOpened,
+        l.tableClosed,
+        l.tableCashier,
+        l.tableExpected,
+        l.tableActual,
+        l.tableVariance,
+        l.tableStatus,
+      ]],
       body: sessions.map((s) => {
         const totalExpected = Object.values(s.expectedBalances).reduce((a, b) => a + b, 0);
         const totalActual = s.actualBalances
@@ -260,9 +321,7 @@ export const PrintService = {
         const totalVar = s.variances
           ? Object.values(s.variances).reduce((a, b) => a + b, 0)
           : 0;
-        const closedLabel = s.closedAt
-          ? formatTs(s.closedAt)
-          : '-';
+        const closedLabel = s.closedAt ? formatTs(s.closedAt) : '-';
 
         return [
           formatTs(s.openedAt),
@@ -271,7 +330,7 @@ export const PrintService = {
           formatPdfNumber(totalExpected),
           formatPdfNumber(totalActual),
           totalVar === 0 ? '0' : `${totalVar > 0 ? '+' : ''}${formatPdfNumber(totalVar)}`,
-          s.status === 'OPEN' ? 'EN COURS' : totalVar === 0 ? 'CONFORME' : 'ÉCART',
+          labels.resolveCashSessionStatus(s, totalVar),
         ];
       }),
       headStyles: { fillColor: [29, 217, 124] },
@@ -286,7 +345,7 @@ export const PrintService = {
     y = (doc as any).lastAutoTable.finalY + 12;
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text('Synthèse consolidée par ligne de caisse', 20, y);
+    doc.text(l.consolidatedSummary, 20, y);
 
     const lineTotals: Record<string, { expected: number; actual: number; variance: number }> = {};
     for (const method of PAYMENT_METHOD_IDS) {
@@ -306,16 +365,16 @@ export const PrintService = {
 
     autoTable(doc, {
       startY: y + 4,
-      head: [['Ligne de caisse', 'Attendu (cumul)', 'Réel (cumul)', 'Écart (cumul)']],
+      head: [[l.tableCashLine, l.tableExpectedCumul, l.tableActualCumul, l.tableVarianceCumul]],
       body: PAYMENT_METHOD_IDS.map((method) => {
-        const t = lineTotals[method];
+        const totals = lineTotals[method];
         return [
-          getPaymentMethodLabelFr(method),
-          formatPdfNumber(t.expected),
-          formatPdfNumber(t.actual),
-          t.variance === 0
+          labels.resolvePaymentMethod(method),
+          formatPdfNumber(totals.expected),
+          formatPdfNumber(totals.actual),
+          totals.variance === 0
             ? '0'
-            : `${t.variance > 0 ? '+' : ''}${formatPdfNumber(t.variance)}`,
+            : `${totals.variance > 0 ? '+' : ''}${formatPdfNumber(totals.variance)}`,
         ];
       }),
       headStyles: { fillColor: [29, 217, 124] },
@@ -326,20 +385,19 @@ export const PrintService = {
     doc.save(`Audit_Caisse_${safeCode}_${format(new Date(), 'yyyyMMdd')}.pdf`);
   },
 
-  /**
-   * Génère la fiche produit (catalogue / stock).
-   */
   async generateProductSheet(
     product: Product,
     stores: Store[],
     stockLevels: Record<string, number>,
+    labels: PrintLabels,
     store?: Store | null,
     categoryName?: string
   ) {
+    const l = labels.productSheet;
     const doc = new jsPDF('p', 'mm', 'a4');
 
     if (store) {
-      this.drawHeader(doc, 'FICHE PRODUIT', store);
+      this.drawHeader(doc, l.title, store, labels.phoneShort);
     } else {
       doc.setFontSize(20);
       doc.setFont('helvetica', 'bold');
@@ -347,7 +405,7 @@ export const PrintService = {
       doc.text(getAppName(), 20, 25);
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
-      doc.text('FICHE PRODUIT', 20, 32);
+      doc.text(l.title, 20, 32);
       doc.setDrawColor(230, 230, 230);
       doc.line(20, 38, 190, 38);
     }
@@ -359,27 +417,34 @@ export const PrintService = {
     doc.text(product.name, 20, y);
     y += 8;
 
-    const normalized = normalizeProduct(product)
+    const normalized = normalizeProduct(product);
+    const packagingLabel =
+      normalized.unitsPerPack > 1
+        ? l.packagingValue
+            .replace("{count}", String(normalized.unitsPerPack))
+            .replace("{unit}", product.unit)
+            .replace("{packaging}", normalized.packagingUnit || l.packagingFallback)
+        : '-';
 
     const infoRows: string[][] = [
-      ['Référence (SKU)', product.sku],
-      ['Code-barres', product.barcode || '-'],
-      ['Catégorie', categoryName || product.categoryId],
-      ['Unité détail', product.unit],
-      ['Packaging', normalized.packagingUnit || '-'],
-      ['Conditionnement', normalized.unitsPerPack > 1 ? `${normalized.unitsPerPack} ${product.unit} / ${normalized.packagingUnit || 'colis'}` : '-'],
-      ['Prix détail FCFA', `${formatPdfNumber(product.sellingPriceFCFA)} FCFA`],
-      ['Prix engros FCFA', `${formatPdfNumber(normalized.wholesalePriceFCFA)} FCFA`],
-      ['Prix d\'achat réf.', `${formatPdfNumber(product.purchasePriceRef)} FCFA`],
-      ['Date fabrication', product.manufacturingDate || '-'],
-      ['Date expiration', product.expirationDate || '-'],
-      ['Seuil d\'alerte', String(product.lowStockThreshold)],
-      ['Statut', product.active ? 'Actif' : 'Inactif'],
+      [l.sku, product.sku],
+      [l.barcode, product.barcode || '-'],
+      [l.category, categoryName || product.categoryId],
+      [l.retailUnit, product.unit],
+      [l.packagingUnit, normalized.packagingUnit || '-'],
+      [l.packagingContent, packagingLabel],
+      [l.retailPrice, `${formatPdfNumber(product.sellingPriceFCFA)} FCFA`],
+      [l.wholesalePrice, `${formatPdfNumber(normalized.wholesalePriceFCFA)} FCFA`],
+      [l.purchasePrice, `${formatPdfNumber(product.purchasePriceRef)} FCFA`],
+      [l.manufacturingDate, product.manufacturingDate || '-'],
+      [l.expirationDate, product.expirationDate || '-'],
+      [l.lowStockThreshold, String(product.lowStockThreshold)],
+      [l.status, product.active ? l.active : l.inactive],
     ];
 
-    if (product.prices?.GNF) infoRows.push(['Prix GNF', formatPdfNumber(product.prices.GNF)]);
-    if (product.prices?.USD) infoRows.push(['Prix USD', `$${formatPdfNumber(product.prices.USD)}`]);
-    if (product.prices?.EUR) infoRows.push(['Prix EUR', `${formatPdfNumber(product.prices.EUR)} EUR`]);
+    if (product.prices?.GNF) infoRows.push([l.priceGnf, formatPdfNumber(product.prices.GNF)]);
+    if (product.prices?.USD) infoRows.push([l.priceUsd, `$${formatPdfNumber(product.prices.USD)}`]);
+    if (product.prices?.EUR) infoRows.push([l.priceEur, `${formatPdfNumber(product.prices.EUR)} EUR`]);
 
     autoTable(doc, {
       startY: y,
@@ -392,11 +457,11 @@ export const PrintService = {
     y = (doc as any).lastAutoTable.finalY + 12;
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text('Stocks par boutique', 20, y);
+    doc.text(l.stockByStore, 20, y);
 
     autoTable(doc, {
       startY: y + 4,
-      head: [['Boutique', 'Code', 'Quantité', 'Unité']],
+      head: [[l.tableStore, l.tableCode, l.tableQuantity, l.tableUnit]],
       body: stores.map((s) => [
         s.name,
         s.code,
@@ -411,7 +476,7 @@ export const PrintService = {
       const qrDataUrl = await QRCode.toDataURL(product.id);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text('QR Code produit', 20, y);
+      doc.text(l.qrCode, 20, y);
       doc.addImage(qrDataUrl, 'PNG', 20, y + 3, 35, 35);
       doc.text(`ID: ${product.id}`, 60, y + 20);
     } catch {
@@ -420,16 +485,90 @@ export const PrintService = {
 
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
-    doc.text(`Généré le ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 20, 285);
+    doc.text(`${l.generatedOn} ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 20, 285);
 
     const safeSku = product.sku.replace(/[^a-zA-Z0-9-_]/g, '_');
     doc.save(`Fiche_${safeSku}.pdf`);
   },
 
-  /**
-   * Helper pour dessiner l'en-tête commun.
-   */
-  drawHeader(doc: jsPDF, title: string, store: Store) {
+  async generateSalesReport(
+    sales: Sale[],
+    store: Store | null,
+    meta: {
+      startDate: string;
+      endDate: string;
+      storeLabel: string;
+    },
+    labels: PrintLabels
+  ) {
+    const l = labels.salesReport;
+    const doc = new jsPDF('p', 'mm', 'a4');
+
+    if (store) {
+      this.drawHeader(doc, l.title, store, labels.phoneShort);
+    } else {
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(29, 217, 124);
+      doc.text(getAppName(), 20, 25);
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(l.title, 20, 32);
+      doc.setDrawColor(230, 230, 230);
+      doc.line(20, 38, 190, 38);
+    }
+
+    let y = 50;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.text(`${l.period} : ${meta.startDate} → ${meta.endDate}`, 20, y);
+    doc.text(`${l.store} : ${meta.storeLabel}`, 20, y + 5);
+    doc.text(`${l.exportedSales} : ${sales.length}`, 20, y + 10);
+    doc.text(
+      `${l.revenue} : ${formatPdfNumber(sales.reduce((sum, s) => sum + s.total, 0))} FCFA`,
+      20,
+      y + 15
+    );
+
+    const formatSaleDate = (sale: Sale) => {
+      if (!sale.timestamp?.toDate) return '-';
+      return format(sale.timestamp.toDate(), 'dd/MM/yyyy HH:mm');
+    };
+
+    autoTable(doc, {
+      startY: y + 22,
+      head: [[
+        l.tableDate,
+        l.tableNumber,
+        l.tableClient,
+        l.tablePhone,
+        l.tableSeller,
+        l.tableTotal,
+        l.tableStatus,
+      ]],
+      body: sales.map((sale) => [
+        formatSaleDate(sale),
+        `#${sale.id.slice(-6).toUpperCase()}`,
+        sale.clientName && isRegisteredSaleClient(sale) ? sale.clientName : l.walkIn,
+        isRegisteredSaleClient(sale) ? sale.clientPhone || '-' : '-',
+        sale.sellerName,
+        formatPdfNumber(sale.total),
+        labels.resolveSaleStatus(sale.status),
+      ]),
+      headStyles: { fillColor: [29, 217, 124] },
+      styles: { fontSize: 8, cellPadding: 2 },
+      columnStyles: {
+        0: { cellWidth: 28 },
+        2: { cellWidth: 32 },
+        3: { cellWidth: 24 },
+      },
+    });
+
+    doc.save(`Rapport_Ventes_${format(new Date(), 'yyyyMMdd')}.pdf`);
+  },
+
+  drawHeader(doc: jsPDF, title: string, store: Store, phoneShort: string) {
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(29, 217, 124);
@@ -443,7 +582,7 @@ export const PrintService = {
     doc.setTextColor(0, 0, 0);
     doc.text(store.name, 190, 20, { align: 'right' });
     doc.text(store.address, 190, 25, { align: 'right' });
-    doc.text(`Tél: ${store.phone}`, 190, 30, { align: 'right' });
+    doc.text(`${phoneShort}: ${store.phone}`, 190, 30, { align: 'right' });
     
     doc.setDrawColor(230, 230, 230);
     doc.line(20, 38, 190, 38);

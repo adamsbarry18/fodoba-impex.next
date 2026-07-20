@@ -6,6 +6,7 @@ import { ProductService } from "@/services/product.service"
 import { StoreService } from "@/services/store.service"
 import { CategoryService } from "@/services/category.service"
 import { PrintService } from "@/services/print.service"
+import { getPrintLabels } from "@/lib/print-labels"
 import { Product, Store } from "@/lib/types"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -116,6 +117,7 @@ export default function ProductDetailsPage() {
         product,
         stores,
         stockLevels,
+        getPrintLabels(t),
         activeStore,
         categoryName
       )

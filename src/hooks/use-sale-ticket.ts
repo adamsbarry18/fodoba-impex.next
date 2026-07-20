@@ -6,6 +6,7 @@ import { PrintService } from "@/services/print.service"
 import { StoreService } from "@/services/store.service"
 import type { Sale, Store } from "@/lib/types"
 import { useT } from "@/i18n/context"
+import { getPrintLabels } from "@/lib/print-labels"
 
 export function useSaleTicket(stores?: Store[]) {
   const t = useT()
@@ -23,7 +24,7 @@ export function useSaleTicket(stores?: Store[]) {
           toast.error(t("pos.ticket.storeNotFound"))
           return
         }
-        await PrintService.generateThermalTicket(sale, store)
+        await PrintService.generateThermalTicket(sale, store, getPrintLabels(t))
         toast.success(t("pos.ticket.downloadSuccess"))
       } catch {
         toast.error(t("pos.ticket.downloadError"))

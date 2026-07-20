@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import Link from "next/link"
 import { CashService } from "@/services/cash.service"
 import { PrintService } from "@/services/print.service"
+import { getPrintLabels } from "@/lib/print-labels"
 import { CashSession, CashMovement } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -282,10 +283,15 @@ export default function ReconciliationPage() {
         return
       }
       const summary = getCashAuditSummary(sessions)
-      await PrintService.generateCashAuditReport(sessions, activeStore, {
-        totalVariance: summary.totalVariance,
-        reliabilityPercent: summary.reliabilityPercent,
-      })
+      await PrintService.generateCashAuditReport(
+        sessions,
+        activeStore,
+        {
+          totalVariance: summary.totalVariance,
+          reliabilityPercent: summary.reliabilityPercent,
+        },
+        getPrintLabels(t)
+      )
       toast.success(t("reconciliation.exportSuccess"))
     } catch {
       toast.error(t("reconciliation.exportError"))

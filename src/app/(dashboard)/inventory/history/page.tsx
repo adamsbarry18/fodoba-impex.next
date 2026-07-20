@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from "react"
 import { DocumentSnapshot } from "firebase/firestore"
 import { InventoryService } from "@/services/inventory.service"
 import { PrintService } from "@/services/print.service"
+import { getPrintLabels } from "@/lib/print-labels"
 import { StockMovement } from "@/lib/types"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -173,7 +174,11 @@ export default function StockHistoryPage() {
         toast.error(t("stockHistory.noMovementsToExport"))
         return
       }
-      await PrintService.generateStockHistoryReport(result.movements, activeStore)
+      await PrintService.generateStockHistoryReport(
+        result.movements,
+        activeStore,
+        getPrintLabels(t)
+      )
       toast.success(t("stockHistory.exportSuccess"))
     } catch {
       toast.error(t("stockHistory.exportError"))

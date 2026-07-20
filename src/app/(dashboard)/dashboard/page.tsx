@@ -53,6 +53,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { StatusBadge } from "@/components/ui/status-badge"
+import { SaleClientInfo } from "@/components/sales/sale-client-info"
 import { toast } from "sonner"
 import {
   DASHBOARD_TIME_RANGES,
@@ -419,9 +420,12 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <p className="font-mono text-xs font-bold">#{sale.id.slice(-6)}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {sale.clientName || t("common.walkIn")}
-                      </p>
+                      <SaleClientInfo
+                        sale={sale}
+                        showType={false}
+                        showPhone={false}
+                        nameClassName="text-[11px] text-muted-foreground font-normal"
+                      />
                     </div>
                   </div>
                   <div className="text-right">
