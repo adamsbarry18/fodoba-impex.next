@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,15 +38,22 @@ export function SupplierDeleteDialog({
   const [blockers, setBlockers] = useState<SupplierDeleteBlocker[]>([])
   const [checking, setChecking] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const onOpenChangeRef = useRef(onOpenChange)
+
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange
+  }, [onOpenChange])
 
   useEffect(() => {
     if (!open || !supplier) {
       setBlockers([])
+      setChecking(false)
       return
     }
 
     let cancelled = false
     setChecking(true)
+    setBlockers([])
 
     SupplierService.getDeleteBlockers(supplier.id)
       .then((result) => {
@@ -55,7 +62,7 @@ export function SupplierDeleteDialog({
       .catch(() => {
         if (!cancelled) {
           toast.error(t("suppliers.deleteCheckError"))
-          onOpenChange(false)
+          onOpenChangeRef.current(false)
         }
       })
       .finally(() => {
@@ -65,10 +72,10 @@ export function SupplierDeleteDialog({
     return () => {
       cancelled = true
     }
-  }, [open, supplier, onOpenChange, t])
+  }, [open, supplier?.id, t])
 
   const handleDelete = async () => {
-    if (!supplier || blockers.length > 0) return
+    if (!supplier || blockers.length > 0 || checking) return
 
     setDeleting(true)
     try {
@@ -95,38 +102,39 @@ export function SupplierDeleteDialog({
     }
   }
 
+  const isBlocked = !checking && blockers.length > 0
   const canDelete = !checking && blockers.length === 0
+
+  const dialogTitle = checking
+    ? t("suppliers.confirmDeleteTitle")
+    : isBlocked
+      ? t("suppliers.deleteBlocked.title")
+      : t("suppliers.confirmDeleteTitle")
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="rounded-2xl">
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            {canDelete
-              ? t("suppliers.confirmDeleteTitle")
-              : t("suppliers.deleteBlocked.title")}
-          </AlertDialogTitle>
-          <AlertDialogDescription asChild>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              {checking ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("suppliers.deleteChecking")}
-                </div>
-              ) : canDelete ? (
-                <p>{t("suppliers.confirmDeleteDesc", { name: supplier?.name ?? "" })}</p>
-              ) : (
-                <>
-                  <p>{t("suppliers.deleteBlocked.desc", { name: supplier?.name ?? "" })}</p>
-                  <ul className="list-disc space-y-1 pl-5">
-                    {blockers.map((blocker) => (
-                      <li key={blocker}>{t(getSupplierDeleteBlockerMessageKey(blocker))}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
+          <AlertDialogTitle>{dialogTitle}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {checking ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("suppliers.deleteChecking")}
+              </span>
+            ) : isBlocked ? (
+              t("suppliers.deleteBlocked.desc", { name: supplier?.name ?? "" })
+            ) : (
+              t("suppliers.confirmDeleteDesc", { name: supplier?.name ?? "" })
+            )}
           </AlertDialogDescription>
+          {isBlocked && (
+            <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              {blockers.map((blocker) => (
+                <li key={blocker}>{t(getSupplierDeleteBlockerMessageKey(blocker))}</li>
+              ))}
+            </ul>
+          )}
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel className="rounded-xl" disabled={deleting}>
@@ -135,8 +143,11 @@ export function SupplierDeleteDialog({
           {canDelete && (
             <AlertDialogAction
               className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleDelete}
               disabled={deleting || checking}
+              onClick={(event) => {
+                event.preventDefault()
+                void handleDelete()
+              }}
             >
               {deleting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,15 +38,22 @@ export function ClientDeleteDialog({
   const [blockers, setBlockers] = useState<ClientDeleteBlocker[]>([])
   const [checking, setChecking] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const onOpenChangeRef = useRef(onOpenChange)
+
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange
+  }, [onOpenChange])
 
   useEffect(() => {
     if (!open || !client) {
       setBlockers([])
+      setChecking(false)
       return
     }
 
     let cancelled = false
     setChecking(true)
+    setBlockers([])
 
     ClientService.getDeleteBlockers(client.id)
       .then((result) => {
@@ -55,7 +62,7 @@ export function ClientDeleteDialog({
       .catch(() => {
         if (!cancelled) {
           toast.error(t("clients.deleteCheckError"))
-          onOpenChange(false)
+          onOpenChangeRef.current(false)
         }
       })
       .finally(() => {
@@ -65,10 +72,10 @@ export function ClientDeleteDialog({
     return () => {
       cancelled = true
     }
-  }, [open, client, onOpenChange, t])
+  }, [open, client?.id, t])
 
   const handleDelete = async () => {
-    if (!client || blockers.length > 0) return
+    if (!client || blockers.length > 0 || checking) return
 
     setDeleting(true)
     try {
@@ -95,38 +102,39 @@ export function ClientDeleteDialog({
     }
   }
 
+  const isBlocked = !checking && blockers.length > 0
   const canDelete = !checking && blockers.length === 0
+
+  const dialogTitle = checking
+    ? t("clients.confirmDeleteTitle")
+    : isBlocked
+      ? t("clients.deleteBlocked.title")
+      : t("clients.confirmDeleteTitle")
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="rounded-2xl">
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            {canDelete
-              ? t("clients.confirmDeleteTitle")
-              : t("clients.deleteBlocked.title")}
-          </AlertDialogTitle>
-          <AlertDialogDescription asChild>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              {checking ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("clients.deleteChecking")}
-                </div>
-              ) : canDelete ? (
-                <p>{t("clients.confirmDeleteDesc", { name: client?.name ?? "" })}</p>
-              ) : (
-                <>
-                  <p>{t("clients.deleteBlocked.desc", { name: client?.name ?? "" })}</p>
-                  <ul className="list-disc space-y-1 pl-5">
-                    {blockers.map((blocker) => (
-                      <li key={blocker}>{t(getClientDeleteBlockerMessageKey(blocker))}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
+          <AlertDialogTitle>{dialogTitle}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {checking ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("clients.deleteChecking")}
+              </span>
+            ) : isBlocked ? (
+              t("clients.deleteBlocked.desc", { name: client?.name ?? "" })
+            ) : (
+              t("clients.confirmDeleteDesc", { name: client?.name ?? "" })
+            )}
           </AlertDialogDescription>
+          {isBlocked && (
+            <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              {blockers.map((blocker) => (
+                <li key={blocker}>{t(getClientDeleteBlockerMessageKey(blocker))}</li>
+              ))}
+            </ul>
+          )}
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel className="rounded-xl" disabled={deleting}>
@@ -135,8 +143,11 @@ export function ClientDeleteDialog({
           {canDelete && (
             <AlertDialogAction
               className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleDelete}
               disabled={deleting || checking}
+              onClick={(event) => {
+                event.preventDefault()
+                void handleDelete()
+              }}
             >
               {deleting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

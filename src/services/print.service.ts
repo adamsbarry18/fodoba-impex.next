@@ -11,14 +11,8 @@ import { normalizeProduct } from '@/lib/product-utils';
 import { formatSaleItemName } from '@/lib/pos-utils';
 import { buildSaleClientReceiptLines, isRegisteredSaleClient } from '@/lib/sale-client-utils';
 import type {
-  CashAuditPrintLabels,
   PrintLabels,
-  ProductSheetPrintLabels,
-  PurchasePrintLabels,
   SalePrintLabels,
-  SalesReportPrintLabels,
-  StockHistoryPrintLabels,
-  TransferPrintLabels,
 } from '@/lib/print-labels';
 
 export type { SalePrintLabels } from '@/lib/print-labels';
