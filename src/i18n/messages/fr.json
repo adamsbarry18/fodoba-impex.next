@@ -848,6 +848,7 @@
   "inventory.selectStoreForStock": "Sélectionnez une boutique pour enregistrer le stock initial.",
   "inventory.imageUploadError": "Produit enregistré, mais l'image n'a pas pu être téléversée.",
   "inventory.stockBreakdownSeparator": " + ",
+  "inventory.stockTotalUnits": "{count} {unit} au total",
   "inventory.detail.packagingInfo": "Conditionnement",
   "inventory.detail.wholesalePrice": "Prix vente engros",
   "inventory.detail.purchasePrice": "Prix achat",

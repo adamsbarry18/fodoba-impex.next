@@ -22,6 +22,8 @@ import {
   buildDecomposedStock,
   buildStockLevelPayload,
   normalizeStockLevel,
+  applyRetailQuantityIn,
+  applyRetailQuantityOut,
   type DecomposedStock,
 } from "@/lib/stock-utils";
 import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper";
@@ -242,6 +244,19 @@ export const ProductService = {
     );
   },
 
+  async getStockRecordsForProducts(
+    products: Array<{ id: string; unitsPerPack?: number }>,
+    storeId: string
+  ): Promise<Record<string, DecomposedStock>> {
+    const results: Record<string, DecomposedStock> = {};
+    await Promise.all(
+      products.map(async (p) => {
+        results[p.id] = await this.getStockRecord(p.id, storeId, p.unitsPerPack ?? 1);
+      })
+    );
+    return results;
+  },
+
   async getStockLevelsForProducts(productIds: string[], storeId: string): Promise<Record<string, number>> {
     const results: Record<string, number> = {};
     await Promise.all(productIds.map(async (pid) => {
@@ -279,24 +294,21 @@ export const ProductService = {
   },
 
   async updateStockLevel(productId: string, storeId: string, delta: number) {
+    if (delta === 0) return;
+
+    const product = await this.getProduct(productId);
+    const ratio = product?.unitsPerPack ?? 1;
+    const previous = await this.getStockRecord(productId, storeId, ratio);
+    const next =
+      delta > 0
+        ? applyRetailQuantityIn(previous, delta, ratio)
+        : applyRetailQuantityOut(previous, -delta, ratio);
+
     const stockId = `${storeId}_${productId}`;
     const docRef = doc(db, STOCKS_COLLECTION, stockId);
-    const snap = await getDoc(docRef);
-    
-    if (snap.exists()) {
-      const current = snap.data() as StockLevel;
-      await updateDoc(docRef, { 
-        quantity: Math.max(0, current.quantity + delta),
-        lastUpdated: serverTimestamp()
-      });
-    } else {
-      const newStock: StockLevel = {
-        productId,
-        storeId,
-        quantity: Math.max(0, delta),
-        lastUpdated: serverTimestamp()
-      };
-      await setDoc(docRef, newStock);
-    }
+    await setDoc(docRef, {
+      ...buildStockLevelPayload(productId, storeId, next),
+      lastUpdated: serverTimestamp(),
+    });
   }
 };

@@ -848,6 +848,7 @@
   "inventory.selectStoreForStock": "Select a store to save initial stock.",
   "inventory.imageUploadError": "Product saved, but the image could not be uploaded.",
   "inventory.stockBreakdownSeparator": " + ",
+  "inventory.stockTotalUnits": "{count} {unit} total",
   "inventory.detail.packagingInfo": "Packaging",
   "inventory.detail.wholesalePrice": "Wholesale sale price",
   "inventory.detail.purchasePrice": "Purchase price",

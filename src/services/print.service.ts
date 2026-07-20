@@ -8,6 +8,7 @@ import { formatPdfNumber } from '@/lib/utils';
 import { PAYMENT_METHOD_IDS } from '@/lib/constants/payment-methods';
 import { getAppName } from '@/lib/constants/branding';
 import { normalizeProduct } from '@/lib/product-utils';
+import { formatDecomposedStockLabel, type DecomposedStock } from '@/lib/stock-utils';
 import { formatSaleItemName, formatSaleItemQuantity } from '@/lib/pos-utils';
 import { buildSaleClientReceiptLines, isRegisteredSaleClient } from '@/lib/sale-client-utils';
 import type {
@@ -448,7 +449,7 @@ export const PrintService = {
   async generateProductSheet(
     product: Product,
     stores: Store[],
-    stockLevels: Record<string, number>,
+    stockRecords: Record<string, DecomposedStock>,
     labels: PrintLabels,
     store?: Store | null,
     categoryName?: string
@@ -523,12 +524,14 @@ export const PrintService = {
     autoTable(doc, {
       startY: y + 4,
       head: [[l.tableStore, l.tableCode, l.tableQuantity, l.tableUnit]],
-      body: stores.map((s) => [
-        s.name,
-        s.code,
-        String(stockLevels[s.id] ?? 0),
-        product.unit,
-      ]),
+      body: stores.map((s) => {
+        const record = stockRecords[s.id] ?? { packagingQty: 0, detailQty: 0, quantity: 0 };
+        const hasPackaging = normalized.unitsPerPack > 1 && !!normalized.packagingUnit;
+        const quantityLabel = hasPackaging
+          ? `${formatDecomposedStockLabel(record, product, ' + ')} (${record.quantity} ${product.unit})`
+          : String(record.quantity);
+        return [s.name, s.code, quantityLabel, product.unit];
+      }),
       headStyles: { fillColor: [29, 217, 124] },
     });
 

@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react"
 import { ProductService } from "@/services/product.service"
+import { InventoryService } from "@/services/inventory.service"
 import { StoreService } from "@/services/store.service"
 import { CategoryService } from "@/services/category.service"
 import { PrintService } from "@/services/print.service"
@@ -28,7 +29,9 @@ import { usePermissions } from "@/hooks/use-permissions"
 import { toast } from "sonner"
 import { QRCodeSVG } from "qrcode.react"
 import { useT } from "@/i18n/context"
-import { formatStockBreakdown, normalizeProduct } from "@/lib/product-utils"
+import { useAuth } from "@/lib/contexts/AuthContext"
+import { formatDecomposedStockLabel, type DecomposedStock } from "@/lib/stock-utils"
+import { normalizeProduct } from "@/lib/product-utils"
 import { ProductExpirationDisplay } from "@/components/inventory/product-expiration-display"
 import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper"
 
@@ -36,11 +39,12 @@ export default function ProductDetailsPage() {
   const params = useParams()
   const router = useRouter()
   const { activeStore } = useStore()
+  const { userProfile } = useAuth()
   const { can } = usePermissions()
   const t = useT()
   const [product, setProduct] = useState<Product | null>(null)
   const [stores, setStores] = useState<Store[]>([])
-  const [stockLevels, setStockLevels] = useState<Record<string, number>>({})
+  const [stockRecords, setStockRecords] = useState<Record<string, DecomposedStock>>({})
   const [loading, setLoading] = useState(true)
   const [adjusting, setAdjusting] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
@@ -57,13 +61,17 @@ export default function ProductDetailsPage() {
 
       if (prod) {
         setProduct(prod)
-        const levels: Record<string, number> = {}
+        const levels: Record<string, DecomposedStock> = {}
         await Promise.all(
           allStores.stores.map(async (s) => {
-            levels[s.id] = await ProductService.getStockLevel(prod.id, s.id)
+            levels[s.id] = await ProductService.getStockRecord(
+              prod.id,
+              s.id,
+              normalizeProduct(prod).unitsPerPack
+            )
           })
         )
-        setStockLevels(levels)
+        setStockRecords(levels)
         setStores(allStores.stores)
       } else {
         toast.error(t("common.errorProductNotFound"))
@@ -89,14 +97,20 @@ export default function ProductDetailsPage() {
   }, [product, activeStore?.id])
 
   const handleManualAdjustment = async (delta: number) => {
-    if (!activeStore || !product) return
+    if (!activeStore || !product || !userProfile) return
     setAdjusting(true)
     try {
-      await ProductService.updateStockLevel(product.id, activeStore.id, delta)
+      await InventoryService.adjustDetailStock({
+        productId: product.id,
+        storeId: activeStore.id,
+        delta,
+        user: userProfile,
+        reason: t("inventory.form.stockCorrectionReason"),
+      })
       toast.success(t("common.successStockUpdate"))
       loadAll()
-    } catch {
-      toast.error(t("common.errorAdjustment"))
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : t("common.errorAdjustment"))
     } finally {
       setAdjusting(false)
     }
@@ -116,7 +130,7 @@ export default function ProductDetailsPage() {
       await PrintService.generateProductSheet(
         product,
         stores,
-        stockLevels,
+        stockRecords,
         getPrintLabels(t),
         activeStore,
         categoryName
@@ -375,11 +389,18 @@ export default function ProductDetailsPage() {
           </CardHeader>
           <CardContent className="space-y-4 p-6 pt-2 sm:p-8 sm:pt-4">
             {stores.map((store) => {
-              const qty = stockLevels[store.id] || 0
+              const stockRecord = stockRecords[store.id] ?? {
+                packagingQty: 0,
+                detailQty: 0,
+                quantity: 0,
+              }
+              const qty = stockRecord.quantity
               const isCurrent = store.id === activeStore?.id
-              const stockBreakdown = formatStockBreakdown(
-                qty,
-                normalized,
+              const hasPackaging =
+                !!normalized.packagingUnit && normalized.unitsPerPack > 1
+              const decomposedLabel = formatDecomposedStockLabel(
+                stockRecord,
+                product,
                 t("inventory.stockBreakdownSeparator")
               )
               return (
@@ -409,14 +430,25 @@ export default function ProductDetailsPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-headline text-2xl font-bold text-gray-900">
-                      {qty}{" "}
-                      <span className="ml-1 text-[10px] font-bold uppercase text-gray-400">
-                        {product.unit}
-                      </span>
-                    </div>
-                    {stockBreakdown && (
-                      <p className="mt-1 text-[10px] text-gray-400">{stockBreakdown}</p>
+                    {hasPackaging ? (
+                      <>
+                        <div className="font-headline text-lg font-bold leading-tight text-gray-900 sm:text-xl">
+                          {decomposedLabel}
+                        </div>
+                        <p className="mt-1 text-[10px] text-gray-400">
+                          {t("inventory.stockTotalUnits", {
+                            count: qty,
+                            unit: product.unit,
+                          })}
+                        </p>
+                      </>
+                    ) : (
+                      <div className="font-headline text-2xl font-bold text-gray-900">
+                        {qty}{" "}
+                        <span className="ml-1 text-[10px] font-bold uppercase text-gray-400">
+                          {product.unit}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -448,8 +480,32 @@ export default function ProductDetailsPage() {
                     {t("inventory.detail.current")}
                   </p>
                   <p className="font-headline text-4xl font-bold text-gray-900">
-                    {stockLevels[activeStore?.id || ""] || 0}
+                    {(() => {
+                      const record = stockRecords[activeStore?.id || ""] ?? {
+                        packagingQty: 0,
+                        detailQty: 0,
+                        quantity: 0,
+                      }
+                      const hasPackaging =
+                        !!normalized.packagingUnit && normalized.unitsPerPack > 1
+                      if (hasPackaging) {
+                        return formatDecomposedStockLabel(
+                          record,
+                          product,
+                          t("inventory.stockBreakdownSeparator")
+                        )
+                      }
+                      return record.quantity
+                    })()}
                   </p>
+                  {normalized.packagingUnit && normalized.unitsPerPack > 1 && (
+                    <p className="mt-1 text-[10px] text-gray-400">
+                      {t("inventory.stockTotalUnits", {
+                        count: stockRecords[activeStore?.id || ""]?.quantity ?? 0,
+                        unit: product.unit,
+                      })}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:gap-4">
                   <Button

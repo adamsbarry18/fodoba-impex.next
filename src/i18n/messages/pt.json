@@ -835,6 +835,7 @@
   "inventory.selectStoreForStock": "Selecione uma loja para registar o stock inicial.",
   "inventory.imageUploadError": "Produto guardado, mas a imagem não pôde ser enviada.",
   "inventory.stockBreakdownSeparator": " + ",
+  "inventory.stockTotalUnits": "{count} {unit} no total",
   "inventory.detail.packagingInfo": "Acondicionamento",
   "inventory.detail.wholesalePrice": "Preço venda grossista",
   "inventory.detail.purchasePrice": "Preço de compra",

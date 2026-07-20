@@ -168,6 +168,58 @@ export function applyPurchaseQuantityToDecomposedStock(
   return buildDecomposedStock(stock.packagingQty, stock.detailQty + qty, ratio)
 }
 
+/**
+ * Retire des unités détail (transfert sortant, ajustement −N).
+ * Consomme d'abord le stock détail, puis ouvre les conditionnements si nécessaire.
+ */
+export function applyRetailQuantityOut(
+  stock: DecomposedStock,
+  quantity: number,
+  unitsPerPack: number
+): DecomposedStock {
+  const ratio = Math.max(1, unitsPerPack)
+  const qty = Math.max(0, quantity)
+  if (qty === 0) return stock
+  if (stock.quantity < qty) {
+    throw new Error(`Stock insuffisant. Disponible : ${stock.quantity}`)
+  }
+
+  let packagingQty = stock.packagingQty
+  let detailQty = stock.detailQty
+  let remaining = qty
+
+  if (detailQty >= remaining) {
+    return buildDecomposedStock(packagingQty, detailQty - remaining, ratio)
+  }
+
+  remaining -= detailQty
+  detailQty = 0
+
+  while (remaining > 0) {
+    if (packagingQty <= 0) break
+    packagingQty -= 1
+    if (remaining < ratio) {
+      detailQty = ratio - remaining
+      remaining = 0
+    } else {
+      remaining -= ratio
+    }
+  }
+
+  return buildDecomposedStock(packagingQty, detailQty, ratio)
+}
+
+/** Ajoute des unités détail (transfert entrant, ajustement +N) */
+export function applyRetailQuantityIn(
+  stock: DecomposedStock,
+  quantity: number,
+  unitsPerPack: number
+): DecomposedStock {
+  const qty = Math.max(0, quantity)
+  if (qty === 0) return stock
+  return buildDecomposedStock(stock.packagingQty, stock.detailQty + qty, unitsPerPack)
+}
+
 export function formatDecomposedStockLabel(
   stock: DecomposedStock,
   product: Product,

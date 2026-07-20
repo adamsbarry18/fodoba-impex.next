@@ -19,6 +19,8 @@ import {
   buildDecomposedStock,
   buildStockLevelPayload,
   normalizeStockLevel,
+  applyRetailQuantityIn,
+  applyRetailQuantityOut,
 } from "@/lib/stock-utils";
 import { normalizeProduct } from "@/lib/product-utils";
 
@@ -204,6 +206,90 @@ export const InventoryService = {
     return movement.next;
   },
 
+  /** Ajuste le stock détail de ±N unités (boutons +1/−1 sur la fiche produit) */
+  async adjustDetailStock(params: {
+    productId: string
+    storeId: string
+    delta: number
+    user: UserProfile
+    reason?: string
+  }) {
+    const { productId, storeId, delta, user, reason } = params
+    if (delta === 0) return
+
+    const stockId = `${storeId}_${productId}`
+    const stockRef = doc(db, STOCKS_COLLECTION, stockId)
+    const movementRef = doc(collection(db, MOVEMENTS_COLLECTION))
+    const productRef = doc(db, "products", productId)
+    const storeRef = doc(db, "stores", storeId)
+
+    const movement = await runTransaction(db, async (transaction) => {
+      const [stockSnap, productSnap, storeSnap] = await Promise.all([
+        transaction.get(stockRef),
+        transaction.get(productRef),
+        transaction.get(storeRef),
+      ])
+
+      if (!productSnap.exists()) throw new Error("Produit introuvable")
+      if (!storeSnap.exists()) throw new Error("Boutique introuvable")
+
+      const product = productSnap.data() as Product
+      const store = storeSnap.data() as Store
+      const normalized = normalizeProduct(product)
+      const previous = normalizeStockLevel(
+        stockSnap.exists() ? (stockSnap.data() as StockLevel) : null,
+        normalized.unitsPerPack
+      )
+
+      const next =
+        delta > 0
+          ? applyRetailQuantityIn(previous, delta, normalized.unitsPerPack)
+          : applyRetailQuantityOut(previous, -delta, normalized.unitsPerPack)
+
+      transaction.set(
+        stockRef,
+        {
+          ...buildStockLevelPayload(productId, storeId, next),
+          lastUpdated: serverTimestamp(),
+        },
+        { merge: true }
+      )
+
+      const qtyDelta = next.quantity - previous.quantity
+      transaction.set(movementRef, {
+        id: movementRef.id,
+        productId,
+        productName: product.name,
+        storeId,
+        storeName: store.name,
+        type: "CORRECTION",
+        delta: qtyDelta,
+        previousStock: previous.quantity,
+        newStock: next.quantity,
+        reason,
+        performedBy: user.uid,
+        performedByName: `${user.prenom} ${user.nom}`,
+        timestamp: serverTimestamp(),
+      })
+
+      return { previous, next, productName: product.name }
+    })
+
+    void AppNotificationHelper.notifyStockChanges({
+      storeId,
+      changes: [
+        {
+          productId,
+          productName: movement.productName,
+          previousStock: movement.previous.quantity,
+          newStock: movement.next.quantity,
+        },
+      ],
+    })
+
+    return movement.next
+  },
+
   async transferStock(params: {
     productId: string,
     fromStoreId: string,
@@ -237,27 +323,37 @@ export const InventoryService = {
       const product = productSnap.data() as Product;
       const fromStore = fromStoreSnap.data() as Store;
       const toStore = toStoreSnap.data() as Store;
-      
-      const currentFromQty = fromStockSnap.exists() ? (fromStockSnap.data() as StockLevel).quantity : 0;
-      const currentToQty = toStockSnap.exists() ? (toStockSnap.data() as StockLevel).quantity : 0;
+      const normalized = normalizeProduct(product);
 
-      if (currentFromQty < quantity) {
-        throw new Error(`Stock insuffisant dans ${fromStore.name}. Disponible: ${currentFromQty}`);
-      }
+      const previousFrom = normalizeStockLevel(
+        fromStockSnap.exists() ? (fromStockSnap.data() as StockLevel) : null,
+        normalized.unitsPerPack
+      );
+      const previousTo = normalizeStockLevel(
+        toStockSnap.exists() ? (toStockSnap.data() as StockLevel) : null,
+        normalized.unitsPerPack
+      );
 
-      transaction.set(fromStockRef, {
-        productId,
-        storeId: fromStoreId,
-        quantity: currentFromQty - quantity,
-        lastUpdated: serverTimestamp()
-      }, { merge: true });
+      const nextFrom = applyRetailQuantityOut(previousFrom, quantity, normalized.unitsPerPack);
+      const nextTo = applyRetailQuantityIn(previousTo, quantity, normalized.unitsPerPack);
 
-      transaction.set(toStockRef, {
-        productId,
-        storeId: toStoreId,
-        quantity: currentToQty + quantity,
-        lastUpdated: serverTimestamp()
-      }, { merge: true });
+      transaction.set(
+        fromStockRef,
+        {
+          ...buildStockLevelPayload(productId, fromStoreId, nextFrom),
+          lastUpdated: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      transaction.set(
+        toStockRef,
+        {
+          ...buildStockLevelPayload(productId, toStoreId, nextTo),
+          lastUpdated: serverTimestamp(),
+        },
+        { merge: true }
+      );
 
       const moveOutRef = doc(collection(db, MOVEMENTS_COLLECTION));
       const moveOutData: any = {
@@ -267,9 +363,9 @@ export const InventoryService = {
         storeId: fromStoreId,
         storeName: fromStore.name,
         type: "TRANSFER_OUT",
-        delta: -quantity,
-        previousStock: currentFromQty,
-        newStock: currentFromQty - quantity,
+        delta: nextFrom.quantity - previousFrom.quantity,
+        previousStock: previousFrom.quantity,
+        newStock: nextFrom.quantity,
         reason: reason || `Transfert vers ${toStore.name}`,
         performedBy: user.uid,
         performedByName: `${user.prenom} ${user.nom}`,
@@ -285,9 +381,9 @@ export const InventoryService = {
         storeId: toStoreId,
         storeName: toStore.name,
         type: "TRANSFER_IN",
-        delta: quantity,
-        previousStock: currentToQty,
-        newStock: currentToQty + quantity,
+        delta: nextTo.quantity - previousTo.quantity,
+        previousStock: previousTo.quantity,
+        newStock: nextTo.quantity,
         reason: reason || `Transfert depuis ${fromStore.name}`,
         performedBy: user.uid,
         performedByName: `${user.prenom} ${user.nom}`,

@@ -56,11 +56,11 @@ import {
   countLowStock,
   countOutOfStock,
   estimateStockValue,
-  formatStockBreakdown,
   getStockStatus,
   normalizeProduct,
   type StockFilter,
 } from "@/lib/product-utils"
+import { formatDecomposedStockLabel, type DecomposedStock } from "@/lib/stock-utils"
 import { cn } from "@/lib/utils"
 import { useTranslatedTableColumns } from "@/hooks/use-translated-table-columns"
 import { TableColumnToggle } from "@/components/ui/table-column-toggle"
@@ -93,7 +93,7 @@ export default function InventoryPage() {
 
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [stocks, setStocks] = useState<Record<string, number>>({})
+  const [stocks, setStocks] = useState<Record<string, DecomposedStock>>({})
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -136,9 +136,8 @@ export default function InventoryPage() {
         setLastVisible(prodData.lastVisible)
         setHasMore(prodData.products.length === FETCH_SIZE)
 
-        const productIds = prodData.products.map((p) => p.id)
-        const newStocks = await ProductService.getStockLevelsForProducts(
-          productIds,
+        const newStocks = await ProductService.getStockRecordsForProducts(
+          prodData.products,
           activeStore.id
         )
         setStocks((prev) => (loadMore ? { ...prev, ...newStocks } : newStocks))
@@ -179,8 +178,8 @@ export default function InventoryPage() {
         setLastVisible(prodData.lastVisible)
         setHasMore(prodData.products.length === FETCH_SIZE)
 
-        const newStocks = await ProductService.getStockLevelsForProducts(
-          prodData.products.map((p) => p.id),
+        const newStocks = await ProductService.getStockRecordsForProducts(
+          prodData.products,
           activeStore.id
         )
         if (!cancelled) setStocks(newStocks)
@@ -202,10 +201,18 @@ export default function InventoryPage() {
     void AppNotificationHelper.scanProductExpirations(products, activeStore?.id)
   }, [products, activeStore?.id])
 
+  const stockQuantities = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(stocks).map(([id, record]) => [id, record.quantity])
+      ),
+    [stocks]
+  )
+
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
     return products.filter((p) => {
-      const stock = stocks[p.id] ?? 0
+      const stock = stockQuantities[p.id] ?? 0
       const status = getStockStatus(stock, p.lowStockThreshold)
 
       const matchesSearch =
@@ -221,7 +228,7 @@ export default function InventoryPage() {
 
       return matchesSearch && matchesStock
     })
-  }, [products, searchTerm, stocks, stockFilter])
+  }, [products, searchTerm, stockQuantities, stockFilter])
 
   const filterKey = `${searchTerm}|${filterCategory}|${stockFilter}`
   const {
@@ -240,11 +247,11 @@ export default function InventoryPage() {
   const stats = useMemo(
     () => ({
       total: products.length,
-      lowStock: countLowStock(products, stocks),
-      outOfStock: countOutOfStock(products, stocks),
-      valuation: estimateStockValue(products, stocks),
+      lowStock: countLowStock(products, stockQuantities),
+      outOfStock: countOutOfStock(products, stockQuantities),
+      valuation: estimateStockValue(products, stockQuantities),
     }),
-    [products, stocks]
+    [products, stockQuantities]
   )
 
   const hasActiveFilters = searchTerm.trim().length > 0 || stockFilter !== "all"
@@ -507,13 +514,20 @@ export default function InventoryPage() {
                   </TableHeader>
                   <TableBody>
                     {visibleProducts.map((p) => {
-                      const stock = stocks[p.id] ?? 0
+                      const stockRecord = stocks[p.id] ?? {
+                        packagingQty: 0,
+                        detailQty: 0,
+                        quantity: 0,
+                      }
+                      const stock = stockRecord.quantity
                       const status = getStockStatus(stock, p.lowStockThreshold)
                       const category = categories.find((c) => c.id === p.categoryId)?.name
                       const normalized = normalizeProduct(p)
-                      const stockBreakdown = formatStockBreakdown(
-                        stock,
-                        normalized,
+                      const hasPackaging =
+                        !!normalized.packagingUnit && normalized.unitsPerPack > 1
+                      const decomposedLabel = formatDecomposedStockLabel(
+                        stockRecord,
+                        p,
                         t("inventory.stockBreakdownSeparator")
                       )
 
@@ -567,19 +581,35 @@ export default function InventoryPage() {
                           <VisibleTableColumn id="stock" isVisible={isVisible}>
                             <TableCell className="text-center">
                               <div className="flex flex-col items-center gap-1">
-                                <span
-                                  className={cn(
-                                    "text-base font-bold font-headline",
-                                    status === "out" && "text-destructive",
-                                    status === "low" && "text-amber-600",
-                                    status === "ok" && "text-foreground"
-                                  )}
-                                >
-                                  {stock}
-                                </span>
-                                {stockBreakdown && (
-                                  <span className="text-[9px] text-muted-foreground">
-                                    {stockBreakdown}
+                                {hasPackaging ? (
+                                  <>
+                                    <span
+                                      className={cn(
+                                        "max-w-[140px] text-xs font-bold font-headline leading-tight sm:max-w-none sm:text-sm",
+                                        status === "out" && "text-destructive",
+                                        status === "low" && "text-amber-600",
+                                        status === "ok" && "text-foreground"
+                                      )}
+                                    >
+                                      {decomposedLabel}
+                                    </span>
+                                    <span className="text-[9px] text-muted-foreground">
+                                      {t("inventory.stockTotalUnits", {
+                                        count: stock,
+                                        unit: p.unit,
+                                      })}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span
+                                    className={cn(
+                                      "text-base font-bold font-headline",
+                                      status === "out" && "text-destructive",
+                                      status === "low" && "text-amber-600",
+                                      status === "ok" && "text-foreground"
+                                    )}
+                                  >
+                                    {stock}
                                   </span>
                                 )}
                                 {status === "low" && (
