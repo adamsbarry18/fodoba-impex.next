@@ -30,7 +30,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -191,12 +190,10 @@ export default function ClientDetailsPage() {
               <Edit className="w-4 h-4 mr-2" /> {t("clients.detail.edit")}
             </Link>
           </Button>
+          <Button onClick={() => setPaymentDialogOpen(true)}>
+            <PlusCircle className="w-4 h-4 mr-2" /> {t("clients.detail.payment")}
+          </Button>
           <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusCircle className="w-4 h-4 mr-2" /> {t("clients.detail.payment")}
-              </Button>
-            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{t("clients.detail.paymentTitle")}</DialogTitle>

@@ -23,7 +23,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import {
   Bell,
@@ -43,6 +42,7 @@ import {
   type NotificationTab,
 } from "@/lib/notification-utils"
 import { useT } from "@/i18n/context"
+import { openDialogAfterMenuClose } from "@/lib/open-dialog-after-menu-close"
 
 interface NotificationPanelProps {
   open: boolean
@@ -141,18 +141,20 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
                 </Button>
               )}
               {notifications.length > 0 && (
-                <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 rounded-lg text-xs font-semibold text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                      {t("notifications.clearAll")}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="rounded-2xl">
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 rounded-lg text-xs font-semibold text-muted-foreground hover:text-destructive"
+                    onClick={() =>
+                      openDialogAfterMenuClose(() => setClearDialogOpen(true))
+                    }
+                  >
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                    {t("notifications.clearAll")}
+                  </Button>
+                  <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+                    <AlertDialogContent className="rounded-2xl">
                     <AlertDialogHeader>
                       <AlertDialogTitle>{t("notifications.clearTitle")}</AlertDialogTitle>
                       <AlertDialogDescription>
@@ -181,6 +183,7 @@ export function NotificationPanel({ open, onOpenChange }: NotificationPanelProps
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+                </>
               )}
             </div>
           )}

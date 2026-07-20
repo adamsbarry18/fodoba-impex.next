@@ -493,6 +493,7 @@ export default function StoresAdminPage() {
       </Card>
 
       <AlertDialog
+        key={toggleTarget?.id ?? "closed"}
         open={toggleTarget !== null}
         onOpenChange={(open) => !open && setToggleTarget(null)}
       >

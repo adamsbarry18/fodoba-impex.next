@@ -571,6 +571,7 @@ export default function UsersAdminPage() {
       </Card>
 
       <AlertDialog
+        key={toggleTarget?.uid ?? "closed"}
         open={toggleTarget !== null}
         onOpenChange={(open) => !open && setToggleTarget(null)}
       >
