@@ -100,7 +100,7 @@ export const ReportService = {
         if (!productSales[item.productId]) {
           productSales[item.productId] = { name: item.name, qty: 0, revenue: 0 };
         }
-        productSales[item.productId].qty += item.quantity;
+        productSales[item.productId].qty += item.retailQuantity ?? item.quantity;
         productSales[item.productId].revenue += item.total;
       });
     });

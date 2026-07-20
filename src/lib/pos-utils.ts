@@ -20,19 +20,80 @@ export function hasWholesalePrice(product: Product): boolean {
   return getProductPriceForTier(product, "wholesale") > 0
 }
 
+/** Unité affichée pour la quantité au panier / ticket (Pièce vs Carton…) */
+export function getSaleQuantityUnit(product: Product, tier: PriceTier): string {
+  const normalized = normalizeProduct(product)
+  if (
+    tier === "wholesale" &&
+    normalized.wholesalePriceFCFA > 0 &&
+    normalized.packagingUnit
+  ) {
+    return normalized.packagingUnit
+  }
+  return normalized.unit
+}
+
+/** Quantité en unités détail à déduire du stock */
+export function getSaleItemRetailQuantity(item: SaleItem, product: Product): number {
+  if (item.retailQuantity != null) return item.retailQuantity
+
+  const normalized = normalizeProduct(product)
+  const tier = item.priceTier ?? "retail"
+  if (tier === "wholesale" && normalized.wholesalePriceFCFA > 0) {
+    return item.quantity * Math.max(1, normalized.unitsPerPack)
+  }
+  return item.quantity
+}
+
+/** Statistiques / rapports : toujours en unités détail */
+export function getSaleItemStatsQuantity(item: SaleItem): number {
+  return item.retailQuantity ?? item.quantity
+}
+
+export function convertCartQuantityForTierChange(
+  quantity: number,
+  fromTier: PriceTier,
+  toTier: PriceTier,
+  unitsPerPack: number
+): number {
+  if (fromTier === toTier) return quantity
+  const ratio = Math.max(1, unitsPerPack)
+  if (fromTier === "retail" && toTier === "wholesale") {
+    return Math.max(1, Math.floor(quantity / ratio))
+  }
+  if (fromTier === "wholesale" && toTier === "retail") {
+    return quantity * ratio
+  }
+  return quantity
+}
+
 export function buildSaleItemFromProduct(
   product: Product,
   tier: PriceTier,
   quantity = 1
 ): SaleItem {
   const unitPrice = getProductPriceForTier(product, tier)
+  return syncSaleItemQuantities(
+    {
+      productId: product.id,
+      name: product.name,
+      quantity,
+      unitPrice,
+      total: unitPrice * quantity,
+      priceTier: tier,
+    },
+    product
+  )
+}
+
+/** Recalcule saleUnit, retailQuantity et total après changement de qté ou de tier */
+export function syncSaleItemQuantities(item: SaleItem, product: Product): SaleItem {
+  const tier = item.priceTier ?? "retail"
   return {
-    productId: product.id,
-    name: product.name,
-    quantity,
-    unitPrice,
-    total: unitPrice * quantity,
-    priceTier: tier,
+    ...item,
+    saleUnit: getSaleQuantityUnit(product, tier),
+    retailQuantity: getSaleItemRetailQuantity(item, product),
+    total: item.quantity * item.unitPrice,
   }
 }
 
@@ -40,8 +101,15 @@ export function formatSaleItemName(item: SaleItem, wholesaleSuffix = " (Engros)"
   return item.priceTier === "wholesale" ? `${item.name}${wholesaleSuffix}` : item.name
 }
 
+export function formatSaleItemQuantity(item: SaleItem): string {
+  if (item.saleUnit) {
+    return `${item.quantity} ${item.saleUnit}`
+  }
+  return String(item.quantity)
+}
+
 export function getCartItemCount(cart: SaleItem[]): number {
-  return cart.reduce((sum, item) => sum + item.quantity, 0)
+  return cart.length
 }
 
 export function getCartSubtotal(cart: SaleItem[]): number {
@@ -93,4 +161,3 @@ export const POS_PAYMENT_MODES: {
     tone: "violet",
   },
 ]
-

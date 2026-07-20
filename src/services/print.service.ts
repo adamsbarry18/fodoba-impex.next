@@ -8,7 +8,7 @@ import { formatPdfNumber } from '@/lib/utils';
 import { PAYMENT_METHOD_IDS } from '@/lib/constants/payment-methods';
 import { getAppName } from '@/lib/constants/branding';
 import { normalizeProduct } from '@/lib/product-utils';
-import { formatSaleItemName } from '@/lib/pos-utils';
+import { formatSaleItemName, formatSaleItemQuantity } from '@/lib/pos-utils';
 import { buildSaleClientReceiptLines, isRegisteredSaleClient } from '@/lib/sale-client-utils';
 import type {
   PrintLabels,
@@ -150,7 +150,7 @@ export const PrintService = {
       margin: { left: 5, right: 5 },
       body: sale.items.map(item => [
         formatSaleItemName(item, saleLabels.wholesaleSuffix),
-        `${item.quantity} x ${formatPdfNumber(item.unitPrice)}`,
+        `${formatSaleItemQuantity(item)} x ${formatPdfNumber(item.unitPrice)}`,
         formatPdfNumber(item.total)
       ]),
       theme: 'plain',
@@ -189,7 +189,7 @@ export const PrintService = {
       ]],
       body: sale.items.map(i => [
         formatSaleItemName(i, saleLabels.wholesaleSuffix),
-        i.quantity,
+        formatSaleItemQuantity(i),
         formatPdfNumber(i.unitPrice),
         formatPdfNumber(i.total),
       ]),

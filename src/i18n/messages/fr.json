@@ -268,6 +268,8 @@
   "pos.loadingCatalog": "Chargement du catalogue...",
   "pos.sellingPrice": "Prix de vente",
   "pos.wholesalePrice": "Prix vente engros",
+  "pos.wholesalePricePerPack": "Engros : {price} / {unit}",
+  "pos.pricePerUnit": "Prix / {unit}",
   "pos.priceTier.retail": "Détail",
   "pos.priceTier.wholesale": "Engros",
   "pos.refSku": "Réf / SKU",

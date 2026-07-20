@@ -59,12 +59,15 @@ import { useCurrency } from "@/hooks/use-currency"
 import {
   applyCartDiscount,
   buildSaleItemFromProduct,
+  convertCartQuantityForTierChange,
   getCartItemCount,
   getCartLineKey,
   getCartSubtotal,
   getProductPriceForTier,
   hasWholesalePrice,
+  syncSaleItemQuantities,
 } from "@/lib/pos-utils"
+import { normalizeProduct } from "@/lib/product-utils"
 import { useSaleTicket } from "@/hooks/use-sale-ticket"
 import { useClientPagination } from "@/hooks/use-client-pagination"
 import { TablePagination } from "@/components/ui/table-pagination"
@@ -248,11 +251,10 @@ export default function POSPage() {
       if (existing) {
         return prev.map(item =>
           item.productId === product.id && (item.priceTier ?? "retail") === tier
-            ? {
-                ...item,
-                quantity: item.quantity + 1,
-                total: (item.quantity + 1) * item.unitPrice,
-              }
+            ? syncSaleItemQuantities(
+                { ...item, quantity: item.quantity + 1 },
+                product
+              )
             : item
         )
       }
@@ -276,26 +278,49 @@ export default function POSPage() {
       const product = products.find(p => p.id === productId)
       if (!product) return prev
 
+      const unitsPerPack = normalizeProduct(product).unitsPerPack
+
       const targetIndex = prev.findIndex(
         i => i.productId === productId && (i.priceTier ?? "retail") === newTier
       )
 
       if (targetIndex !== -1 && targetIndex !== lineIndex) {
-        const target = prev[targetIndex]
-        const mergedQty = target.quantity + item.quantity
+        const convertedQty = convertCartQuantityForTierChange(
+          item.quantity,
+          currentTier,
+          newTier,
+          unitsPerPack
+        )
+        const mergedQty = prev[targetIndex].quantity + convertedQty
         return prev
           .filter((_, i) => i !== lineIndex)
           .map(i =>
             i.productId === productId && (i.priceTier ?? "retail") === newTier
-              ? { ...i, quantity: mergedQty, total: mergedQty * i.unitPrice }
+              ? syncSaleItemQuantities(
+                  {
+                    ...i,
+                    quantity: mergedQty,
+                    unitPrice: getProductPriceForTier(product, newTier),
+                  },
+                  product
+                )
               : i
           )
       }
 
+      const convertedQty = convertCartQuantityForTierChange(
+        item.quantity,
+        currentTier,
+        newTier,
+        unitsPerPack
+      )
       const unitPrice = getProductPriceForTier(product, newTier)
       return prev.map((i, idx) =>
         idx === lineIndex
-          ? { ...i, priceTier: newTier, unitPrice, total: i.quantity * unitPrice }
+          ? syncSaleItemQuantities(
+              { ...i, priceTier: newTier, unitPrice, quantity: convertedQty },
+              product
+            )
           : i
       )
     })
@@ -326,11 +351,14 @@ export default function POSPage() {
   const updateQty = (lineKey: string, delta: number) => {
     setCart(prev => prev.map(item => {
       const key = getCartLineKey(item.productId, item.priceTier ?? "retail")
-      if (key === lineKey) {
-        const newQty = Math.max(0, item.quantity + delta)
+      if (key !== lineKey) return item
+
+      const product = products.find(p => p.id === item.productId)
+      const newQty = Math.max(0, item.quantity + delta)
+      if (!product) {
         return { ...item, quantity: newQty, total: newQty * item.unitPrice }
       }
-      return item
+      return syncSaleItemQuantities({ ...item, quantity: newQty }, product)
     }).filter(item => item.quantity > 0))
   }
 
@@ -626,7 +654,12 @@ export default function POSPage() {
                             </div>
                             {hasWholesalePrice(product) && (
                               <p className="text-[9px] text-muted-foreground">
-                                {t("pos.wholesalePrice")}: {formatAmount(getProductPriceForTier(product, "wholesale"), "FCFA")}
+                                {t("pos.wholesalePricePerPack", {
+                                  price: formatAmount(getProductPriceForTier(product, "wholesale"), "FCFA"),
+                                  unit:
+                                    normalizeProduct(product).packagingUnit ||
+                                    t("inventory.form.packagingFallback"),
+                                })}
                               </p>
                             )}
                           </div>
@@ -670,7 +703,12 @@ export default function POSPage() {
                               <div>{formatAmount(product.sellingPriceFCFA, "FCFA")}</div>
                               {hasWholesalePrice(product) && (
                                 <div className="text-[9px] font-normal text-muted-foreground">
-                                  {t("pos.wholesalePrice")}: {formatAmount(getProductPriceForTier(product, "wholesale"), "FCFA")}
+                                  {t("pos.wholesalePricePerPack", {
+                                    price: formatAmount(getProductPriceForTier(product, "wholesale"), "FCFA"),
+                                    unit:
+                                      normalizeProduct(product).packagingUnit ||
+                                      t("inventory.form.packagingFallback"),
+                                  })}
                                 </div>
                               )}
                             </td>
@@ -942,7 +980,12 @@ export default function POSPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                  {t("pos.unitPrice")}
+                                  {t("pos.pricePerUnit", {
+                                    unit:
+                                      item.saleUnit ??
+                                      product?.unit ??
+                                      t("inventory.form.unitFallback"),
+                                  })}
                                 </span>
                                 <Input
                                   type="number"
@@ -970,7 +1013,16 @@ export default function POSPage() {
                               >
                                 <Minus className="h-3 w-3 text-muted-foreground" />
                               </Button>
-                              <span className="text-xs font-extrabold w-5 text-center text-foreground">{item.quantity}</span>
+                              <div className="flex min-w-[3rem] flex-col items-center px-0.5">
+                                <span className="text-xs font-extrabold text-foreground leading-none">
+                                  {item.quantity}
+                                </span>
+                                <span className="text-[8px] font-semibold uppercase text-muted-foreground truncate max-w-[52px]">
+                                  {item.saleUnit ??
+                                    product?.unit ??
+                                    t("inventory.form.unitFallback")}
+                                </span>
+                              </div>
                               <Button 
                                 variant="ghost" 
                                 size="icon" 

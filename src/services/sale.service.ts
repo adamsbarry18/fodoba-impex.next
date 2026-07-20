@@ -13,7 +13,9 @@ import {
   DocumentSnapshot
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import { Sale, SaleItem, UserProfile, Client, StockLevel, Store } from "@/lib/types";
+import { Sale, SaleItem, UserProfile, Client, StockLevel, Store, Product } from "@/lib/types";
+import { getSaleItemRetailQuantity, getSaleQuantityUnit } from "@/lib/pos-utils";
+import { normalizeProduct } from "@/lib/product-utils";
 import { CashService } from "./cash.service";
 import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper";
 
@@ -52,9 +54,11 @@ export const SaleService = {
         client = clientSnap.data() as Client;
       }
 
-      // Lecture de tous les stocks nécessaires
+      // Lecture de tous les stocks et produits nécessaires
       const stockRefs = items.map(item => doc(db, STOCKS_COLLECTION, `${store.id}_${item.productId}`));
+      const productRefs = items.map(item => doc(db, "products", item.productId));
       const stockSnaps = await Promise.all(stockRefs.map(ref => transaction.get(ref)));
+      const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
       // --- ÉTAPE 2 : LOGIQUE ET VALIDATIONS ---
 
@@ -64,20 +68,42 @@ export const SaleService = {
         }
       }
 
-      // Vérification des stocks lus
-      const stockUpdates = items.map((item, index) => {
-        const snap = stockSnaps[index];
-        const currentQty = snap.exists() ? (snap.data() as StockLevel).quantity : 0;
-        
-        if (currentQty < item.quantity) {
-          throw new Error(`Stock insuffisant pour ${item.name}. Disponible: ${currentQty}`);
+      const enrichedItems: SaleItem[] = items.map((item, index) => {
+        const productSnap = productSnaps[index];
+        if (!productSnap.exists()) {
+          throw new Error(`Produit introuvable : ${item.name}`);
         }
-        
+        const product = productSnap.data() as Product;
+        const tier = item.priceTier ?? "retail";
+        const retailQuantity = getSaleItemRetailQuantity(item, product);
+        return {
+          ...item,
+          saleUnit: getSaleQuantityUnit(product, tier),
+          retailQuantity,
+        };
+      });
+
+      // Vérification des stocks lus
+      const stockUpdates = enrichedItems.map((item, index) => {
+        const snap = stockSnaps[index];
+        const productSnap = productSnaps[index];
+        const product = productSnap.data() as Product;
+        const normalized = normalizeProduct(product);
+        const currentQty = snap.exists() ? (snap.data() as StockLevel).quantity : 0;
+        const retailQuantity = item.retailQuantity ?? item.quantity;
+
+        if (currentQty < retailQuantity) {
+          throw new Error(
+            `Stock insuffisant pour ${item.name}. Disponible : ${currentQty} ${normalized.unit}`
+          );
+        }
+
         return {
           ref: stockRefs[index],
-          newQty: currentQty - item.quantity,
+          newQty: currentQty - retailQuantity,
           previousStock: currentQty,
-          item
+          item,
+          retailQuantity,
         };
       });
 
@@ -98,7 +124,7 @@ export const SaleService = {
           storeId: store.id,
           storeName: store.name,
           type: "SALE",
-          delta: -update.item.quantity,
+          delta: -update.retailQuantity,
           previousStock: update.previousStock,
           newStock: update.newQty,
           performedBy: user.uid,
@@ -125,7 +151,7 @@ export const SaleService = {
         sellerId: user.uid,
         sellerName: `${user.prenom} ${user.nom}`,
         timestamp: serverTimestamp(),
-        items,
+        items: enrichedItems,
         subtotal,
         discount,
         total,

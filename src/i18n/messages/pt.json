@@ -258,6 +258,8 @@
   "pos.loadingCatalog": "Carregando catálogo...",
   "pos.sellingPrice": "Preço de venda",
   "pos.wholesalePrice": "Preço venda grossista",
+  "pos.wholesalePricePerPack": "Grossista: {price} / {unit}",
+  "pos.pricePerUnit": "Preço / {unit}",
   "pos.priceTier.retail": "Retalho",
   "pos.priceTier.wholesale": "Grossista",
   "pos.refSku": "Ref / SKU",

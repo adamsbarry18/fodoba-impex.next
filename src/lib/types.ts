@@ -247,6 +247,10 @@ export const SaleItemSchema = z.object({
   unitPrice: z.number(),
   total: z.number(),
   priceTier: z.enum(["retail", "wholesale"]).default("retail"),
+  /** Unité de la quantité vendue (Pièce, Carton…) */
+  saleUnit: z.string().optional(),
+  /** Quantité en unités détail déduites du stock */
+  retailQuantity: z.number().optional(),
 });
 
 export type SaleItem = z.infer<typeof SaleItemSchema>;

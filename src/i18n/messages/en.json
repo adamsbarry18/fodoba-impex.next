@@ -268,6 +268,8 @@
   "pos.loadingCatalog": "Loading catalog...",
   "pos.sellingPrice": "Selling price",
   "pos.wholesalePrice": "Wholesale sale price",
+  "pos.wholesalePricePerPack": "Wholesale: {price} / {unit}",
+  "pos.pricePerUnit": "Price / {unit}",
   "pos.priceTier.retail": "Retail",
   "pos.priceTier.wholesale": "Wholesale",
   "pos.refSku": "Ref / SKU",
