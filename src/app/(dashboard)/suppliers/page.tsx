@@ -67,6 +67,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { SupplierDeleteDialog } from "@/components/suppliers/supplier-delete-dialog"
+import { openDialogAfterMenuClose } from "@/lib/open-dialog-after-menu-close"
 
 const SUPPLIER_COLUMN_LABEL_KEYS: Record<string, string> = {
   supplier: "suppliers.colSupplier",
@@ -513,7 +514,9 @@ export default function SuppliersPage() {
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   className="rounded-lg text-destructive focus:text-destructive"
-                                  onClick={() => setDeleteTarget(supplier)}
+                                  onSelect={() =>
+                                    openDialogAfterMenuClose(() => setDeleteTarget(supplier))
+                                  }
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
                                   {t("common.delete")}
@@ -542,6 +545,7 @@ export default function SuppliersPage() {
       </Card>
 
       <SupplierDeleteDialog
+        key={deleteTarget?.id ?? "closed"}
         supplier={deleteTarget}
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}

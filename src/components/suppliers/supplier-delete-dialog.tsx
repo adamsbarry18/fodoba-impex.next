@@ -38,22 +38,34 @@ export function SupplierDeleteDialog({
   const [blockers, setBlockers] = useState<SupplierDeleteBlocker[]>([])
   const [checking, setChecking] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const tRef = useRef(t)
   const onOpenChangeRef = useRef(onOpenChange)
+  const onDeletedRef = useRef(onDeleted)
+
+  useEffect(() => {
+    tRef.current = t
+  }, [t])
 
   useEffect(() => {
     onOpenChangeRef.current = onOpenChange
   }, [onOpenChange])
 
   useEffect(() => {
-    if (!open || !supplier) {
-      setBlockers([])
-      setChecking(false)
-      return
-    }
+    onDeletedRef.current = onDeleted
+  }, [onDeleted])
+
+  useEffect(() => {
+    if (open) return
+    setBlockers([])
+    setChecking(false)
+    setDeleting(false)
+  }, [open])
+
+  useEffect(() => {
+    if (!open || !supplier?.id) return
 
     let cancelled = false
     setChecking(true)
-    setBlockers([])
 
     SupplierService.getDeleteBlockers(supplier.id)
       .then((result) => {
@@ -61,7 +73,7 @@ export function SupplierDeleteDialog({
       })
       .catch(() => {
         if (!cancelled) {
-          toast.error(t("suppliers.deleteCheckError"))
+          toast.error(tRef.current("suppliers.deleteCheckError"))
           onOpenChangeRef.current(false)
         }
       })
@@ -72,7 +84,7 @@ export function SupplierDeleteDialog({
     return () => {
       cancelled = true
     }
-  }, [open, supplier?.id, t])
+  }, [open, supplier?.id])
 
   const handleDelete = async () => {
     if (!supplier || blockers.length > 0 || checking) return
@@ -82,7 +94,7 @@ export function SupplierDeleteDialog({
       await SupplierService.deleteSupplier(supplier.id)
       toast.success(t("suppliers.deleteSuccess"))
       onOpenChange(false)
-      onDeleted?.()
+      onDeletedRef.current?.()
     } catch (error) {
       if (
         error instanceof Error &&
@@ -113,21 +125,27 @@ export function SupplierDeleteDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="rounded-2xl">
+      <AlertDialogContent
+        className="rounded-2xl"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>{dialogTitle}</AlertDialogTitle>
           <AlertDialogDescription>
             {checking ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t("suppliers.deleteChecking")}
-              </span>
+              t("suppliers.deleteChecking")
             ) : isBlocked ? (
               t("suppliers.deleteBlocked.desc", { name: supplier?.name ?? "" })
             ) : (
               t("suppliers.confirmDeleteDesc", { name: supplier?.name ?? "" })
             )}
           </AlertDialogDescription>
+          {checking && (
+            <div className="flex justify-center pt-1">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          )}
           {isBlocked && (
             <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
               {blockers.map((blocker) => (

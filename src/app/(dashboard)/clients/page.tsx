@@ -71,6 +71,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ClientDeleteDialog } from "@/components/clients/client-delete-dialog"
+import { openDialogAfterMenuClose } from "@/lib/open-dialog-after-menu-close"
 
 const PAGE_SIZE = 50
 
@@ -509,7 +510,9 @@ export default function ClientsPage() {
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     className="rounded-lg text-destructive focus:text-destructive"
-                                    onClick={() => setDeleteTarget(client)}
+                                    onSelect={() =>
+                                      openDialogAfterMenuClose(() => setDeleteTarget(client))
+                                    }
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
                                     {t("common.delete")}
@@ -539,6 +542,7 @@ export default function ClientsPage() {
       </Card>
 
       <ClientDeleteDialog
+        key={deleteTarget?.id ?? "closed"}
         client={deleteTarget}
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}

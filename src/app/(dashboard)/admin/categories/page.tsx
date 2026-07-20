@@ -478,7 +478,11 @@ export default function CategoriesPage() {
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
       >
-        <AlertDialogContent className="rounded-2xl">
+        <AlertDialogContent
+          className="rounded-2xl"
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          onCloseAutoFocus={(event) => event.preventDefault()}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>{t("categories.confirmDeleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
