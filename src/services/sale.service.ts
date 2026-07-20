@@ -16,6 +16,12 @@ import { db } from "@/lib/firebase/client";
 import { Sale, SaleItem, UserProfile, Client, StockLevel, Store, Product } from "@/lib/types";
 import { getSaleItemRetailQuantity, getSaleQuantityUnit } from "@/lib/pos-utils";
 import { normalizeProduct } from "@/lib/product-utils";
+import {
+  applySaleItemsToDecomposedStock,
+  buildStockLevelPayload,
+  normalizeStockLevel,
+  type DecomposedStock,
+} from "@/lib/stock-utils";
 import { CashService } from "./cash.service";
 import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper";
 
@@ -38,6 +44,10 @@ export const SaleService = {
   }) {
     const { store, user, items, clientId, payments, discount, subtotal, total, debtAmount } = params;
 
+    if (!items.length) {
+      throw new Error("Le panier est vide.");
+    }
+
     // 1. Récupérer la session de caisse AVANT la transaction (interdiction de query dans runTransaction)
     const session = await CashService.getActiveSession(store.id);
     if (!session) throw new Error("Aucune session de caisse ouverte pour cette boutique.");
@@ -54,11 +64,37 @@ export const SaleService = {
         client = clientSnap.data() as Client;
       }
 
-      // Lecture de tous les stocks et produits nécessaires
-      const stockRefs = items.map(item => doc(db, STOCKS_COLLECTION, `${store.id}_${item.productId}`));
-      const productRefs = items.map(item => doc(db, "products", item.productId));
-      const stockSnaps = await Promise.all(stockRefs.map(ref => transaction.get(ref)));
-      const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+      const productIds = [...new Set(items.map((item) => item.productId))];
+      const productRefs = productIds.map((productId) => doc(db, "products", productId));
+      const stockRefs = productIds.map((productId) =>
+        doc(db, STOCKS_COLLECTION, `${store.id}_${productId}`)
+      );
+
+      const productSnaps = await Promise.all(productRefs.map((ref) => transaction.get(ref)));
+      const stockSnaps = await Promise.all(stockRefs.map((ref) => transaction.get(ref)));
+
+      const productsById = new Map<string, Product>();
+      productIds.forEach((productId, index) => {
+        const snap = productSnaps[index];
+        if (!snap.exists()) {
+          throw new Error(`Produit introuvable : ${productId}`);
+        }
+        productsById.set(productId, snap.data() as Product);
+      });
+
+      const stockByProductId = new Map<string, DecomposedStock>();
+      productIds.forEach((productId, index) => {
+        const snap = stockSnaps[index];
+        const product = productsById.get(productId)!;
+        const normalized = normalizeProduct(product);
+        stockByProductId.set(
+          productId,
+          normalizeStockLevel(
+            snap.exists() ? (snap.data() as StockLevel) : null,
+            normalized.unitsPerPack
+          )
+        );
+      });
 
       // --- ÉTAPE 2 : LOGIQUE ET VALIDATIONS ---
 
@@ -68,14 +104,16 @@ export const SaleService = {
         }
       }
 
-      const enrichedItems: SaleItem[] = items.map((item, index) => {
-        const productSnap = productSnaps[index];
-        if (!productSnap.exists()) {
+      const enrichedItems: SaleItem[] = items.map((item) => {
+        const product = productsById.get(item.productId);
+        if (!product) {
           throw new Error(`Produit introuvable : ${item.name}`);
         }
-        const product = productSnap.data() as Product;
         const tier = item.priceTier ?? "retail";
         const retailQuantity = getSaleItemRetailQuantity(item, product);
+        if (retailQuantity <= 0) {
+          throw new Error(`Quantité invalide pour ${item.name}`);
+        }
         return {
           ...item,
           saleUnit: getSaleQuantityUnit(product, tier),
@@ -83,53 +121,60 @@ export const SaleService = {
         };
       });
 
-      // Vérification des stocks lus
-      const stockUpdates = enrichedItems.map((item, index) => {
-        const snap = stockSnaps[index];
-        const productSnap = productSnaps[index];
-        const product = productSnap.data() as Product;
-        const normalized = normalizeProduct(product);
-        const currentQty = snap.exists() ? (snap.data() as StockLevel).quantity : 0;
-        const retailQuantity = item.retailQuantity ?? item.quantity;
+      const itemsByProduct = new Map<string, SaleItem[]>();
+      for (const item of enrichedItems) {
+        const list = itemsByProduct.get(item.productId) ?? [];
+        list.push(item);
+        itemsByProduct.set(item.productId, list);
+      }
 
-        if (currentQty < retailQuantity) {
-          throw new Error(
-            `Stock insuffisant pour ${item.name}. Disponible : ${currentQty} ${normalized.unit}`
-          );
-        }
+      const stockUpdates = [...itemsByProduct.entries()].map(([productId, productItems]) => {
+        const product = productsById.get(productId)!;
+        const previous = stockByProductId.get(productId)!;
+        const next = applySaleItemsToDecomposedStock(previous, product, productItems);
 
         return {
-          ref: stockRefs[index],
-          newQty: currentQty - retailQuantity,
-          previousStock: currentQty,
-          item,
-          retailQuantity,
+          productId,
+          productName: productItems[0]?.name ?? product.name,
+          product,
+          items: productItems,
+          previous,
+          next,
+          ref: doc(db, STOCKS_COLLECTION, `${store.id}_${productId}`),
         };
       });
 
       // --- ÉTAPE 3 : TOUTES LES ÉCRITURES (WRITES) ---
 
-      // Mise à jour des stocks et mouvements
+      const saleRef = doc(collection(db, COLLECTION_NAME));
+
       for (const update of stockUpdates) {
-        transaction.set(update.ref, { 
-          quantity: update.newQty, 
-          lastUpdated: serverTimestamp() 
-        }, { merge: true });
+        const retailDelta = update.previous.quantity - update.next.quantity;
+
+        transaction.set(
+          update.ref,
+          {
+            ...buildStockLevelPayload(update.productId, store.id, update.next),
+            lastUpdated: serverTimestamp(),
+          },
+          { merge: true }
+        );
 
         const moveRef = doc(collection(db, MOVEMENTS_COLLECTION));
         transaction.set(moveRef, {
           id: moveRef.id,
-          productId: update.item.productId,
-          productName: update.item.name,
+          productId: update.productId,
+          productName: update.productName,
           storeId: store.id,
           storeName: store.name,
           type: "SALE",
-          delta: -update.retailQuantity,
-          previousStock: update.previousStock,
-          newStock: update.newQty,
+          delta: -retailDelta,
+          previousStock: update.previous.quantity,
+          newStock: update.next.quantity,
+          relatedDocId: saleRef.id,
           performedBy: user.uid,
           performedByName: `${user.prenom} ${user.nom}`,
-          timestamp: serverTimestamp()
+          timestamp: serverTimestamp(),
         });
       }
 
@@ -142,10 +187,9 @@ export const SaleService = {
       }
 
       // Enregistrement de la vente
-      const saleRef = doc(collection(db, COLLECTION_NAME));
       const amountPaid = payments.reduce((acc, p) => acc + p.amount, 0);
       
-      const saleData: any = {
+      const saleData: Sale = {
         id: saleRef.id,
         storeId: store.id,
         sellerId: user.uid,
@@ -158,15 +202,16 @@ export const SaleService = {
         payments,
         amountPaid,
         debtAmount,
-        status: "COMPLETED"
+        status: "COMPLETED",
+        ...(client
+          ? {
+              clientId: client.id,
+              clientName: client.name,
+              clientPhone: client.phone,
+              clientType: client.type,
+            }
+          : {}),
       };
-
-      if (client) {
-        saleData.clientId = client.id;
-        saleData.clientName = client.name;
-        saleData.clientPhone = client.phone;
-        saleData.clientType = client.type;
-      }
 
       transaction.set(saleRef, saleData);
 
@@ -188,12 +233,12 @@ export const SaleService = {
       }
 
       return {
-        sale: saleData as Sale,
+        sale: saleData,
         stockChanges: stockUpdates.map((update) => ({
-          productId: update.item.productId,
-          productName: update.item.name,
-          previousStock: update.previousStock,
-          newStock: update.newQty,
+          productId: update.productId,
+          productName: update.productName,
+          previousStock: update.previous.quantity,
+          newStock: update.next.quantity,
         })),
       };
     });

@@ -106,7 +106,12 @@ export type ProductFormValues = Omit<Product, "id" | "createdAt" | "sku"> & {
 export const StockLevelSchema = z.object({
   productId: z.string(),
   storeId: z.string(),
+  /** Total en unités détail (conditionnement × ratio + détail loose) */
   quantity: z.number().default(0),
+  /** Nombre d'unités de conditionnement (cartons, casiers…) */
+  packagingQty: z.number().min(0).optional(),
+  /** Unités détail en vrac (hors conditionnement) */
+  detailQty: z.number().min(0).optional(),
   lastUpdated: z.any(),
 });
 

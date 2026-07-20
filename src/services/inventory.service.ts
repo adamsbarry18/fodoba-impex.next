@@ -15,6 +15,12 @@ import {
 import { db } from "@/lib/firebase/client";
 import { StockMovement, StockLevel, Product, Store, UserProfile } from "@/lib/types";
 import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper";
+import {
+  buildDecomposedStock,
+  buildStockLevelPayload,
+  normalizeStockLevel,
+} from "@/lib/stock-utils";
+import { normalizeProduct } from "@/lib/product-utils";
 
 const MOVEMENTS_COLLECTION = "inventory_movements";
 const STOCKS_COLLECTION = "stocks";
@@ -95,6 +101,107 @@ export const InventoryService = {
     });
 
     return movement;
+  },
+
+  /** Fixe le stock conditionnement + détail (correction inventaire, création produit) */
+  async setStockDecomposed(params: {
+    productId: string
+    storeId: string
+    packagingQty: number
+    detailQty: number
+    user: UserProfile
+    reason?: string
+    type?: StockMovement["type"]
+    relatedDocId?: string
+  }) {
+    const {
+      productId,
+      storeId,
+      packagingQty,
+      detailQty,
+      user,
+      reason,
+      type = "CORRECTION",
+      relatedDocId,
+    } = params;
+
+    const stockId = `${storeId}_${productId}`;
+    const stockRef = doc(db, STOCKS_COLLECTION, stockId);
+    const movementRef = doc(collection(db, MOVEMENTS_COLLECTION));
+    const productRef = doc(db, "products", productId);
+    const storeRef = doc(db, "stores", storeId);
+
+    const movement = await runTransaction(db, async (transaction) => {
+      const [stockSnap, productSnap, storeSnap] = await Promise.all([
+        transaction.get(stockRef),
+        transaction.get(productRef),
+        transaction.get(storeRef),
+      ]);
+
+      if (!productSnap.exists()) throw new Error("Produit introuvable");
+      if (!storeSnap.exists()) throw new Error("Boutique introuvable");
+
+      const product = productSnap.data() as Product;
+      const store = storeSnap.data() as Store;
+      const normalized = normalizeProduct(product);
+      const previous = normalizeStockLevel(
+        stockSnap.exists() ? (stockSnap.data() as StockLevel) : null,
+        normalized.unitsPerPack
+      );
+      const next = buildDecomposedStock(packagingQty, detailQty, normalized.unitsPerPack);
+      const delta = next.quantity - previous.quantity;
+
+      transaction.set(
+        stockRef,
+        {
+          ...buildStockLevelPayload(productId, storeId, next),
+          lastUpdated: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      if (delta !== 0) {
+        transaction.set(movementRef, {
+          id: movementRef.id,
+          productId,
+          productName: product.name,
+          storeId,
+          storeName: store.name,
+          type,
+          delta,
+          previousStock: previous.quantity,
+          newStock: next.quantity,
+          reason,
+          relatedDocId,
+          performedBy: user.uid,
+          performedByName: `${user.prenom} ${user.nom}`,
+          timestamp: serverTimestamp(),
+        });
+      }
+
+      return {
+        previous,
+        next,
+        delta,
+        productName: product.name,
+      };
+    });
+
+    if (movement.delta !== 0) {
+      void AppNotificationHelper.notifyStockChanges({
+        storeId,
+        changes: [
+          {
+            productId,
+            productName: movement.productName,
+            previousStock: movement.previous.quantity,
+            newStock: movement.next.quantity,
+          },
+        ],
+      });
+    }
+
+    return movement.next;
   },
 
   async transferStock(params: {

@@ -82,17 +82,28 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Mouvements de stock : Admin et Manager (CDC 2.2).
+    // Mouvements de stock : admin/gérant ou sortie automatique lors d'une vente
     match /inventory_movements/{moveId} {
       allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
-      allow create: if isSignedIn() && isActif() && (isAdmin() || isManager()) && isStoreAuthorized(request.resource.data.storeId);
+      allow create: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId)
+        && (
+          isAdmin() || isManager()
+          || request.resource.data.type == 'SALE'
+        );
       allow update, delete: if isAdmin();
     }
     
-    // Niveaux de stock
+    // Niveaux de stock : admin/gérant ou mise à jour liée à une vente (vendeur POS)
     match /stocks/{stockId} {
       allow read: if isSignedIn() && isActif();
-      allow write: if isSignedIn() && isActif() && (isAdmin() || isManager());
+      allow create, update: if isSignedIn() && isActif()
+        && (
+          isAdmin() || isManager()
+          || (
+            request.resource.data.keys().hasAll(['storeId', 'productId', 'quantity'])
+            && isStoreAuthorized(request.resource.data.storeId)
+          )
+        );
     }
 
     // Dépenses : Tous les rôles peuvent créer (CDC 2.2).

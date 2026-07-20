@@ -3,6 +3,7 @@ import type { PosPaymentMode } from "@/lib/constants/payment-methods"
 import type { LucideIcon } from "lucide-react"
 import { Wallet, HandCoins, CreditCard, Split } from "lucide-react"
 import { normalizeProduct } from "@/lib/product-utils"
+import { getSaleItemRetailQuantity as computeRetailQuantity } from "@/lib/stock-utils"
 
 export function getCartLineKey(productId: string, priceTier: PriceTier = "retail"): string {
   return `${productId}:${priceTier}`
@@ -33,21 +34,20 @@ export function getSaleQuantityUnit(product: Product, tier: PriceTier): string {
   return normalized.unit
 }
 
-/** Quantité en unités détail à déduire du stock */
+/** Quantité en unités détail à déduire du stock total (mouvements) */
 export function getSaleItemRetailQuantity(item: SaleItem, product: Product): number {
-  if (item.retailQuantity != null) return item.retailQuantity
-
-  const normalized = normalizeProduct(product)
-  const tier = item.priceTier ?? "retail"
-  if (tier === "wholesale" && normalized.wholesalePriceFCFA > 0) {
-    return item.quantity * Math.max(1, normalized.unitsPerPack)
-  }
-  return item.quantity
+  return computeRetailQuantity(item, product)
 }
 
-/** Statistiques / rapports : toujours en unités détail */
-export function getSaleItemStatsQuantity(item: SaleItem): number {
-  return item.retailQuantity ?? item.quantity
+/** Statistiques / rapports : privilégie le snapshot enregistré sur la vente */
+export function getSaleItemStatsQuantity(item: SaleItem, product?: Product): number {
+  if (item.retailQuantity != null && item.retailQuantity > 0) {
+    return item.retailQuantity
+  }
+  if (product) {
+    return getSaleItemRetailQuantity(item, product)
+  }
+  return item.quantity
 }
 
 export function convertCartQuantityForTierChange(

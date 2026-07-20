@@ -18,6 +18,12 @@ import { db } from "@/lib/firebase/client";
 import { Product, StockLevel } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestore-utils";
 import { computeInitialStockTotal } from "@/lib/product-utils";
+import {
+  buildDecomposedStock,
+  buildStockLevelPayload,
+  normalizeStockLevel,
+  type DecomposedStock,
+} from "@/lib/stock-utils";
 import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper";
 
 const COLLECTION_NAME = "products";
@@ -52,7 +58,13 @@ export const ProductService = {
     );
 
     if (totalStock > 0) {
-      await this.setStockLevel(product.id, options.storeId, totalStock);
+      await this.setStockDecomposed(
+        product.id,
+        options.storeId,
+        options.initialStockPackaging ?? 0,
+        options.detailStock ?? 0,
+        data.unitsPerPack ?? 1
+      );
     }
 
     void AppNotificationHelper.notifyProductExpiration({
@@ -212,10 +224,22 @@ export const ProductService = {
   },
 
   async getStockLevel(productId: string, storeId: string): Promise<number> {
+    const record = await this.getStockRecord(productId, storeId);
+    return record?.quantity ?? 0;
+  },
+
+  async getStockRecord(
+    productId: string,
+    storeId: string,
+    unitsPerPack = 1
+  ): Promise<DecomposedStock> {
     const stockId = `${storeId}_${productId}`;
     const docRef = doc(db, STOCKS_COLLECTION, stockId);
     const snap = await getDoc(docRef);
-    return snap.exists() ? (snap.data() as StockLevel).quantity : 0;
+    return normalizeStockLevel(
+      snap.exists() ? (snap.data() as StockLevel) : null,
+      unitsPerPack
+    );
   },
 
   async getStockLevelsForProducts(productIds: string[], storeId: string): Promise<Record<string, number>> {
@@ -224,6 +248,22 @@ export const ProductService = {
       results[pid] = await this.getStockLevel(pid, storeId);
     }));
     return results;
+  },
+
+  async setStockDecomposed(
+    productId: string,
+    storeId: string,
+    packagingQty: number,
+    detailQty: number,
+    unitsPerPack = 1
+  ) {
+    const decomposed = buildDecomposedStock(packagingQty, detailQty, unitsPerPack);
+    const stockId = `${storeId}_${productId}`;
+    const docRef = doc(db, STOCKS_COLLECTION, stockId);
+    await setDoc(docRef, {
+      ...buildStockLevelPayload(productId, storeId, decomposed),
+      lastUpdated: serverTimestamp(),
+    });
   },
 
   async setStockLevel(productId: string, storeId: string, quantity: number) {

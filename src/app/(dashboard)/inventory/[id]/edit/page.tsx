@@ -16,7 +16,8 @@ import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { applyReturnSelection } from "@/hooks/use-return-selection"
 import { ENTITY_ROUTES } from "@/lib/navigation/return-to"
-import { computeInitialStockTotal, decomposeStock, normalizeProduct } from "@/lib/product-utils"
+import { normalizeProduct } from "@/lib/product-utils"
+import type { DecomposedStock } from "@/lib/stock-utils"
 import { ProductFormFields } from "@/components/inventory/product-form-fields"
 import { useStore } from "@/lib/contexts/StoreContext"
 import { useAuth } from "@/lib/contexts/AuthContext"
@@ -29,7 +30,7 @@ export default function EditProductPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const originalStockTotalRef = useRef(0)
+  const originalStockRef = useRef<DecomposedStock>({ packagingQty: 0, detailQty: 0, quantity: 0 })
   const t = useT()
   const { activeStore } = useStore()
   const { userProfile } = useAuth()
@@ -58,16 +59,17 @@ export default function EditProductPage() {
           const normalized = normalizeProduct(prod)
           let initialStockPackaging = 0
           let detailStock = 0
-          let stockTotal = 0
 
           if (activeStore) {
-            stockTotal = await ProductService.getStockLevel(productId, activeStore.id)
-            const decomposed = decomposeStock(stockTotal, normalized.unitsPerPack)
-            initialStockPackaging = decomposed.packs
-            detailStock = decomposed.loose
+            const stockRecord = await ProductService.getStockRecord(
+              productId,
+              activeStore.id,
+              normalized.unitsPerPack
+            )
+            initialStockPackaging = stockRecord.packagingQty
+            detailStock = stockRecord.detailQty
+            originalStockRef.current = stockRecord
           }
-
-          originalStockTotalRef.current = stockTotal
           form.reset({
             ...normalized,
             initialStockPackaging,
@@ -129,19 +131,16 @@ export default function EditProductPage() {
       )
 
       if (activeStore && userProfile && canAdjustStock) {
-        const newTotal = computeInitialStockTotal(
-          initialStockPackaging ?? 0,
-          productFields.unitsPerPack ?? 1,
-          detailStock ?? 0
-        )
-        const delta = newTotal - originalStockTotalRef.current
+        const packagingQty = initialStockPackaging ?? 0
+        const detailQty = detailStock ?? 0
+        const original = originalStockRef.current
 
-        if (delta !== 0) {
-          await InventoryService.recordMovement({
+        if (packagingQty !== original.packagingQty || detailQty !== original.detailQty) {
+          await InventoryService.setStockDecomposed({
             productId,
             storeId: activeStore.id,
-            type: "CORRECTION",
-            delta,
+            packagingQty,
+            detailQty,
             user: userProfile,
             reason: t("inventory.form.stockCorrectionReason"),
           })

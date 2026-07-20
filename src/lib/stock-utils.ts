@@ -1,0 +1,189 @@
+import type { Product, SaleItem, StockLevel } from "@/lib/types"
+import type { PriceTier } from "@/lib/types"
+import { computeInitialStockTotal, decomposeStock, normalizeProduct } from "@/lib/product-utils"
+
+export type DecomposedStock = {
+  packagingQty: number
+  detailQty: number
+  quantity: number
+}
+
+/** Lit un stock Firestore (ancien ou nouveau format) en conditionnement + détail */
+export function normalizeStockLevel(
+  stock: StockLevel | null | undefined,
+  unitsPerPack: number
+): DecomposedStock {
+  const ratio = Math.max(1, unitsPerPack)
+
+  if (stock?.packagingQty != null && stock?.detailQty != null) {
+    const packagingQty = Math.max(0, stock.packagingQty)
+    const detailQty = Math.max(0, stock.detailQty)
+    return {
+      packagingQty,
+      detailQty,
+      quantity: computeInitialStockTotal(packagingQty, ratio, detailQty),
+    }
+  }
+
+  const total = Math.max(0, stock?.quantity ?? 0)
+  if (ratio <= 1) {
+    return { packagingQty: 0, detailQty: total, quantity: total }
+  }
+
+  const { packs, loose } = decomposeStock(total, ratio)
+  return { packagingQty: packs, detailQty: loose, quantity: total }
+}
+
+export function buildStockLevelPayload(
+  productId: string,
+  storeId: string,
+  decomposed: DecomposedStock
+): Omit<StockLevel, "lastUpdated"> & { quantity: number } {
+  return {
+    productId,
+    storeId,
+    packagingQty: decomposed.packagingQty,
+    detailQty: decomposed.detailQty,
+    quantity: decomposed.quantity,
+  }
+}
+
+export function buildDecomposedStock(
+  packagingQty: number,
+  detailQty: number,
+  unitsPerPack: number
+): DecomposedStock {
+  const packaging = Math.max(0, packagingQty)
+  const detail = Math.max(0, detailQty)
+  const ratio = Math.max(1, unitsPerPack)
+  return {
+    packagingQty: packaging,
+    detailQty: detail,
+    quantity: computeInitialStockTotal(packaging, ratio, detail),
+  }
+}
+
+function usesPackagingTier(product: Product, tier: PriceTier): boolean {
+  const normalized = normalizeProduct(product)
+  return (
+    tier === "wholesale" &&
+    normalized.wholesalePriceFCFA > 0 &&
+    normalized.unitsPerPack > 1 &&
+    !!normalized.packagingUnit
+  )
+}
+
+/** Delta total en unités détail (mouvements / compatibilité) */
+export function getSaleItemRetailQuantity(item: SaleItem, product: Product): number {
+  const normalized = normalizeProduct(product)
+  const tier = item.priceTier ?? "retail"
+  const qty = Math.max(0, Number(item.quantity) || 0)
+  if (qty === 0) return 0
+
+  if (usesPackagingTier(product, tier)) {
+    return qty * Math.max(1, normalized.unitsPerPack)
+  }
+  return qty
+}
+
+export type SaleStockValidationError =
+  | "INSUFFICIENT_DETAIL"
+  | "INSUFFICIENT_PACKAGING"
+  | "INVALID_QUANTITY"
+
+export function validateSaleItemAgainstStock(
+  stock: DecomposedStock,
+  product: Product,
+  item: SaleItem
+): SaleStockValidationError | null {
+  const qty = Math.max(0, Number(item.quantity) || 0)
+  if (qty <= 0) return "INVALID_QUANTITY"
+
+  const tier = item.priceTier ?? "retail"
+  if (usesPackagingTier(product, tier)) {
+    return stock.packagingQty >= qty ? null : "INSUFFICIENT_PACKAGING"
+  }
+  return stock.detailQty >= qty ? null : "INSUFFICIENT_DETAIL"
+}
+
+/** Applique une ligne de vente sur le stock décomposé */
+export function applySaleItemToDecomposedStock(
+  stock: DecomposedStock,
+  product: Product,
+  item: SaleItem
+): DecomposedStock {
+  const normalized = normalizeProduct(product)
+  const ratio = Math.max(1, normalized.unitsPerPack)
+  const tier = item.priceTier ?? "retail"
+  const qty = Math.max(0, Number(item.quantity) || 0)
+
+  const error = validateSaleItemAgainstStock(stock, product, item)
+  if (error === "INSUFFICIENT_DETAIL") {
+    throw new Error(
+      `Stock détail insuffisant pour ${item.name}. Disponible : ${stock.detailQty} ${normalized.unit}`
+    )
+  }
+  if (error === "INSUFFICIENT_PACKAGING") {
+    const unit = normalized.packagingUnit || normalized.unit
+    throw new Error(
+      `Stock conditionnement insuffisant pour ${item.name}. Disponible : ${stock.packagingQty} ${unit}`
+    )
+  }
+  if (error === "INVALID_QUANTITY") {
+    throw new Error(`Quantité invalide pour ${item.name}`)
+  }
+
+  if (usesPackagingTier(product, tier)) {
+    return buildDecomposedStock(stock.packagingQty - qty, stock.detailQty, ratio)
+  }
+
+  return buildDecomposedStock(stock.packagingQty, stock.detailQty - qty, ratio)
+}
+
+/** Applique plusieurs lignes du même produit */
+export function applySaleItemsToDecomposedStock(
+  initial: DecomposedStock,
+  product: Product,
+  items: SaleItem[]
+): DecomposedStock {
+  return items.reduce(
+    (acc, item) => applySaleItemToDecomposedStock(acc, product, item),
+    initial
+  )
+}
+
+/** Réception achat : quantité saisie en unités de conditionnement si produit conditionné */
+export function applyPurchaseQuantityToDecomposedStock(
+  stock: DecomposedStock,
+  product: Product,
+  purchaseQty: number
+): DecomposedStock {
+  const normalized = normalizeProduct(product)
+  const ratio = Math.max(1, normalized.unitsPerPack)
+  const qty = Math.max(0, purchaseQty)
+
+  if (ratio > 1 && normalized.packagingUnit) {
+    return buildDecomposedStock(stock.packagingQty + qty, stock.detailQty, ratio)
+  }
+  return buildDecomposedStock(stock.packagingQty, stock.detailQty + qty, ratio)
+}
+
+export function formatDecomposedStockLabel(
+  stock: DecomposedStock,
+  product: Product,
+  separator = " + "
+): string {
+  const normalized = normalizeProduct(product)
+  const parts: string[] = []
+
+  if (normalized.packagingUnit && normalized.unitsPerPack > 1 && stock.packagingQty > 0) {
+    parts.push(`${stock.packagingQty} ${normalized.packagingUnit}`)
+  }
+  if (stock.detailQty > 0) {
+    parts.push(`${stock.detailQty} ${normalized.unit}`)
+  }
+  if (parts.length === 0) {
+    return `0 ${normalized.unit}`
+  }
+  return parts.join(separator)
+}

@@ -20,6 +20,12 @@ import { Purchase, UserProfile, Product, Supplier, StockLevel } from "@/lib/type
 import { getLandedCostUnit } from "@/lib/purchase-utils";
 import { stripUndefined } from "@/lib/firestore-utils";
 import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper";
+import {
+  applyPurchaseQuantityToDecomposedStock,
+  buildStockLevelPayload,
+  normalizeStockLevel,
+} from "@/lib/stock-utils";
+import { normalizeProduct } from "@/lib/product-utils";
 
 const COLLECTION_NAME = "purchases";
 
@@ -158,6 +164,7 @@ export const PurchaseService = {
         if (!productSnap.exists() || item.quantity <= 0) continue;
 
         const product = productSnap.data() as Product;
+        const normalized = normalizeProduct(product);
         const landedCostUnit = getLandedCostUnit(item, purchase);
 
         const oldPMP = product.purchasePriceRef || landedCostUnit;
@@ -165,16 +172,16 @@ export const PurchaseService = {
 
         transaction.update(productRef, { purchasePriceRef: newPMP });
 
-        const currentQty = stockSnap.exists()
-          ? (stockSnap.data() as StockLevel).quantity
-          : 0;
+        const previous = normalizeStockLevel(
+          stockSnap.exists() ? (stockSnap.data() as StockLevel) : null,
+          normalized.unitsPerPack
+        );
+        const next = applyPurchaseQuantityToDecomposedStock(previous, product, item.quantity);
 
         transaction.set(
           stockRef,
           {
-            productId: item.productId,
-            storeId: purchase.storeId,
-            quantity: currentQty + item.quantity,
+            ...buildStockLevelPayload(item.productId, purchase.storeId, next),
             lastUpdated: serverTimestamp(),
           },
           { merge: true }
@@ -188,9 +195,9 @@ export const PurchaseService = {
           storeId: purchase.storeId,
           storeName: purchase.storeName,
           type: "PURCHASE",
-          delta: item.quantity,
-          previousStock: currentQty,
-          newStock: currentQty + item.quantity,
+          delta: next.quantity - previous.quantity,
+          previousStock: previous.quantity,
+          newStock: next.quantity,
           reason: `Réception achat #${purchase.id.slice(-6)}`,
           performedBy: user.uid,
           performedByName: `${user.prenom} ${user.nom}`,
