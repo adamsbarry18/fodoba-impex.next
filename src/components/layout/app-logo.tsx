@@ -7,7 +7,8 @@ const sizeClasses = {
   md: "h-10 w-10",
   lg: "h-14 w-14",
   xl: "h-20 w-20",
-  "2xl": "h-24 w-24",
+  "2xl": "h-28 w-28",
+  hero: "h-32 w-32 sm:h-36 sm:w-36",
 } as const
 
 const sizePixels = {
@@ -15,7 +16,8 @@ const sizePixels = {
   md: "40px",
   lg: "56px",
   xl: "80px",
-  "2xl": "96px",
+  "2xl": "112px",
+  hero: "144px",
 } as const
 
 interface AppLogoProps {

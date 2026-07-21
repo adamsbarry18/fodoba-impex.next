@@ -39,11 +39,15 @@ export function AuthPageShell({
           aria-hidden
         />
 
-        <div className="relative flex items-center gap-3">
-          <AppLogo size="md" className="ring-primary-foreground/20" />
-          <div>
-            <p className="font-headline text-lg font-bold tracking-tight">{t("common.appName")}</p>
-            <p className="text-xs text-primary-foreground/75">{t("sidebar.importExport")}</p>
+        <div className="relative flex items-center gap-4">
+          <div className="shrink-0 rounded-full bg-white p-1.5 shadow-lg shadow-black/10 ring-1 ring-white/40">
+            <AppLogo size="hero" className="ring-0 shadow-none" />
+          </div>
+          <div className="min-w-0 space-y-1">
+            <p className="font-headline text-xl font-bold tracking-tight xl:text-2xl">
+              {t("common.appName")}
+            </p>
+            <p className="text-sm text-primary-foreground/75">{t("sidebar.importExport")}</p>
           </div>
         </div>
 
@@ -81,11 +85,14 @@ export function AuthPageShell({
         )}
       >
         <div className="w-full max-w-[420px]">
-          <div className="mb-6 flex flex-col items-center lg:hidden">
-            <AppLogo size="lg" />
-            <p className="mt-3 font-headline text-lg font-bold tracking-tight text-foreground">
+          <div className="mb-8 flex flex-col items-center lg:hidden">
+            <div className="rounded-full bg-white p-1.5 shadow-md ring-1 ring-border/50">
+              <AppLogo size="2xl" className="ring-0 shadow-none" />
+            </div>
+            <p className="mt-4 font-headline text-xl font-bold tracking-tight text-foreground">
               {t("common.appName")}
             </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t("sidebar.importExport")}</p>
           </div>
 
           <div className="rounded-2xl border bg-card p-6 shadow-lg sm:p-8">
