@@ -108,6 +108,29 @@ export const NotificationService = {
     await batch.commit();
   },
 
+  /** Supprime les notifs non critiques (ventes, achats, info…) */
+  async purgeRoutineNotifications(filters: { storeId?: string; userId?: string }) {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      orderBy("timestamp", "desc"),
+      limit(MAX_NOTIFICATIONS)
+    );
+    const snap = await getDocs(q);
+    const routineTypes = new Set(["SALE", "PURCHASE", "INFO"]);
+    const targets = applyNotificationFilters(
+      snap.docs.map((d) => d.data() as AppNotification),
+      filters
+    ).filter((n) => routineTypes.has(n.type));
+
+    if (targets.length === 0) return;
+
+    const batch = writeBatch(db);
+    targets.forEach((notification) => {
+      batch.delete(doc(db, COLLECTION_NAME, notification.id));
+    });
+    await batch.commit();
+  },
+
   subscribe(
     filters: { storeId?: string; userId?: string },
     callback: (notifications: AppNotification[]) => void,

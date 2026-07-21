@@ -50,21 +50,12 @@ export function getSaleItemStatsQuantity(item: SaleItem, product?: Product): num
   return item.quantity
 }
 
-export function convertCartQuantityForTierChange(
-  quantity: number,
-  fromTier: PriceTier,
-  toTier: PriceTier,
-  unitsPerPack: number
-): number {
-  if (fromTier === toTier) return quantity
-  const ratio = Math.max(1, unitsPerPack)
-  if (fromTier === "retail" && toTier === "wholesale") {
-    return Math.max(1, Math.floor(quantity / ratio))
-  }
-  if (fromTier === "wholesale" && toTier === "retail") {
-    return quantity * ratio
-  }
-  return quantity
+/**
+ * Au basculement détail ↔ engros, on conserve le nombre saisi dans le panier.
+ * (ex. 1 casier → détail = 1 pièce, pas 24). L'utilisateur ajuste ensuite.
+ */
+export function convertCartQuantityForTierChange(quantity: number): number {
+  return Math.max(1, Math.floor(Number(quantity) || 1))
 }
 
 export function buildSaleItemFromProduct(

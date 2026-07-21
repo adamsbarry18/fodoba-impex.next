@@ -243,7 +243,6 @@ export const SaleService = {
       };
     });
 
-    void AppNotificationHelper.notifySaleCompleted({ sale: result.sale, store });
     void AppNotificationHelper.notifyStockChanges({
       storeId: store.id,
       changes: result.stockChanges,

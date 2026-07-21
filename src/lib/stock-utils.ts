@@ -87,10 +87,15 @@ export function getSaleItemRetailQuantity(item: SaleItem, product: Product): num
 }
 
 export type SaleStockValidationError =
-  | "INSUFFICIENT_DETAIL"
+  | "INSUFFICIENT_RETAIL"
   | "INSUFFICIENT_PACKAGING"
   | "INVALID_QUANTITY"
 
+/**
+ * Engros : uniquement des conditionnements complets (carton, casier…).
+ * Détail : pièces — peut ouvrir un conditionnement si le vrac ne suffit pas
+ * (ex. 2 cartons × 12, vente 6 pièces → 1 carton + 6 pièces).
+ */
 export function validateSaleItemAgainstStock(
   stock: DecomposedStock,
   product: Product,
@@ -103,7 +108,8 @@ export function validateSaleItemAgainstStock(
   if (usesPackagingTier(product, tier)) {
     return stock.packagingQty >= qty ? null : "INSUFFICIENT_PACKAGING"
   }
-  return stock.detailQty >= qty ? null : "INSUFFICIENT_DETAIL"
+  // Détail : stock total disponible (vrac + contenu des conditionnements)
+  return stock.quantity >= qty ? null : "INSUFFICIENT_RETAIL"
 }
 
 /** Applique une ligne de vente sur le stock décomposé */
@@ -118,9 +124,9 @@ export function applySaleItemToDecomposedStock(
   const qty = Math.max(0, Number(item.quantity) || 0)
 
   const error = validateSaleItemAgainstStock(stock, product, item)
-  if (error === "INSUFFICIENT_DETAIL") {
+  if (error === "INSUFFICIENT_RETAIL") {
     throw new Error(
-      `Stock détail insuffisant pour ${item.name}. Disponible : ${stock.detailQty} ${normalized.unit}`
+      `Stock insuffisant pour ${item.name}. Disponible : ${stock.quantity} ${normalized.unit}`
     )
   }
   if (error === "INSUFFICIENT_PACKAGING") {
@@ -133,11 +139,13 @@ export function applySaleItemToDecomposedStock(
     throw new Error(`Quantité invalide pour ${item.name}`)
   }
 
+  // Engros : décrémente uniquement les conditionnements complets
   if (usesPackagingTier(product, tier)) {
     return buildDecomposedStock(stock.packagingQty - qty, stock.detailQty, ratio)
   }
 
-  return buildDecomposedStock(stock.packagingQty, stock.detailQty - qty, ratio)
+  // Détail : consomme le vrac, puis ouvre des conditionnements si besoin
+  return applyRetailQuantityOut(stock, qty, ratio)
 }
 
 /** Applique plusieurs lignes du même produit */
@@ -196,7 +204,9 @@ export function applyRetailQuantityOut(
   detailQty = 0
 
   while (remaining > 0) {
-    if (packagingQty <= 0) break
+    if (packagingQty <= 0) {
+      throw new Error(`Stock insuffisant. Disponible : ${stock.quantity}`)
+    }
     packagingQty -= 1
     if (remaining < ratio) {
       detailQty = ratio - remaining

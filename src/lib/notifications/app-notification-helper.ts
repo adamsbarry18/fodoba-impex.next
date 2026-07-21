@@ -1,7 +1,7 @@
 import { doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase/client"
 import { NotificationService } from "@/services/notification.service"
-import type { AppNotification, Product, Sale, Store } from "@/lib/types"
+import type { AppNotification, Product } from "@/lib/types"
 import { getStockAlertLevel } from "@/lib/notifications/stock-alert"
 import {
   getDaysUntilExpiration,
@@ -25,18 +25,11 @@ async function safeCreate(payload: CreatePayload): Promise<void> {
   }
 }
 
+/**
+ * Notifications in-app : uniquement les alertes critiques
+ * (expiration, rupture / stock bas). Pas de ventes ni d'achats routiniers.
+ */
 export const AppNotificationHelper = {
-  async notifySaleCompleted(params: { sale: Sale; store: Store }): Promise<void> {
-    const ref = params.sale.id.slice(-6).toUpperCase()
-    await safeCreate({
-      type: "SALE",
-      title: "Vente enregistrée",
-      message: `Vente #${ref} - ${params.sale.total.toLocaleString("fr-FR")} FCFA (${params.store.name})`,
-      storeId: params.store.id,
-      userId: params.sale.sellerId,
-    })
-  },
-
   async notifyStockChanges(params: {
     storeId: string
     changes: StockChangePayload[]
@@ -65,22 +58,6 @@ export const AppNotificationHelper = {
         storeId: params.storeId,
       })
     }
-  },
-
-  async notifyPurchaseReceived(params: {
-    purchaseId: string
-    supplierName: string
-    totalFCFA: number
-    storeId: string
-    userId?: string
-  }): Promise<void> {
-    await safeCreate({
-      type: "PURCHASE",
-      title: "Réception achat",
-      message: `Commande #${params.purchaseId.slice(-6).toUpperCase()} - ${params.supplierName} (${params.totalFCFA.toLocaleString("fr-FR")} FCFA)`,
-      storeId: params.storeId,
-      userId: params.userId,
-    })
   },
 
   async notifyProductExpiration(params: {

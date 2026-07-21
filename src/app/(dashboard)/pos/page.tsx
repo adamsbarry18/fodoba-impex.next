@@ -67,7 +67,11 @@ import {
   hasWholesalePrice,
   syncSaleItemQuantities,
 } from "@/lib/pos-utils"
-import { normalizeProduct } from "@/lib/product-utils"
+import { normalizeProduct, getStockStatus } from "@/lib/product-utils"
+import {
+  formatDecomposedStockLabel,
+  type DecomposedStock,
+} from "@/lib/stock-utils"
 import { useSaleTicket } from "@/hooks/use-sale-ticket"
 import { useClientPagination } from "@/hooks/use-client-pagination"
 import { TablePagination } from "@/components/ui/table-pagination"
@@ -84,6 +88,7 @@ export default function POSPage() {
   
   // Product & Category Data
   const [products, setProducts] = useState<Product[]>([])
+  const [stocks, setStocks] = useState<Record<string, DecomposedStock>>({})
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all")
   
@@ -115,6 +120,25 @@ export default function POSPage() {
   const [processing, setProcessing] = useState(false)
   const [cashSession, setCashSession] = useState<CashSession | null>(null)
 
+  const loadStocksForProducts = useCallback(
+    async (productList: Product[], merge = false) => {
+      if (!activeStore || productList.length === 0) {
+        if (!merge) setStocks({})
+        return
+      }
+      try {
+        const records = await ProductService.getStockRecordsForProducts(
+          productList,
+          activeStore.id
+        )
+        setStocks((prev) => (merge ? { ...prev, ...records } : records))
+      } catch {
+        // Stock display is non-blocking for POS
+      }
+    },
+    [activeStore]
+  )
+
   // Success states
   useEffect(() => {
     const loadInitialData = async () => {
@@ -130,6 +154,9 @@ export default function POSPage() {
         setHasMore(prodResult.products.length === POS_FETCH_SIZE)
         setClients(clientResult)
         setCategories(categoriesResult)
+        if (activeStore) {
+          void loadStocksForProducts(prodResult.products)
+        }
 
         await applyReturnSelection(
           ENTITY_ROUTES.client.param,
@@ -154,8 +181,7 @@ export default function POSPage() {
       }
     }
     loadInitialData()
-  }, [])
-
+  }, [activeStore?.id, loadStocksForProducts, t])
 
   useEffect(() => {
     if (!activeStore?.id) {
@@ -190,8 +216,10 @@ export default function POSPage() {
       
       if (isLoadMore) {
         setProducts(prev => [...prev, ...result.products])
+        void loadStocksForProducts(result.products, true)
       } else {
         setProducts(result.products)
+        void loadStocksForProducts(result.products)
       }
       
       setLastVisible(result.lastVisible)
@@ -232,6 +260,7 @@ export default function POSPage() {
         const searchResults = await ProductService.searchProducts(searchTerm)
         setProducts(searchResults)
         setHasMore(false) // search returns maximum matches
+        void loadStocksForProducts(searchResults)
       } catch (error) {
         toast.error(t("pos.errorSearch"))
       } finally {
@@ -278,19 +307,12 @@ export default function POSPage() {
       const product = products.find(p => p.id === productId)
       if (!product) return prev
 
-      const unitsPerPack = normalizeProduct(product).unitsPerPack
-
       const targetIndex = prev.findIndex(
         i => i.productId === productId && (i.priceTier ?? "retail") === newTier
       )
 
       if (targetIndex !== -1 && targetIndex !== lineIndex) {
-        const convertedQty = convertCartQuantityForTierChange(
-          item.quantity,
-          currentTier,
-          newTier,
-          unitsPerPack
-        )
+        const convertedQty = convertCartQuantityForTierChange(item.quantity)
         const mergedQty = prev[targetIndex].quantity + convertedQty
         return prev
           .filter((_, i) => i !== lineIndex)
@@ -308,12 +330,7 @@ export default function POSPage() {
           )
       }
 
-      const convertedQty = convertCartQuantityForTierChange(
-        item.quantity,
-        currentTier,
-        newTier,
-        unitsPerPack
-      )
+      const convertedQty = convertCartQuantityForTierChange(item.quantity)
       const unitPrice = getProductPriceForTier(product, newTier)
       return prev.map((i, idx) =>
         idx === lineIndex
@@ -360,6 +377,44 @@ export default function POSPage() {
       }
       return syncSaleItemQuantities({ ...item, quantity: newQty }, product)
     }).filter(item => item.quantity > 0))
+  }
+
+  const setQty = (lineKey: string, rawValue: string) => {
+    if (rawValue.trim() === "") {
+      setCart((prev) =>
+        prev.map((item) => {
+          const key = getCartLineKey(item.productId, item.priceTier ?? "retail")
+          if (key !== lineKey) return item
+          return { ...item, quantity: 0, retailQuantity: 0, total: 0 }
+        })
+      )
+      return
+    }
+
+    const parsed = Number.parseInt(rawValue, 10)
+    if (!Number.isFinite(parsed) || parsed < 0) return
+    const newQty = Math.max(0, parsed)
+
+    setCart((prev) =>
+      prev.map((item) => {
+        const key = getCartLineKey(item.productId, item.priceTier ?? "retail")
+        if (key !== lineKey) return item
+
+        const product = products.find((p) => p.id === item.productId)
+        if (!product) {
+          return { ...item, quantity: newQty, total: newQty * item.unitPrice }
+        }
+        return syncSaleItemQuantities({ ...item, quantity: newQty }, product)
+      })
+    )
+  }
+
+  const commitQty = (lineKey: string) => {
+    setCart((prev) => prev.filter((item) => {
+      const key = getCartLineKey(item.productId, item.priceTier ?? "retail")
+      if (key !== lineKey) return true
+      return item.quantity > 0
+    }))
   }
 
   // Direct Inline Price Edit
@@ -416,6 +471,7 @@ export default function POSPage() {
       setIsPaymentOpen(false)
       setIsSuccessOpen(true)
       CashService.getActiveSession(activeStore.id).then(setCashSession)
+      void loadStocksForProducts(products)
     } catch (error: any) {
       toast.error(error.message || t("pos.transactionError"))
     } finally {
@@ -625,7 +681,23 @@ export default function POSPage() {
               {viewMode === 'grid' ? (
                 /* 1. Grid Visual Mode */
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {visibleProducts.map((product) => (
+                  {visibleProducts.map((product) => {
+                    const stockRecord = stocks[product.id] ?? {
+                      packagingQty: 0,
+                      detailQty: 0,
+                      quantity: 0,
+                    }
+                    const stockStatus = getStockStatus(
+                      stockRecord.quantity,
+                      product.lowStockThreshold
+                    )
+                    const stockLabel = formatDecomposedStockLabel(
+                      stockRecord,
+                      product,
+                      t("inventory.stockBreakdownSeparator")
+                    )
+
+                    return (
                     <Card 
                       key={product.id} 
                       className="cursor-pointer hover:border-primary/20 hover:shadow-md transition-all shadow-sm border bg-card rounded-2xl overflow-hidden group relative flex flex-col justify-between"
@@ -645,6 +717,21 @@ export default function POSPage() {
                           {product.name}
                         </p>
 
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                            {t("pos.availableStock")}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-[10px] font-bold text-right leading-tight",
+                              stockStatus === "out" && "text-destructive",
+                              stockStatus === "low" && "text-amber-600",
+                              stockStatus === "ok" && "text-foreground"
+                            )}
+                          >
+                            {stockLabel}
+                          </span>
+                        </div>
 
                         <div className="flex items-end justify-between pt-1">
                           <div className="space-y-0.5">
@@ -669,7 +756,8 @@ export default function POSPage() {
                         </div>
                       </div>
                     </Card>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 /* 2. Compact Dense List Mode (SaaS Spreadsheet UI) */
@@ -681,12 +769,29 @@ export default function POSPage() {
                           <th className="py-3 px-5">{t("pos.refSku")}</th>
                           <th className="py-3 px-5">{t("pos.itemName")}</th>
                           <th className="py-3 px-5">{t("common.unit")}</th>
+                          <th className="py-3 px-5 text-right">{t("pos.availableStock")}</th>
                           <th className="py-3 px-5 text-right">{t("pos.priceFcfa")}</th>
                           <th className="py-3 px-5 text-center">{t("pos.action")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border text-xs">
-                        {visibleProducts.map((product) => (
+                        {visibleProducts.map((product) => {
+                          const stockRecord = stocks[product.id] ?? {
+                            packagingQty: 0,
+                            detailQty: 0,
+                            quantity: 0,
+                          }
+                          const stockStatus = getStockStatus(
+                            stockRecord.quantity,
+                            product.lowStockThreshold
+                          )
+                          const stockLabel = formatDecomposedStockLabel(
+                            stockRecord,
+                            product,
+                            t("inventory.stockBreakdownSeparator")
+                          )
+
+                          return (
                           <tr 
                             key={product.id}
                             className="group hover:bg-muted/30 transition-colors duration-150 cursor-pointer"
@@ -698,6 +803,16 @@ export default function POSPage() {
                               <StatusBadge tone="slate" className="text-[9px] font-bold uppercase">
                                 {product.unit}
                               </StatusBadge>
+                            </td>
+                            <td
+                              className={cn(
+                                "py-2.5 px-5 text-right text-[10px] font-bold",
+                                stockStatus === "out" && "text-destructive",
+                                stockStatus === "low" && "text-amber-600",
+                                stockStatus === "ok" && "text-foreground"
+                              )}
+                            >
+                              {stockLabel}
                             </td>
                             <td className="py-2.5 px-5 text-right font-bold text-foreground">
                               <div>{formatAmount(product.sellingPriceFCFA, "FCFA")}</div>
@@ -726,7 +841,8 @@ export default function POSPage() {
                               </Button>
                             </td>
                           </tr>
-                        ))}
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -925,123 +1041,215 @@ export default function POSPage() {
                 </div>
 
                 {/* Cart Items List Area */}
-                <ScrollArea className="h-[280px] p-2">
+                <ScrollArea className="h-[320px] p-3">
                   {cart.length === 0 ? (
-                    <div className="p-12 text-center flex flex-col items-center gap-3">
-                      <div className="bg-secondary/40 p-3.5 rounded-full text-muted-foreground/30">
-                        <ShoppingCart className="w-6 h-6" />
+                    <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+                      <div className="rounded-full bg-muted p-3.5 text-muted-foreground/40">
+                        <ShoppingCart className="h-6 w-6" />
                       </div>
-                      <p className="text-muted-foreground text-xs font-medium italic">{t("pos.emptyCart")}</p>
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-foreground">{t("pos.emptyCart")}</p>
+                        <p className="max-w-[200px] text-[10px] text-muted-foreground">
+                          {t("pos.emptyCartHint")}
+                        </p>
+                      </div>
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-end px-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCart([])
+                            toast.message(t("pos.cartCleared"))
+                          }}
+                          className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-destructive"
+                        >
+                          {t("pos.clearCart")}
+                        </button>
+                      </div>
                       {cart.map((item) => {
                         const lineKey = getCartLineKey(item.productId, item.priceTier ?? "retail")
                         const currentTier = item.priceTier ?? "retail"
-                        const product = products.find(p => p.id === item.productId)
+                        const product = products.find((p) => p.id === item.productId)
                         const wholesaleAvailable = product ? hasWholesalePrice(product) : false
+                        const saleUnit =
+                          item.saleUnit ??
+                          product?.unit ??
+                          t("inventory.form.unitFallback")
+                        const stockRecord = stocks[item.productId]
+                        const stockLabel = product && stockRecord
+                          ? formatDecomposedStockLabel(
+                              stockRecord,
+                              product,
+                              t("inventory.stockBreakdownSeparator")
+                            )
+                          : null
+                        const availableForTier =
+                          product && stockRecord
+                            ? currentTier === "wholesale" &&
+                              hasWholesalePrice(product) &&
+                              (normalizeProduct(product).unitsPerPack ?? 1) > 1
+                              ? stockRecord.packagingQty
+                              : stockRecord.quantity
+                            : null
+                        const exceedsStock =
+                          availableForTier != null && item.quantity > availableForTier
 
                         return (
-                        <div key={lineKey} className="group flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-3 transition-shadow hover:shadow-sm">
-                          <div className="min-w-0 flex-1 space-y-1.5">
-                            <p className="truncate text-xs font-bold leading-tight text-foreground">
-                              {item.name}
-                            </p>
-
-                            {wholesaleAvailable && (
-                              <div className="flex rounded-lg border border-border bg-muted/30 p-0.5 w-fit">
-                                <button
-                                  type="button"
-                                  className={cn(
-                                    "rounded-md px-2 py-0.5 text-[9px] font-bold uppercase transition-colors",
-                                    currentTier === "retail"
-                                      ? "bg-background text-foreground shadow-sm"
-                                      : "text-muted-foreground hover:text-foreground"
-                                  )}
-                                  onClick={() => handlePriceTierChange(item.productId, currentTier, "retail")}
-                                >
-                                  {t("pos.priceTier.retail")}
-                                </button>
-                                <button
-                                  type="button"
-                                  className={cn(
-                                    "rounded-md px-2 py-0.5 text-[9px] font-bold uppercase transition-colors",
-                                    currentTier === "wholesale"
-                                      ? "bg-background text-foreground shadow-sm"
-                                      : "text-muted-foreground hover:text-foreground"
-                                  )}
-                                  onClick={() => handlePriceTierChange(item.productId, currentTier, "wholesale")}
-                                >
-                                  {t("pos.priceTier.wholesale")}
-                                </button>
-                              </div>
+                          <div
+                            key={lineKey}
+                            className={cn(
+                              "rounded-xl border bg-background p-3 shadow-sm transition-colors",
+                              exceedsStock
+                                ? "border-destructive/40 bg-destructive/5"
+                                : "border-border/70"
                             )}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1 space-y-1.5">
+                                <p className="truncate text-xs font-bold leading-tight text-foreground">
+                                  {item.name}
+                                </p>
 
-                            <div className="flex flex-wrap items-center gap-2">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                  {t("pos.pricePerUnit", {
-                                    unit:
-                                      item.saleUnit ??
-                                      product?.unit ??
-                                      t("inventory.form.unitFallback"),
-                                  })}
-                                </span>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {wholesaleAvailable ? (
+                                    <div className="flex rounded-lg border border-border bg-muted/40 p-0.5">
+                                      <button
+                                        type="button"
+                                        className={cn(
+                                          "rounded-md px-2 py-0.5 text-[9px] font-bold uppercase transition-colors",
+                                          currentTier === "retail"
+                                            ? "bg-background text-foreground shadow-sm"
+                                            : "text-muted-foreground hover:text-foreground"
+                                        )}
+                                        onClick={() =>
+                                          handlePriceTierChange(item.productId, currentTier, "retail")
+                                        }
+                                      >
+                                        {t("pos.priceTier.retail")}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={cn(
+                                          "rounded-md px-2 py-0.5 text-[9px] font-bold uppercase transition-colors",
+                                          currentTier === "wholesale"
+                                            ? "bg-amber-500/15 text-amber-800 shadow-sm dark:text-amber-300"
+                                            : "text-muted-foreground hover:text-foreground"
+                                        )}
+                                        onClick={() =>
+                                          handlePriceTierChange(
+                                            item.productId,
+                                            currentTier,
+                                            "wholesale"
+                                          )
+                                        }
+                                      >
+                                        {t("pos.priceTier.wholesale")}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <StatusBadge tone="slate" className="text-[8px]">
+                                      {t("pos.priceTier.retail")}
+                                    </StatusBadge>
+                                  )}
+
+                                  {stockLabel && (
+                                    <span
+                                      className={cn(
+                                        "text-[9px] font-semibold",
+                                        exceedsStock
+                                          ? "text-destructive"
+                                          : "text-muted-foreground"
+                                      )}
+                                    >
+                                      {t("pos.cartStockAvailable", { stock: stockLabel })}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 shrink-0 rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => updateQty(lineKey, -item.quantity)}
+                                aria-label={t("pos.removeLine")}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                                  {t("pos.quantity")}
+                                  <span className="ml-1 font-semibold normal-case text-muted-foreground/80">
+                                    ({saleUnit})
+                                  </span>
+                                </Label>
+                                <div className="flex items-center gap-0.5 rounded-lg border border-border bg-muted/30 p-0.5">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 rounded-md bg-background"
+                                    onClick={() => updateQty(lineKey, -1)}
+                                  >
+                                    <Minus className="h-3 w-3 text-muted-foreground" />
+                                  </Button>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    inputMode="numeric"
+                                    value={item.quantity === 0 ? "" : item.quantity}
+                                    onChange={(e) => setQty(lineKey, e.target.value)}
+                                    onFocus={(e) => e.target.select()}
+                                    onBlur={() => commitQty(lineKey)}
+                                    aria-label={t("pos.quantity")}
+                                    className="h-7 flex-1 border-0 bg-transparent px-0 text-center text-xs font-extrabold shadow-none focus-visible:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 rounded-md bg-background"
+                                    onClick={() => updateQty(lineKey, 1)}
+                                  >
+                                    <Plus className="h-3 w-3 text-muted-foreground" />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1">
+                                <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                                  {t("pos.unitPrice")}
+                                </Label>
                                 <Input
                                   type="number"
+                                  min={0}
                                   value={item.unitPrice}
                                   onChange={(e) =>
                                     handlePriceEdit(lineKey, Number(e.target.value))
                                   }
-                                  className="h-6 w-20 rounded border border-input bg-background px-1.5 text-right text-[10px] font-semibold focus-visible:ring-primary/20"
+                                  className="h-8 rounded-lg border border-input bg-background px-2 text-right text-xs font-semibold focus-visible:ring-primary/20"
                                 />
                               </div>
-                              <span className="text-[10px] font-bold text-primary">
+                            </div>
+
+                            <div className="mt-2.5 flex items-center justify-between border-t border-border/60 pt-2">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                                {t("pos.lineTotal")}
+                              </span>
+                              <span className="font-headline text-sm font-extrabold text-primary">
                                 {formatAmount(item.total, "FCFA")}
                               </span>
                             </div>
-                          </div>
 
-                          {/* Quantity adjustments and actions */}
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1 bg-muted/50 p-1 border rounded-lg">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6 bg-background rounded hover:bg-secondary transition-colors" 
-                                onClick={() => updateQty(lineKey, -1)}
-                              >
-                                <Minus className="h-3 w-3 text-muted-foreground" />
-                              </Button>
-                              <div className="flex min-w-[3rem] flex-col items-center px-0.5">
-                                <span className="text-xs font-extrabold text-foreground leading-none">
-                                  {item.quantity}
-                                </span>
-                                <span className="text-[8px] font-semibold uppercase text-muted-foreground truncate max-w-[52px]">
-                                  {item.saleUnit ??
-                                    product?.unit ??
-                                    t("inventory.form.unitFallback")}
-                                </span>
-                              </div>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6 bg-background rounded hover:bg-secondary transition-colors" 
-                                onClick={() => updateQty(lineKey, 1)}
-                              >
-                                <Plus className="h-3 w-3 text-muted-foreground" />
-                              </Button>
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7 text-muted-foreground/30 hover:text-destructive hover:bg-destructive/10 transition-colors rounded-lg flex-shrink-0" 
-                              onClick={() => updateQty(lineKey, -item.quantity)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            {exceedsStock && (
+                              <p className="mt-1.5 text-[9px] font-semibold text-destructive">
+                                {t("pos.exceedsStock")}
+                              </p>
+                            )}
                           </div>
-                        </div>
                         )
                       })}
                     </div>

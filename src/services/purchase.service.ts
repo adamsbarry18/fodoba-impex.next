@@ -19,7 +19,6 @@ import { db } from "@/lib/firebase/client";
 import { Purchase, UserProfile, Product, Supplier, StockLevel } from "@/lib/types";
 import { getLandedCostUnit } from "@/lib/purchase-utils";
 import { stripUndefined } from "@/lib/firestore-utils";
-import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper";
 import {
   applyPurchaseQuantityToDecomposedStock,
   buildStockLevelPayload,
@@ -215,14 +214,6 @@ export const PurchaseService = {
         receivedAt: serverTimestamp(),
         receivedBy: user.uid,
       });
-    });
-
-    void AppNotificationHelper.notifyPurchaseReceived({
-      purchaseId,
-      supplierName: purchasePreview.supplierName,
-      totalFCFA: purchasePreview.totalFCFA,
-      storeId: purchasePreview.storeId,
-      userId: user.uid,
     });
   },
 };

@@ -6,6 +6,16 @@ import { fr } from "date-fns/locale"
 
 export type NotificationTab = "all" | "unread"
 
+/** Types affichés / créés : alertes critiques uniquement */
+export const IMPORTANT_NOTIFICATION_TYPES: readonly AppNotificationType[] = [
+  "STOCK_ALERT",
+  "EXPIRATION_ALERT",
+] as const
+
+export function isImportantNotification(notification: AppNotification): boolean {
+  return IMPORTANT_NOTIFICATION_TYPES.includes(notification.type)
+}
+
 export const NOTIFICATION_TYPE_META: Record<
   AppNotificationType,
   { label: string; Icon: LucideIcon }
@@ -48,10 +58,11 @@ export function filterNotifications(
   notifications: AppNotification[],
   tab: NotificationTab
 ): AppNotification[] {
-  if (tab === "unread") return notifications.filter((n) => !n.read)
-  return notifications
+  const important = notifications.filter(isImportantNotification)
+  if (tab === "unread") return important.filter((n) => !n.read)
+  return important
 }
 
 export function countUnread(notifications: AppNotification[]): number {
-  return notifications.filter((n) => !n.read).length
+  return notifications.filter((n) => isImportantNotification(n) && !n.read).length
 }

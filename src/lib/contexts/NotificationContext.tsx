@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { AppNotification } from "@/lib/types";
 import { NotificationService } from "@/services/notification.service";
+import { countUnread, isImportantNotification } from "@/lib/notification-utils";
 import { useAuth } from "./AuthContext";
 import { useStore } from "./StoreContext";
 import { toast } from "sonner";
@@ -44,15 +45,21 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       { storeId: activeStore?.id, userId: userProfile.uid },
       (notes) => {
         setSubscriptionError(null);
+        const important = notes.filter(isImportantNotification);
 
         if (!initializedRef.current) {
           initializedRef.current = true;
-          knownIdsRef.current = new Set(notes.map((n) => n.id));
-          setNotifications(notes);
+          knownIdsRef.current = new Set(important.map((n) => n.id));
+          setNotifications(important);
+          // Nettoie en arrière-plan les anciennes notifs routinières (ventes, achats…)
+          void NotificationService.purgeRoutineNotifications({
+            storeId: activeStore?.id,
+            userId: userProfile.uid,
+          });
           return;
         }
 
-        const newUnread = notes.filter(
+        const newUnread = important.filter(
           (n) => !n.read && !knownIdsRef.current.has(n.id)
         );
         newUnread.forEach((notification) => {
@@ -62,8 +69,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           });
         });
 
-        knownIdsRef.current = new Set(notes.map((n) => n.id));
-        setNotifications(notes);
+        knownIdsRef.current = new Set(important.map((n) => n.id));
+        setNotifications(important);
       },
       () => {
         setSubscriptionError("subscription_failed");
@@ -74,7 +81,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => unsubscribe();
   }, [userProfile, activeStore?.id]);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = countUnread(notifications);
 
   const markAsRead = async (id: string) => {
     await NotificationService.markAsRead(id);

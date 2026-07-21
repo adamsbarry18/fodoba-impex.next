@@ -15,6 +15,7 @@ import {
 import { db } from "@/lib/firebase/client";
 import { StockMovement, StockLevel, Product, Store, UserProfile } from "@/lib/types";
 import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper";
+import { stripUndefined } from "@/lib/firestore-utils";
 import {
   buildDecomposedStock,
   buildStockLevelPayload,
@@ -163,22 +164,25 @@ export const InventoryService = {
       );
 
       if (delta !== 0) {
-        transaction.set(movementRef, {
-          id: movementRef.id,
-          productId,
-          productName: product.name,
-          storeId,
-          storeName: store.name,
-          type,
-          delta,
-          previousStock: previous.quantity,
-          newStock: next.quantity,
-          reason,
-          relatedDocId,
-          performedBy: user.uid,
-          performedByName: `${user.prenom} ${user.nom}`,
-          timestamp: serverTimestamp(),
-        });
+        transaction.set(
+          movementRef,
+          stripUndefined({
+            id: movementRef.id,
+            productId,
+            productName: product.name,
+            storeId,
+            storeName: store.name,
+            type,
+            delta,
+            previousStock: previous.quantity,
+            newStock: next.quantity,
+            reason,
+            relatedDocId,
+            performedBy: user.uid,
+            performedByName: `${user.prenom} ${user.nom}`,
+            timestamp: serverTimestamp(),
+          })
+        );
       }
 
       return {
@@ -256,21 +260,24 @@ export const InventoryService = {
       )
 
       const qtyDelta = next.quantity - previous.quantity
-      transaction.set(movementRef, {
-        id: movementRef.id,
-        productId,
-        productName: product.name,
-        storeId,
-        storeName: store.name,
-        type: "CORRECTION",
-        delta: qtyDelta,
-        previousStock: previous.quantity,
-        newStock: next.quantity,
-        reason,
-        performedBy: user.uid,
-        performedByName: `${user.prenom} ${user.nom}`,
-        timestamp: serverTimestamp(),
-      })
+      transaction.set(
+        movementRef,
+        stripUndefined({
+          id: movementRef.id,
+          productId,
+          productName: product.name,
+          storeId,
+          storeName: store.name,
+          type: "CORRECTION",
+          delta: qtyDelta,
+          previousStock: previous.quantity,
+          newStock: next.quantity,
+          reason,
+          performedBy: user.uid,
+          performedByName: `${user.prenom} ${user.nom}`,
+          timestamp: serverTimestamp(),
+        })
+      )
 
       return { previous, next, productName: product.name }
     })
