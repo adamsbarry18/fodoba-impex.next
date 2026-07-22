@@ -12,7 +12,7 @@ Skill unique du projet. Détails complets dans [reference.md](reference.md).
 
 ## Stack
 
-Next.js 15 · React 19 · Firebase 11 client · shadcn/ui · next-intl · TypeScript (`@/*` → `src/*`) · devise ref **FCFA**
+Next.js 16 · React 19 · Turbopack (défaut) · Firebase 11 client · shadcn/ui · next-intl · TypeScript (`@/*` → `src/*`) · devise ref **FCFA**
 
 ## Règles essentielles
 

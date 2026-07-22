@@ -11,6 +11,8 @@ import { getPrintLabels } from "@/lib/print-labels"
 import { Product, Store } from "@/lib/types"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import {
   ArrowLeft,
@@ -21,6 +23,7 @@ import {
   Minus,
   Download,
   ImageIcon,
+  Save,
 } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -30,10 +33,15 @@ import { toast } from "sonner"
 import { QRCodeSVG } from "qrcode.react"
 import { useT } from "@/i18n/context"
 import { useAuth } from "@/lib/contexts/AuthContext"
-import { formatDecomposedStockLabel, type DecomposedStock } from "@/lib/stock-utils"
+import {
+  buildDecomposedStock,
+  formatDecomposedStockLabel,
+  type DecomposedStock,
+} from "@/lib/stock-utils"
 import { normalizeProduct } from "@/lib/product-utils"
 import { ProductExpirationDisplay } from "@/components/inventory/product-expiration-display"
 import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper"
+import { cn } from "@/lib/utils"
 
 export default function ProductDetailsPage() {
   const params = useParams()
@@ -48,6 +56,8 @@ export default function ProductDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [adjusting, setAdjusting] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [draftPackaging, setDraftPackaging] = useState(0)
+  const [draftDetail, setDraftDetail] = useState(0)
 
   const canEdit = can("manage:catalog")
   const canAdjust = can("adjust:stock")
@@ -96,19 +106,70 @@ export default function ProductDetailsPage() {
     })
   }, [product, activeStore?.id])
 
-  const handleManualAdjustment = async (delta: number) => {
+  useEffect(() => {
+    if (!activeStore?.id || !product) return
+    const record = stockRecords[activeStore.id]
+    const normalized = normalizeProduct(product)
+    const hasPackaging =
+      !!normalized.packagingUnit && normalized.unitsPerPack > 1
+
+    if (!record) {
+      setDraftPackaging(0)
+      setDraftDetail(0)
+      return
+    }
+
+    if (hasPackaging) {
+      setDraftPackaging(record.packagingQty)
+      setDraftDetail(record.detailQty)
+    } else {
+      setDraftPackaging(0)
+      setDraftDetail(record.quantity)
+    }
+  }, [activeStore?.id, stockRecords, product])
+
+  const parseQtyInput = (raw: string) => {
+    if (raw.trim() === "") return 0
+    const parsed = Number.parseInt(raw, 10)
+    if (!Number.isFinite(parsed) || parsed < 0) return null
+    return parsed
+  }
+
+  const handleApplyStockAdjustment = async () => {
     if (!activeStore || !product || !userProfile) return
+
+    const normalized = normalizeProduct(product)
+    const hasPackaging =
+      !!normalized.packagingUnit && normalized.unitsPerPack > 1
+    const packagingQty = hasPackaging ? Math.max(0, draftPackaging) : 0
+    const detailQty = Math.max(0, draftDetail)
+    const current = stockRecords[activeStore.id] ?? {
+      packagingQty: 0,
+      detailQty: 0,
+      quantity: 0,
+    }
+
+    const unchanged = hasPackaging
+      ? packagingQty === current.packagingQty && detailQty === current.detailQty
+      : detailQty === current.quantity
+
+    if (unchanged) {
+      toast.message(t("inventory.detail.noStockChange"))
+      return
+    }
+
     setAdjusting(true)
     try {
-      await InventoryService.adjustDetailStock({
+      await InventoryService.setStockDecomposed({
         productId: product.id,
         storeId: activeStore.id,
-        delta,
+        packagingQty,
+        detailQty,
         user: userProfile,
         reason: t("inventory.form.stockCorrectionReason"),
       })
       toast.success(t("common.successStockUpdate"))
-      loadAll()
+      await loadAll()
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : t("common.errorAdjustment"))
     } finally {
@@ -474,57 +535,185 @@ export default function ProductDetailsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 pt-2 sm:p-8 sm:pt-4">
-              <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-                <div className="min-w-[140px] rounded-2xl border border-gray-100 bg-gray-50 p-6 text-center">
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                    {t("inventory.detail.current")}
-                  </p>
-                  <p className="font-headline text-4xl font-bold text-gray-900">
-                    {(() => {
-                      const record = stockRecords[activeStore?.id || ""] ?? {
-                        packagingQty: 0,
-                        detailQty: 0,
-                        quantity: 0,
-                      }
-                      const hasPackaging =
-                        !!normalized.packagingUnit && normalized.unitsPerPack > 1
-                      if (hasPackaging) {
-                        return formatDecomposedStockLabel(
-                          record,
-                          product,
-                          t("inventory.stockBreakdownSeparator")
-                        )
-                      }
-                      return record.quantity
-                    })()}
-                  </p>
-                  {normalized.packagingUnit && normalized.unitsPerPack > 1 && (
-                    <p className="mt-1 text-[10px] text-gray-400">
-                      {t("inventory.stockTotalUnits", {
-                        count: stockRecords[activeStore?.id || ""]?.quantity ?? 0,
-                        unit: product.unit,
-                      })}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:gap-4">
-                  <Button
-                    variant="outline"
-                    className="h-14 flex-1 rounded-2xl border-gray-200 font-bold text-gray-600"
-                    onClick={() => handleManualAdjustment(-1)}
-                    disabled={adjusting}
-                  >
-                    <Minus className="mr-2 h-5 w-5" /> {t("inventory.detail.removeOne")}
-                  </Button>
-                  <Button
-                    className="h-14 flex-1 rounded-2xl bg-primary font-bold shadow-lg shadow-primary/20 hover:bg-primary/90"
-                    onClick={() => handleManualAdjustment(1)}
-                    disabled={adjusting}
-                  >
-                    <Plus className="mr-2 h-5 w-5" /> {t("inventory.detail.addOne")}
-                  </Button>
-                </div>
-              </div>
+              {(() => {
+                const record = stockRecords[activeStore?.id || ""] ?? {
+                  packagingQty: 0,
+                  detailQty: 0,
+                  quantity: 0,
+                }
+                const hasPackaging =
+                  !!normalized.packagingUnit && normalized.unitsPerPack > 1
+                const packagingUnit =
+                  normalized.packagingUnit || t("inventory.form.packagingFallback")
+                const draft = buildDecomposedStock(
+                  hasPackaging ? draftPackaging : 0,
+                  hasPackaging ? draftDetail : draftDetail,
+                  hasPackaging ? normalized.unitsPerPack : 1
+                )
+                const hasChanges = hasPackaging
+                  ? draftPackaging !== record.packagingQty ||
+                    draftDetail !== record.detailQty
+                  : draftDetail !== record.quantity
+
+                const QtyStepper = ({
+                  label,
+                  unit,
+                  value,
+                  onChange,
+                }: {
+                  label: string
+                  unit: string
+                  value: number
+                  onChange: (next: number) => void
+                }) => (
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {label}
+                      <span className="ml-1 font-semibold normal-case text-muted-foreground/80">
+                        ({unit})
+                      </span>
+                    </Label>
+                    <div className="flex items-center gap-1 rounded-xl border border-border bg-muted/20 p-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 shrink-0 rounded-lg bg-background"
+                        onClick={() => onChange(Math.max(0, value - 1))}
+                        disabled={adjusting || value <= 0}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <Input
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        value={value}
+                        onChange={(e) => {
+                          const parsed = parseQtyInput(e.target.value)
+                          if (parsed === null) return
+                          onChange(parsed)
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        disabled={adjusting}
+                        className="h-10 flex-1 border-0 bg-transparent text-center font-headline text-lg font-bold shadow-none focus-visible:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 shrink-0 rounded-lg bg-background"
+                        onClick={() => onChange(value + 1)}
+                        disabled={adjusting}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )
+
+                return (
+                  <div className="space-y-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/30 px-4 py-3">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          {t("inventory.detail.current")}
+                        </p>
+                        <p className="mt-0.5 font-headline text-base font-bold text-foreground">
+                          {hasPackaging
+                            ? formatDecomposedStockLabel(
+                                record,
+                                product,
+                                t("inventory.stockBreakdownSeparator")
+                              )
+                            : `${record.quantity} ${product.unit}`}
+                        </p>
+                      </div>
+                      {hasPackaging && (
+                        <p className="text-xs text-muted-foreground">
+                          {t("inventory.stockTotalUnits", {
+                            count: record.quantity,
+                            unit: product.unit,
+                          })}
+                        </p>
+                      )}
+                    </div>
+
+                    <div
+                      className={cn(
+                        "grid gap-4",
+                        hasPackaging ? "sm:grid-cols-2" : "sm:grid-cols-1 sm:max-w-sm"
+                      )}
+                    >
+                      {hasPackaging && (
+                        <QtyStepper
+                          label={t("inventory.form.packaging")}
+                          unit={packagingUnit}
+                          value={draftPackaging}
+                          onChange={setDraftPackaging}
+                        />
+                      )}
+                      <QtyStepper
+                        label={
+                          hasPackaging
+                            ? t("inventory.form.detailStock")
+                            : t("inventory.detail.stockQuantity")
+                        }
+                        unit={product.unit}
+                        value={draftDetail}
+                        onChange={setDraftDetail}
+                      />
+                    </div>
+
+                    {hasPackaging && (
+                      <p className="text-[11px] text-muted-foreground">
+                        {t("inventory.detail.draftTotal", {
+                          stock: formatDecomposedStockLabel(
+                            draft,
+                            product,
+                            t("inventory.stockBreakdownSeparator")
+                          ),
+                          count: draft.quantity,
+                          unit: product.unit,
+                        })}
+                      </p>
+                    )}
+
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-xl"
+                        disabled={adjusting || !hasChanges}
+                        onClick={() => {
+                          if (hasPackaging) {
+                            setDraftPackaging(record.packagingQty)
+                            setDraftDetail(record.detailQty)
+                          } else {
+                            setDraftPackaging(0)
+                            setDraftDetail(record.quantity)
+                          }
+                        }}
+                      >
+                        {t("common.cancel")}
+                      </Button>
+                      <Button
+                        type="button"
+                        className="rounded-xl font-semibold"
+                        disabled={adjusting || !hasChanges}
+                        onClick={handleApplyStockAdjustment}
+                      >
+                        {adjusting ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Save className="mr-2 h-4 w-4" />
+                        )}
+                        {t("inventory.detail.applyStockAdjustment")}
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })()}
             </CardContent>
           </Card>
         )}

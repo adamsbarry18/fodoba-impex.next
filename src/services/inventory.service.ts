@@ -210,16 +210,24 @@ export const InventoryService = {
     return movement.next;
   },
 
-  /** Ajuste le stock détail de ±N unités (boutons +1/−1 sur la fiche produit) */
-  async adjustDetailStock(params: {
+  /** Ajuste conditionnement et/ou détail (±N) sur la fiche produit */
+  async adjustDecomposedStock(params: {
     productId: string
     storeId: string
-    delta: number
+    packagingDelta?: number
+    detailDelta?: number
     user: UserProfile
     reason?: string
   }) {
-    const { productId, storeId, delta, user, reason } = params
-    if (delta === 0) return
+    const {
+      productId,
+      storeId,
+      packagingDelta = 0,
+      detailDelta = 0,
+      user,
+      reason,
+    } = params
+    if (packagingDelta === 0 && detailDelta === 0) return
 
     const stockId = `${storeId}_${productId}`
     const stockRef = doc(db, STOCKS_COLLECTION, stockId)
@@ -240,15 +248,31 @@ export const InventoryService = {
       const product = productSnap.data() as Product
       const store = storeSnap.data() as Store
       const normalized = normalizeProduct(product)
+      const ratio = Math.max(1, normalized.unitsPerPack)
       const previous = normalizeStockLevel(
         stockSnap.exists() ? (stockSnap.data() as StockLevel) : null,
-        normalized.unitsPerPack
+        ratio
       )
 
-      const next =
-        delta > 0
-          ? applyRetailQuantityIn(previous, delta, normalized.unitsPerPack)
-          : applyRetailQuantityOut(previous, -delta, normalized.unitsPerPack)
+      let next = previous
+
+      if (packagingDelta !== 0) {
+        const newPackaging = previous.packagingQty + packagingDelta
+        if (newPackaging < 0) {
+          const unit = normalized.packagingUnit || normalized.unit
+          throw new Error(
+            `Stock conditionnement insuffisant. Disponible : ${previous.packagingQty} ${unit}`
+          )
+        }
+        next = buildDecomposedStock(newPackaging, next.detailQty, ratio)
+      }
+
+      if (detailDelta !== 0) {
+        next =
+          detailDelta > 0
+            ? applyRetailQuantityIn(next, detailDelta, ratio)
+            : applyRetailQuantityOut(next, -detailDelta, ratio)
+      }
 
       transaction.set(
         stockRef,
@@ -260,41 +284,62 @@ export const InventoryService = {
       )
 
       const qtyDelta = next.quantity - previous.quantity
-      transaction.set(
-        movementRef,
-        stripUndefined({
-          id: movementRef.id,
-          productId,
-          productName: product.name,
-          storeId,
-          storeName: store.name,
-          type: "CORRECTION",
-          delta: qtyDelta,
-          previousStock: previous.quantity,
-          newStock: next.quantity,
-          reason,
-          performedBy: user.uid,
-          performedByName: `${user.prenom} ${user.nom}`,
-          timestamp: serverTimestamp(),
-        })
-      )
+      if (qtyDelta !== 0) {
+        transaction.set(
+          movementRef,
+          stripUndefined({
+            id: movementRef.id,
+            productId,
+            productName: product.name,
+            storeId,
+            storeName: store.name,
+            type: "CORRECTION",
+            delta: qtyDelta,
+            previousStock: previous.quantity,
+            newStock: next.quantity,
+            reason,
+            performedBy: user.uid,
+            performedByName: `${user.prenom} ${user.nom}`,
+            timestamp: serverTimestamp(),
+          })
+        )
+      }
 
-      return { previous, next, productName: product.name }
+      return { previous, next, productName: product.name, qtyDelta }
     })
 
-    void AppNotificationHelper.notifyStockChanges({
-      storeId,
-      changes: [
-        {
-          productId,
-          productName: movement.productName,
-          previousStock: movement.previous.quantity,
-          newStock: movement.next.quantity,
-        },
-      ],
-    })
+    if (movement.qtyDelta !== 0) {
+      void AppNotificationHelper.notifyStockChanges({
+        storeId,
+        changes: [
+          {
+            productId,
+            productName: movement.productName,
+            previousStock: movement.previous.quantity,
+            newStock: movement.next.quantity,
+          },
+        ],
+      })
+    }
 
     return movement.next
+  },
+
+  /** Ajuste le stock détail de ±N unités (boutons +1/−1 sur la fiche produit) */
+  async adjustDetailStock(params: {
+    productId: string
+    storeId: string
+    delta: number
+    user: UserProfile
+    reason?: string
+  }) {
+    return this.adjustDecomposedStock({
+      productId: params.productId,
+      storeId: params.storeId,
+      detailDelta: params.delta,
+      user: params.user,
+      reason: params.reason,
+    })
   },
 
   async transferStock(params: {
