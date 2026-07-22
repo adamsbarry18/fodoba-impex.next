@@ -35,7 +35,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  ResponsiveContainer,
 } from "recharts"
 import {
   ChartContainer,
@@ -371,34 +370,32 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
-            <ChartContainer config={chartConfig} className="h-[280px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats.chartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                  <XAxis
-                    dataKey="name"
-                    stroke="#9ca3af"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="#9ca3af"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v) => `${v / 1000}k`}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line
-                    type="monotone"
-                    dataKey="sales"
-                    stroke="var(--color-sales)"
-                    strokeWidth={2}
-                    dot={{ r: 3, fill: "var(--color-sales)" }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <ChartContainer config={chartConfig} className="aspect-auto h-[280px] w-full">
+              <LineChart data={stats.chartData} accessibilityLayer>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                <XAxis
+                  dataKey="name"
+                  stroke="#9ca3af"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#9ca3af"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => `${v / 1000}k`}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Line
+                  type="monotone"
+                  dataKey="sales"
+                  stroke="var(--color-sales)"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: "var(--color-sales)" }}
+                />
+              </LineChart>
             </ChartContainer>
           </CardContent>
         </Card>
