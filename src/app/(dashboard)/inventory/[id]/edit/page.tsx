@@ -100,7 +100,7 @@ export default function EditProductPage() {
       }
     }
     init()
-  }, [params.id, form, router, t, activeStore?.id])
+  }, [params.id, form, router, t, activeStore])
 
   const onSubmit = async (values: ProductEditFormValues) => {
     try {

@@ -119,7 +119,7 @@ export default function ClientsPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   const filteredClients = useMemo(
     () =>

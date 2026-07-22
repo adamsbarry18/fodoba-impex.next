@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { ProductService } from "@/services/product.service"
 import { InventoryService } from "@/services/inventory.service"
 import { StoreService } from "@/services/store.service"
@@ -62,7 +62,7 @@ export default function ProductDetailsPage() {
   const canEdit = can("manage:catalog")
   const canAdjust = can("adjust:stock")
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     try {
       const [prod, allStores] = await Promise.all([
         ProductService.getProduct(params.id as string),
@@ -92,11 +92,11 @@ export default function ProductDetailsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [params.id, router, t])
 
   useEffect(() => {
-    loadAll()
-  }, [params.id])
+    void loadAll()
+  }, [loadAll])
 
   useEffect(() => {
     if (!product) return
@@ -126,7 +126,7 @@ export default function ProductDetailsPage() {
       setDraftPackaging(0)
       setDraftDetail(record.quantity)
     }
-  }, [activeStore?.id, stockRecords, product])
+  }, [activeStore, stockRecords, product])
 
   const parseQtyInput = (raw: string) => {
     if (raw.trim() === "") return 0

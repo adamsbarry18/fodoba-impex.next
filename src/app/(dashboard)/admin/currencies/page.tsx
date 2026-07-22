@@ -121,7 +121,7 @@ export default function CurrenciesAdminPage() {
     return () => {
       cancelled = true
     }
-  }, [t])
+  }, [t, refreshRates])
 
   const lastUpdate = useMemo(() => {
     const dates = exchangeRates
