@@ -173,7 +173,7 @@ export default function SupplierDebtReportPage() {
                     </TableCell>
                     <TableCell className="text-[13px] text-gray-500">{s.country}</TableCell>
                     <TableCell className="pr-8 text-right font-headline font-bold text-gray-900">
-                      {s.currentDebt.toLocaleString()}
+                      {formatAmount(s.currentDebt)}
                     </TableCell>
                   </TableRow>
                 ))

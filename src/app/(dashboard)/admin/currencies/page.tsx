@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { useCurrency } from "@/hooks/use-currency"
 import { CurrencyService } from "@/services/currency.service"
 import { useAuth } from "@/lib/contexts/AuthContext"
+import { usePermissions } from "@/hooks/use-permissions"
 import { CurrencyCode, ExchangeRate } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -43,8 +44,10 @@ import { format } from "date-fns"
 import {
   CURRENCY_META,
   CURRENCY_ORDER,
-  EDITABLE_CURRENCIES,
+  editableCurrencies,
   formatRate,
+  isReferenceCurrency,
+  rateBetween,
   validateRate,
 } from "@/lib/currency-utils"
 import { cn } from "@/lib/utils"
@@ -67,9 +70,18 @@ export default function CurrenciesAdminPage() {
   const { locale } = useLocale()
   const dateLocale = getDateLocale(locale)
 
-  const { rates, refreshRates, loading: contextLoading, formatAmount, convertToRef, convertFromRef } =
-    useCurrency()
+  const {
+    rates,
+    referenceCurrency,
+    refreshRates,
+    setReferenceCurrency,
+    formatAmount,
+    toStorage,
+    fromStorage,
+  } = useCurrency()
   const { userProfile } = useAuth()
+  const { can } = usePermissions()
+  const canManage = can("manage:currencies")
 
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,6 +90,13 @@ export default function CurrenciesAdminPage() {
   const [newRate, setNewRate] = useState("")
   const [simAmount, setSimAmount] = useState("100")
   const [simCurrency, setSimCurrency] = useState<CurrencyCode>("USD")
+  const [pendingRef, setPendingRef] = useState<CurrencyCode | null>(null)
+  const [savingRef, setSavingRef] = useState(false)
+
+  const editable = useMemo(
+    () => editableCurrencies(referenceCurrency),
+    [referenceCurrency]
+  )
 
   const translateValidationError = useCallback(
     (error: string) => {
@@ -87,7 +106,7 @@ export default function CurrenciesAdminPage() {
     [t]
   )
 
-  const loadExchangeRates = async () => {
+  const loadExchangeRates = useCallback(async () => {
     setLoading(true)
     try {
       const data = await CurrencyService.getExchangeRates()
@@ -98,30 +117,11 @@ export default function CurrenciesAdminPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [refreshRates, t])
 
   useEffect(() => {
-    let cancelled = false
-
-    const fetchRates = async () => {
-      setLoading(true)
-      try {
-        const data = await CurrencyService.getExchangeRates()
-        if (cancelled) return
-        setExchangeRates(data)
-        await refreshRates()
-      } catch {
-        if (!cancelled) toast.error(t("currencies.errorLoading"))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    fetchRates()
-    return () => {
-      cancelled = true
-    }
-  }, [t, refreshRates])
+    void loadExchangeRates()
+  }, [loadExchangeRates])
 
   const lastUpdate = useMemo(() => {
     const dates = exchangeRates
@@ -132,9 +132,9 @@ export default function CurrenciesAdminPage() {
   }, [exchangeRates])
 
   const openEdit = (code: CurrencyCode) => {
-    const current = exchangeRates.find((r) => r.code === code)?.rateToRef ?? rates[code]
+    const displayed = rateBetween(code, referenceCurrency, rates)
     setEditCode(code)
-    setNewRate(String(current))
+    setNewRate(String(displayed))
   }
 
   const closeEdit = () => {
@@ -154,7 +154,13 @@ export default function CurrenciesAdminPage() {
 
     setUpdating(true)
     try {
-      await CurrencyService.updateRate(editCode, parsed, userProfile)
+      await CurrencyService.updateDisplayedRate(
+        editCode,
+        parsed,
+        referenceCurrency,
+        rates,
+        userProfile
+      )
       toast.success(t("currencies.rateUpdatedSuccess", { code: editCode }))
       closeEdit()
       await loadExchangeRates()
@@ -166,15 +172,33 @@ export default function CurrenciesAdminPage() {
     }
   }
 
+  const handleConfirmReference = async () => {
+    if (!pendingRef || !userProfile) return
+    setSavingRef(true)
+    try {
+      await setReferenceCurrency(pendingRef)
+      toast.success(t("currencies.referenceUpdated", { code: pendingRef }))
+      setPendingRef(null)
+      await loadExchangeRates()
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : t("currencies.referenceUpdateError")
+      toast.error(message)
+    } finally {
+      setSavingRef(false)
+    }
+  }
+
   const simValue = Number(simAmount) || 0
-  const simInFcfa = convertToRef(simValue, simCurrency)
-  const simReverse = convertFromRef(10_000, simCurrency)
+  const simInStorage = toStorage(simValue, simCurrency)
+  const simInReference = fromStorage(simInStorage, referenceCurrency)
+  const simReverse = fromStorage(10_000, simCurrency)
 
   const currentEditRate = editCode
-    ? exchangeRates.find((r) => r.code === editCode)?.rateToRef ?? rates[editCode]
+    ? rateBetween(editCode, referenceCurrency, rates)
     : 0
 
-  const isPageLoading = loading || contextLoading
+  const isListLoading = loading
 
   return (
     <div className="space-y-6 pb-8">
@@ -185,19 +209,54 @@ export default function CurrenciesAdminPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{t("currencies.title")}</h1>
-            <p className="text-sm text-muted-foreground">{t("currencies.subtitle")}</p>
+            <p className="text-sm text-muted-foreground">
+              {t("currencies.subtitle", { currency: referenceCurrency })}
+            </p>
           </div>
         </div>
         <Button
           variant="outline"
           className="rounded-xl font-semibold"
           onClick={loadExchangeRates}
-          disabled={isPageLoading}
+          disabled={isListLoading}
         >
-          <RefreshCw className={cn("mr-2 h-4 w-4", isPageLoading && "animate-spin")} />
+          <RefreshCw className={cn("mr-2 h-4 w-4", isListLoading && "animate-spin")} />
           {t("currencies.refresh")}
         </Button>
       </div>
+
+      {canManage && (
+        <Card className="rounded-2xl border bg-card shadow-sm">
+          <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">{t("currencies.referenceSettingTitle")}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("currencies.referenceSettingDesc")}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Select
+                value={referenceCurrency}
+                onValueChange={(v) => {
+                  const code = v as CurrencyCode
+                  if (code !== referenceCurrency) setPendingRef(code)
+                }}
+              >
+                <SelectTrigger className="h-10 w-[200px] rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {CURRENCY_ORDER.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {CURRENCY_META[code].label} ({code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card className="rounded-2xl border bg-card shadow-sm">
@@ -209,7 +268,7 @@ export default function CurrenciesAdminPage() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {t("currencies.statPivot")}
               </p>
-              <p className="text-lg font-bold">FCFA</p>
+              <p className="text-lg font-bold">{referenceCurrency}</p>
             </div>
           </CardContent>
         </Card>
@@ -237,7 +296,7 @@ export default function CurrenciesAdminPage() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {t("currencies.statEditable")}
               </p>
-              <p className="text-2xl font-bold">{EDITABLE_CURRENCIES.length}</p>
+              <p className="text-2xl font-bold">{editable.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -270,11 +329,11 @@ export default function CurrenciesAdminPage() {
                 {t("currencies.currentRates")}
               </CardTitle>
               <CardDescription className="text-xs">
-                {t("currencies.currentRatesDesc")}
+                {t("currencies.currentRatesDesc", { currency: referenceCurrency })}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              {isPageLoading ? (
+              {isListLoading ? (
                 <div className="flex justify-center p-16">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
@@ -284,7 +343,9 @@ export default function CurrenciesAdminPage() {
                     <TableHeader>
                       <TableRow className="hover:bg-transparent">
                         <TableHead className="pl-4 sm:pl-6">{t("currencies.colCurrency")}</TableHead>
-                        <TableHead className="text-right">{t("currencies.colRate")}</TableHead>
+                        <TableHead className="text-right">
+                          {t("currencies.colRate", { currency: referenceCurrency })}
+                        </TableHead>
                         <TableHead className="hidden md:table-cell">{t("currencies.colLastUpdate")}</TableHead>
                         <TableHead className="hidden sm:table-cell">{t("currencies.colUpdatedBy")}</TableHead>
                         <TableHead className="pr-4 text-right sm:pr-6">{t("currencies.colAction")}</TableHead>
@@ -295,13 +356,15 @@ export default function CurrenciesAdminPage() {
                         const meta = CURRENCY_META[rate.code]
                         const Icon = meta.icon
                         const updatedAt = toDate(rate.lastUpdated)
+                        const isRef = isReferenceCurrency(rate.code, referenceCurrency)
+                        const displayed = rateBetween(rate.code, referenceCurrency, rates)
 
                         return (
                           <TableRow
                             key={rate.code}
                             className={cn(
                               "transition-colors hover:bg-muted/20",
-                              rate.code === "FCFA" && "bg-primary/5"
+                              isRef && "bg-primary/5"
                             )}
                           >
                             <TableCell className="pl-4 sm:pl-6">
@@ -309,7 +372,7 @@ export default function CurrenciesAdminPage() {
                                 <div
                                   className={cn(
                                     "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-                                    rate.code === "FCFA"
+                                    isRef
                                       ? "bg-primary/10 text-primary"
                                       : "bg-muted text-muted-foreground"
                                   )}
@@ -326,15 +389,16 @@ export default function CurrenciesAdminPage() {
                             </TableCell>
                             <TableCell className="text-right">
                               <p className="font-mono text-sm font-bold">
-                                {rate.code === "FCFA"
+                                {isRef
                                   ? t("currencies.rateReference")
-                                  : formatRate(rate.rateToRef, rate.code)}
+                                  : formatRate(displayed, rate.code)}
                               </p>
-                              {rate.code !== "FCFA" && rate.rateToRef > 0 && (
+                              {!isRef && displayed > 0 && (
                                 <p className="mt-0.5 text-[10px] text-muted-foreground">
                                   {t("currencies.reverseRate", {
-                                    rate: formatRate(1 / rate.rateToRef, rate.code),
+                                    rate: formatRate(1 / displayed, rate.code),
                                     code: rate.code,
+                                    currency: referenceCurrency,
                                   })}
                                 </p>
                               )}
@@ -355,7 +419,7 @@ export default function CurrenciesAdminPage() {
                               )}
                             </TableCell>
                             <TableCell className="pr-4 text-right sm:pr-6">
-                              {meta.editable ? (
+                              {!isRef && canManage ? (
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -365,11 +429,11 @@ export default function CurrenciesAdminPage() {
                                   <Pencil className="mr-1.5 h-3.5 w-3.5" />
                                   {t("currencies.edit")}
                                 </Button>
-                              ) : (
+                              ) : isRef ? (
                                 <StatusBadge tone="slate" className="text-[10px]">
                                   {t("currencies.reference")}
                                 </StatusBadge>
-                              )}
+                              ) : null}
                             </TableCell>
                           </TableRow>
                         )
@@ -389,7 +453,7 @@ export default function CurrenciesAdminPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 p-4 pt-0 text-xs leading-relaxed text-muted-foreground">
-              <p>{t("currencies.infoPivot")}</p>
+              <p>{t("currencies.infoPivot", { currency: referenceCurrency })}</p>
               <p>{t("currencies.infoImpact")}</p>
               <p>{t("currencies.infoAudit")}</p>
             </CardContent>
@@ -446,17 +510,21 @@ export default function CurrenciesAdminPage() {
 
               <div className="rounded-xl border bg-primary/5 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  {t("currencies.equivalentFcfa")}
+                  {t("currencies.equivalentRef", { currency: referenceCurrency })}
                 </p>
                 <p className="mt-1 text-2xl font-bold text-primary">
-                  {formatAmount(simInFcfa, "FCFA")}
+                  {formatAmount(simInStorage)}
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground">
                   {t("currencies.simFormula", {
                     amount: simValue.toLocaleString(locale),
                     code: simCurrency,
-                    rate: formatRate(rates[simCurrency], simCurrency),
-                    result: simInFcfa.toLocaleString(locale),
+                    rate: formatRate(
+                      rateBetween(simCurrency, referenceCurrency, rates),
+                      simCurrency
+                    ),
+                    result: simInReference.toLocaleString(locale),
+                    currency: referenceCurrency,
                   })}
                 </p>
               </div>
@@ -465,21 +533,21 @@ export default function CurrenciesAdminPage() {
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   {t("currencies.quickRefTitle")}
                 </p>
-                {EDITABLE_CURRENCIES.map((code) => (
+                {editable.map((code) => (
                   <div
                     key={code}
                     className="flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-sm"
                   >
                     <span className="text-muted-foreground">100 {code}</span>
                     <span className="font-bold text-foreground">
-                      {formatAmount(100 * rates[code], "FCFA")}
+                      {formatAmount(toStorage(100, code))}
                     </span>
                   </div>
                 ))}
               </div>
 
               <div className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                {formatAmount(10_000, "FCFA")} ≈{" "}
+                {formatAmount(10_000)} ≈{" "}
                 {simReverse.toLocaleString(locale, {
                   maximumFractionDigits: CURRENCY_META[simCurrency].decimals,
                 })}{" "}
@@ -497,7 +565,10 @@ export default function CurrenciesAdminPage() {
               {t("currencies.editDialogTitle", { code: editCode ?? "" })}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              {t("currencies.editDialogDesc", { code: editCode ?? "" })}
+              {t("currencies.editDialogDesc", {
+                code: editCode ?? "",
+                currency: referenceCurrency,
+              })}
             </DialogDescription>
           </DialogHeader>
 
@@ -505,7 +576,8 @@ export default function CurrenciesAdminPage() {
             <div className="rounded-xl border bg-muted/20 p-3 text-sm">
               <p className="text-xs text-muted-foreground">{t("currencies.currentRate")}</p>
               <p className="font-mono font-bold">
-                {formatRate(currentEditRate, editCode ?? "FCFA")} FCFA
+                {formatRate(currentEditRate, editCode ?? referenceCurrency)}{" "}
+                {referenceCurrency}
               </p>
             </div>
 
@@ -523,21 +595,25 @@ export default function CurrenciesAdminPage() {
                 placeholder={t("currencies.newRatePlaceholder")}
                 autoFocus
               />
-              {newRate && !validateRate(Number(newRate)) && Number(newRate) !== currentEditRate && (
-                <p className="text-xs text-muted-foreground">
-                  {t("currencies.variation")}{" "}
-                  <span
-                    className={cn(
-                      "font-semibold",
-                      Number(newRate) > currentEditRate ? "text-emerald-600" : "text-destructive"
-                    )}
-                  >
-                    {currentEditRate > 0
-                      ? `${(((Number(newRate) - currentEditRate) / currentEditRate) * 100).toFixed(1)} %`
-                      : "-"}
-                  </span>
-                </p>
-              )}
+              {newRate &&
+                !validateRate(Number(newRate)) &&
+                Number(newRate) !== currentEditRate && (
+                  <p className="text-xs text-muted-foreground">
+                    {t("currencies.variation")}{" "}
+                    <span
+                      className={cn(
+                        "font-semibold",
+                        Number(newRate) > currentEditRate
+                          ? "text-emerald-600"
+                          : "text-destructive"
+                      )}
+                    >
+                      {currentEditRate > 0
+                        ? `${(((Number(newRate) - currentEditRate) / currentEditRate) * 100).toFixed(1)} %`
+                        : "-"}
+                    </span>
+                  </p>
+                )}
             </div>
           </div>
 
@@ -561,6 +637,52 @@ export default function CurrenciesAdminPage() {
                 <ShieldCheck className="mr-2 h-4 w-4" />
               )}
               {t("currencies.confirmUpdate")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={pendingRef !== null} onOpenChange={(open) => !open && setPendingRef(null)}>
+        <DialogContent className="max-w-md gap-0 overflow-hidden rounded-2xl p-0">
+          <DialogHeader className="border-b bg-muted/30 p-6">
+            <DialogTitle className="text-xl font-bold">
+              {t("currencies.referenceConfirmTitle")}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {t("currencies.referenceConfirmDesc", {
+                from: referenceCurrency,
+                to: pendingRef ?? "",
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 p-6 text-sm text-muted-foreground">
+            <p>{t("currencies.referenceConfirmHint")}</p>
+            {pendingRef && (
+              <p className="font-semibold text-foreground">
+                {CURRENCY_META[pendingRef].label} ({pendingRef})
+              </p>
+            )}
+          </div>
+          <DialogFooter className="border-t bg-muted/20 p-4 sm:p-6">
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => setPendingRef(null)}
+              disabled={savingRef}
+            >
+              {t("currencies.cancel")}
+            </Button>
+            <Button
+              className="rounded-xl font-semibold"
+              onClick={handleConfirmReference}
+              disabled={savingRef}
+            >
+              {savingRef ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="mr-2 h-4 w-4" />
+              )}
+              {t("currencies.referenceConfirmAction")}
             </Button>
           </DialogFooter>
         </DialogContent>

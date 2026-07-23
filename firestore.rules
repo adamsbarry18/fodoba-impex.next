@@ -157,6 +157,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Paramètres applicatifs (ex. devise de référence d'affichage)
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     // Logs d'Audit
     match /audit_logs/{logId} {
       allow read: if isAdmin();

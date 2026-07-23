@@ -737,12 +737,12 @@ export default function POSPage() {
                           <div className="space-y-0.5">
                             <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">{t("pos.sellingPrice")}</span>
                             <div className="text-primary font-extrabold text-base font-headline">
-                              {formatAmount(product.sellingPriceFCFA, "FCFA")}
+                              {formatAmount(product.sellingPriceFCFA)}
                             </div>
                             {hasWholesalePrice(product) && (
                               <p className="text-[9px] text-muted-foreground">
                                 {t("pos.wholesalePricePerPack", {
-                                  price: formatAmount(getProductPriceForTier(product, "wholesale"), "FCFA"),
+                                  price: formatAmount(getProductPriceForTier(product, "wholesale")),
                                   unit:
                                     normalizeProduct(product).packagingUnit ||
                                     t("inventory.form.packagingFallback"),
@@ -815,11 +815,11 @@ export default function POSPage() {
                               {stockLabel}
                             </td>
                             <td className="py-2.5 px-5 text-right font-bold text-foreground">
-                              <div>{formatAmount(product.sellingPriceFCFA, "FCFA")}</div>
+                              <div>{formatAmount(product.sellingPriceFCFA)}</div>
                               {hasWholesalePrice(product) && (
                                 <div className="text-[9px] font-normal text-muted-foreground">
                                   {t("pos.wholesalePricePerPack", {
-                                    price: formatAmount(getProductPriceForTier(product, "wholesale"), "FCFA"),
+                                    price: formatAmount(getProductPriceForTier(product, "wholesale")),
                                     unit:
                                       normalizeProduct(product).packagingUnit ||
                                       t("inventory.form.packagingFallback"),
@@ -1240,7 +1240,7 @@ export default function POSPage() {
                                 {t("pos.lineTotal")}
                               </span>
                               <span className="font-headline text-sm font-extrabold text-primary">
-                                {formatAmount(item.total, "FCFA")}
+                                {formatAmount(item.total)}
                               </span>
                             </div>
 
@@ -1263,7 +1263,7 @@ export default function POSPage() {
               <div className="space-y-3">
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-muted-foreground">{t("pos.subtotal")}</span>
-                  <span className="text-foreground">{formatAmount(subtotal, "FCFA")}</span>
+                  <span className="text-foreground">{formatAmount(subtotal)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-semibold">
                   <div className="flex items-center gap-1 text-muted-foreground">
@@ -1285,7 +1285,7 @@ export default function POSPage() {
                     {t("pos.netAmount")}
                   </span>
                   <span className="text-xl font-black text-primary font-headline tracking-tight">
-                    {formatAmount(total, "FCFA")}
+                    {formatAmount(total)}
                   </span>
                 </div>
               </div>
@@ -1300,7 +1300,7 @@ export default function POSPage() {
                   ? t("pos.emptyCartBtn")
                   : !cashSession
                     ? t("pos.closedCashBtn")
-                    : t("pos.checkout", { amount: formatAmount(total, "FCFA") })}
+                    : t("pos.checkout", { amount: formatAmount(total) })}
               </Button>
 
               <PaymentDialog
@@ -1347,7 +1347,7 @@ export default function POSPage() {
             {lastSale && (
               <>
                 <p className="mt-3 font-mono text-sm font-bold text-primary">
-                  #{lastSale.id.slice(-6).toUpperCase()} - {formatAmount(lastSale.total, "FCFA")}
+                  #{lastSale.id.slice(-6).toUpperCase()} - {formatAmount(lastSale.total)}
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground">
                   {t("pos.saleForClient", {

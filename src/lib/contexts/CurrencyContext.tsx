@@ -1,106 +1,188 @@
-
 "use client"
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { CurrencyCode } from "@/lib/types";
-import { CurrencyService } from "@/services/currency.service";
-import { useAuth } from "./AuthContext";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
+import { CurrencyCode, UserProfile } from "@/lib/types"
+import { CurrencyService } from "@/services/currency.service"
+import { useAuth } from "./AuthContext"
+import {
+  DEFAULT_RATES,
+  STORAGE_CURRENCY,
+  fromStorage,
+  storageToReference,
+  referenceToStorage,
+  toStorage,
+} from "@/lib/currency-utils"
 
 interface CurrencyContextType {
-  rates: Record<CurrencyCode, number>;
-  loading: boolean;
-  refreshRates: () => Promise<void>;
-  formatAmount: (amount: number, code?: CurrencyCode) => string;
-  convertToRef: (amount: number, from: CurrencyCode) => number;
-  convertFromRef: (amount: number, to: CurrencyCode) => number;
+  rates: Record<CurrencyCode, number>
+  referenceCurrency: CurrencyCode
+  loading: boolean
+  refreshRates: () => Promise<void>
+  refreshSettings: () => Promise<void>
+  setReferenceCurrency: (code: CurrencyCode) => Promise<void>
+  /** Formate un montant stocké en FCFA. Sans `code`, utilise la devise de référence. */
+  formatAmount: (amountFcfa: number, code?: CurrencyCode) => string
+  /** @deprecated Alias de toStorage — convertit vers FCFA */
+  convertToRef: (amount: number, from: CurrencyCode) => number
+  /** @deprecated Alias de fromStorage — convertit depuis FCFA */
+  convertFromRef: (amount: number, to: CurrencyCode) => number
+  toStorage: (amount: number, from: CurrencyCode) => number
+  fromStorage: (amountFcfa: number, to: CurrencyCode) => number
+  toReference: (amountFcfa: number) => number
+  fromReference: (amountRef: number) => number
 }
 
-const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
+const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined)
+
+function formatCurrencyValue(amount: number, code: CurrencyCode): string {
+  const formatter = new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: code === "FCFA" ? "XOF" : code,
+    minimumFractionDigits: code === "FCFA" || code === "GNF" ? 0 : 2,
+    maximumFractionDigits: code === "FCFA" || code === "GNF" ? 0 : 2,
+  })
+
+  let result = formatter.format(amount)
+
+  if (code === "FCFA") {
+    result = result.replace("F CFA", "FCFA").replace("XOF", "FCFA")
+  }
+
+  return result
+}
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  const [rates, setRates] = useState<Record<CurrencyCode, number>>({
-    FCFA: 1.0,
-    GNF: 0.065,
-    USD: 600,
-    EUR: 656
-  });
-  const [loading, setLoading] = useState(true);
-  const { userProfile } = useAuth();
+  const [rates, setRates] = useState<Record<CurrencyCode, number>>({ ...DEFAULT_RATES })
+  const [referenceCurrency, setReferenceCurrencyState] =
+    useState<CurrencyCode>(STORAGE_CURRENCY)
+  const [loading, setLoading] = useState(true)
+  const { userProfile } = useAuth()
 
-  const refreshRates = async () => {
-    setLoading(true);
+  const refreshRates = useCallback(async () => {
     try {
-      const latestRates = await CurrencyService.getRates();
-      setRates(latestRates);
+      const latestRates = await CurrencyService.getRates()
+      setRates(latestRates)
     } catch (error) {
-      console.error("Error loading exchange rates:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error loading exchange rates:", error)
     }
-  };
+  }, [])
+
+  const refreshSettings = useCallback(async () => {
+    try {
+      const settings = await CurrencyService.getAppSettings()
+      setReferenceCurrencyState(settings.referenceCurrency)
+    } catch (error) {
+      console.error("Error loading currency settings:", error)
+    }
+  }, [])
+
+  const loadAll = useCallback(async () => {
+    setLoading(true)
+    try {
+      await Promise.all([refreshRates(), refreshSettings()])
+    } finally {
+      setLoading(false)
+    }
+  }, [refreshRates, refreshSettings])
 
   useEffect(() => {
-    if (userProfile) {
-      refreshRates();
+    if (!userProfile) {
+      setLoading(false)
+      return
     }
-  }, [userProfile]);
+    void loadAll()
+  }, [userProfile?.uid, loadAll])
 
-  /**
-   * Convertit un montant d'une devise vers la référence (FCFA).
-   */
-  const convertToRef = (amount: number, from: CurrencyCode): number => {
-    if (from === "FCFA") return amount;
-    return amount * (rates[from] || 1);
-  };
+  const setReferenceCurrency = useCallback(
+    async (code: CurrencyCode) => {
+      if (!userProfile) {
+        throw new Error("Utilisateur non connecté.")
+      }
+      await CurrencyService.setReferenceCurrency(code, userProfile as UserProfile)
+      setReferenceCurrencyState(code)
+    },
+    [userProfile]
+  )
 
-  /**
-   * Convertit un montant de la référence (FCFA) vers une autre devise.
-   */
-  const convertFromRef = (amount: number, to: CurrencyCode): number => {
-    if (to === "FCFA") return amount;
-    const rate = rates[to] || 1;
-    return amount / rate;
-  };
+  const toStorageFn = useCallback(
+    (amount: number, from: CurrencyCode) => toStorage(amount, from, rates),
+    [rates]
+  )
 
-  /**
-   * Formate un montant selon les standards de la devise.
-   */
-  const formatAmount = (amount: number, code: CurrencyCode = "FCFA"): string => {
-    const formatter = new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: code === "FCFA" ? "XOF" : code,
-      minimumFractionDigits: (code === "FCFA" || code === "GNF") ? 0 : 2,
-      maximumFractionDigits: (code === "FCFA" || code === "GNF") ? 0 : 2,
-    });
+  const fromStorageFn = useCallback(
+    (amountFcfa: number, to: CurrencyCode) => fromStorage(amountFcfa, to, rates),
+    [rates]
+  )
 
-    let result = formatter.format(amount);
-    
-    // Correction pour le sigle FCFA qui n'est pas tjs bien supporté par Intl (XOF)
-    if (code === "FCFA") {
-      result = result.replace('F CFA', 'FCFA').replace('XOF', 'FCFA');
-    }
-    
-    return result;
-  };
+  const toReferenceFn = useCallback(
+    (amountFcfa: number) => storageToReference(amountFcfa, referenceCurrency, rates),
+    [referenceCurrency, rates]
+  )
+
+  const fromReferenceFn = useCallback(
+    (amountRef: number) => referenceToStorage(amountRef, referenceCurrency, rates),
+    [referenceCurrency, rates]
+  )
+
+  const formatAmount = useCallback(
+    (amountFcfa: number, code?: CurrencyCode) => {
+      const target = code ?? referenceCurrency
+      const value =
+        target === STORAGE_CURRENCY
+          ? amountFcfa
+          : fromStorage(amountFcfa, target, rates)
+      return formatCurrencyValue(value, target)
+    },
+    [referenceCurrency, rates]
+  )
+
+  const value = useMemo(
+    () => ({
+      rates,
+      referenceCurrency,
+      loading,
+      refreshRates: loadAll,
+      refreshSettings,
+      setReferenceCurrency,
+      formatAmount,
+      convertToRef: toStorageFn,
+      convertFromRef: fromStorageFn,
+      toStorage: toStorageFn,
+      fromStorage: fromStorageFn,
+      toReference: toReferenceFn,
+      fromReference: fromReferenceFn,
+    }),
+    [
+      rates,
+      referenceCurrency,
+      loading,
+      loadAll,
+      refreshSettings,
+      setReferenceCurrency,
+      formatAmount,
+      toStorageFn,
+      fromStorageFn,
+      toReferenceFn,
+      fromReferenceFn,
+    ]
+  )
 
   return (
-    <CurrencyContext.Provider value={{ 
-      rates, 
-      loading, 
-      refreshRates, 
-      formatAmount,
-      convertToRef,
-      convertFromRef
-    }}>
-      {children}
-    </CurrencyContext.Provider>
-  );
+    <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>
+  )
 }
 
 export const useCurrency = () => {
-  const context = useContext(CurrencyContext);
+  const context = useContext(CurrencyContext)
   if (context === undefined) {
-    throw new Error("useCurrency must be used within a CurrencyProvider");
+    throw new Error("useCurrency must be used within a CurrencyProvider")
   }
-  return context;
-};
+  return context
+}

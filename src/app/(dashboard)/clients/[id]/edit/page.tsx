@@ -307,7 +307,7 @@ export default function EditClientPage() {
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                   <p>
                     {t("clients.form.currentDebtHint", {
-                      amount: formatAmount(currentDebt, "FCFA"),
+                      amount: formatAmount(currentDebt),
                     })}
                   </p>
                 </div>

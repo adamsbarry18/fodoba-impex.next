@@ -253,7 +253,7 @@ export default function ExpensesPage() {
                 {t("expenses.statMonth")}
               </p>
               <p className="text-sm font-bold">
-                {formatAmount(stats.totalThisMonth, "FCFA")}
+                {formatAmount(stats.totalThisMonth)}
               </p>
               <p className="text-[10px] text-muted-foreground">
                 {t("expenses.statOperations", { count: stats.monthCount })}
@@ -273,7 +273,7 @@ export default function ExpensesPage() {
               </p>
               <p className="text-sm font-bold">{stats.topCategory}</p>
               <p className="text-[10px] text-muted-foreground">
-                {formatAmount(stats.topCategoryAmount, "FCFA")}
+                {formatAmount(stats.topCategoryAmount)}
               </p>
             </div>
           </CardContent>
@@ -302,7 +302,7 @@ export default function ExpensesPage() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {t("expenses.statTotalCumulated")}
               </p>
-              <p className="text-sm font-bold">{formatAmount(stats.totalAll, "FCFA")}</p>
+              <p className="text-sm font-bold">{formatAmount(stats.totalAll)}</p>
             </div>
           </CardContent>
         </Card>
@@ -461,7 +461,7 @@ export default function ExpensesPage() {
                         </VisibleTableColumn>
                         <VisibleTableColumn id="amount" isVisible={isVisible}>
                           <TableCell className="text-right font-headline text-base font-bold text-destructive">
-                            −{formatAmount(e.amount, "FCFA")}
+                            −{formatAmount(e.amount)}
                           </TableCell>
                         </VisibleTableColumn>
                       </TableRow>

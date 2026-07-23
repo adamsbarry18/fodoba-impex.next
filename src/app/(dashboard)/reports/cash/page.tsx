@@ -29,12 +29,14 @@ import { getCashAuditSummary, getSessionTotals } from "@/lib/cash-session-utils"
 import { useClientPagination } from "@/hooks/use-client-pagination"
 import { TablePagination } from "@/components/ui/table-pagination"
 import { useT, useLocale } from "@/i18n/context"
+import { useCurrency } from "@/hooks/use-currency"
 import { getDateLocale } from "@/i18n/get-date-locale"
 
 const PAGE_SIZE = 25
 
 export default function CashReportPage() {
   const t = useT()
+  const { formatAmount } = useCurrency()
   const { locale } = useLocale()
   const dateLocale = useMemo(() => getDateLocale(locale), [locale])
   const { activeStore } = useStore()
@@ -89,7 +91,8 @@ export default function CashReportPage() {
           totalVariance: summary.totalVariance,
           reliabilityPercent: summary.reliabilityPercent,
         },
-        getPrintLabels(t)
+        getPrintLabels(t),
+        formatAmount
       )
       toast.success(t("common.successExportPdfConsolidated"))
     } catch {
@@ -160,7 +163,7 @@ export default function CashReportPage() {
                 summary.totalVariance === 0 ? "text-primary" : "text-destructive"
               }`}
             >
-              {summary.totalVariance.toLocaleString(locale)} FCFA
+              {formatAmount(summary.totalVariance)}
             </div>
             <p className="mt-1 text-[11px] text-muted-foreground">
               {t("reports.cash.statGlobalVarianceDesc")}
@@ -257,10 +260,10 @@ export default function CashReportPage() {
                         {s.openedByName}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {totalExpected.toLocaleString(locale)}
+                        {formatAmount(totalExpected)}
                       </TableCell>
                       <TableCell className="text-right font-bold">
-                        {totalActual.toLocaleString(locale)}
+                        {formatAmount(totalActual)}
                       </TableCell>
                       <TableCell className="pr-6 text-center">
                         <div className="flex flex-col items-center gap-1">
@@ -278,7 +281,7 @@ export default function CashReportPage() {
                           >
                             {totalVar === 0
                               ? undefined
-                              : `${totalVar > 0 ? "+" : ""}${totalVar.toLocaleString(locale)}`}
+                              : `${totalVar > 0 ? "+" : ""}${formatAmount(Math.abs(totalVar))}`}
                           </StatusBadge>
                           {s.status === "OPEN" && (
                             <span className="flex items-center gap-1 text-[9px] font-bold text-primary">

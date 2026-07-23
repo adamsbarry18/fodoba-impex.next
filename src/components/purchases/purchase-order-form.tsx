@@ -87,7 +87,7 @@ export function PurchaseOrderForm({
   const router = useRouter()
   const { activeStore } = useStore()
   const { userProfile } = useAuth()
-  const { rates } = useCurrency()
+  const { rates, formatAmount } = useCurrency()
   const t = useT()
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -523,7 +523,7 @@ export function PurchaseOrderForm({
                     </div>
                     <p className="text-right text-xs text-muted-foreground">
                       {t("purchases.form.lineTotal", {
-                        amount: getPurchaseLineTotal(item).toLocaleString("fr-FR"),
+                        amount: formatAmount(getPurchaseLineTotal(item)),
                       })}
                     </p>
                   </div>
@@ -653,18 +653,18 @@ export function PurchaseOrderForm({
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{t("purchases.form.subtotal")}</span>
                   <span className="font-medium">
-                    {subtotalFCFA.toLocaleString("fr-FR")} FCFA
+                    {formatAmount(subtotalFCFA)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{t("purchases.extraFees")}</span>
                   <span className="font-medium text-destructive">
-                    +{expensesTotalFCFA.toLocaleString("fr-FR")} FCFA
+                    +{formatAmount(expensesTotalFCFA)}
                   </span>
                 </div>
                 <div className="flex justify-between border-t pt-2 text-lg font-bold font-headline text-primary">
                   <span>{t("purchases.form.estimatedTotal")}</span>
-                  <span>{totalFCFA.toLocaleString("fr-FR")} FCFA</span>
+                  <span>{formatAmount(totalFCFA)}</span>
                 </div>
               </div>
 

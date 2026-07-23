@@ -32,12 +32,14 @@ import { usePermissions } from "@/hooks/use-permissions"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { PurchaseReceptionDialog } from "@/components/purchases/purchase-reception-dialog"
 import { useT } from "@/i18n/context"
+import { useCurrency } from "@/hooks/use-currency"
 
 export default function PurchaseDetailsPage() {
   const params = useParams()
   const router = useRouter()
   const { userProfile } = useAuth()
   const { activeStore } = useStore()
+  const { formatAmount } = useCurrency()
   const { can } = usePermissions()
   const t = useT()
   const [purchase, setPurchase] = useState<Purchase | null>(null)
@@ -109,7 +111,7 @@ export default function PurchaseDetailsPage() {
         return
       }
 
-      await PrintService.generatePurchaseOrder(purchase, store, getPrintLabels(t))
+      await PrintService.generatePurchaseOrder(purchase, store, getPrintLabels(t), formatAmount)
       toast.success(t("purchases.pdfSuccess"))
     } catch {
       toast.error(t("common.errorExportPdf"))
@@ -216,8 +218,7 @@ export default function PurchaseDetailsPage() {
                   </div>
                   <div className="text-right">
                     <p className="font-headline font-bold">
-                      {(item.quantity * item.unitCost * item.exchangeRate).toLocaleString("fr-FR")}{" "}
-                      FCFA
+                      {formatAmount(item.quantity * item.unitCost * item.exchangeRate)}
                     </p>
                     {isReceived && (
                       <Badge
@@ -225,7 +226,7 @@ export default function PurchaseDetailsPage() {
                         className="mt-1 border-emerald-200 text-[10px] text-emerald-600"
                       >
                         {t("purchases.landedCostUnit", {
-                          amount: Math.round(landedCostUnit).toLocaleString("fr-FR"),
+                          amount: formatAmount(Math.round(landedCostUnit)),
                         })}
                       </Badge>
                     )}
@@ -266,15 +267,15 @@ export default function PurchaseDetailsPage() {
               <div className="space-y-2 border-t pt-4">
                 <div className="flex justify-between text-sm">
                   <span>{t("purchases.subtotalItems")}</span>
-                  <span>{purchase.subtotalFCFA.toLocaleString("fr-FR")} FCFA</span>
+                  <span>{formatAmount(purchase.subtotalFCFA)}</span>
                 </div>
                 <div className="flex justify-between text-sm text-destructive">
                   <span>{t("purchases.extraFees")}</span>
-                  <span>+{purchase.expensesTotalFCFA.toLocaleString("fr-FR")} FCFA</span>
+                  <span>+{formatAmount(purchase.expensesTotalFCFA)}</span>
                 </div>
                 <div className="flex justify-between border-t pt-2 text-lg font-bold">
                   <span>{t("purchases.totalFinal")}</span>
-                  <span>{purchase.totalFCFA.toLocaleString("fr-FR")} FCFA</span>
+                  <span>{formatAmount(purchase.totalFCFA)}</span>
                 </div>
               </div>
             </CardContent>

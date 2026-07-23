@@ -130,7 +130,7 @@ export default function FinanceReportPage() {
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.name}</TableCell>
                     <TableCell className="text-right font-bold text-emerald-600">
-                      {c.currentDebt.toLocaleString()}
+                      {formatAmount(c.currentDebt)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -160,7 +160,7 @@ export default function FinanceReportPage() {
                   <TableRow key={s.id}>
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell className="text-right font-bold text-destructive">
-                      {s.currentDebt.toLocaleString()}
+                      {formatAmount(s.currentDebt)}
                     </TableCell>
                   </TableRow>
                 ))}

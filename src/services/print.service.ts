@@ -18,6 +18,13 @@ import type {
 
 export type { SalePrintLabels } from '@/lib/print-labels';
 
+/** Formate un montant stocké en FCFA pour les PDF (devise de référence). */
+export type PdfMoneyFormatter = (amountFcfa: number) => string;
+
+function defaultPdfMoney(amountFcfa: number): string {
+  return `${formatPdfNumber(amountFcfa)} FCFA`;
+}
+
 function drawSaleClientLines(
   doc: jsPDF,
   sale: Sale,
@@ -44,7 +51,8 @@ function drawSalePaymentSummary(
   labels: PrintLabels,
   pageWidth: number,
   startY: number,
-  fontSize = 8
+  fontSize = 8,
+  formatMoney: PdfMoneyFormatter = defaultPdfMoney
 ): number {
   let y = startY;
   const rightX = pageWidth - 5;
@@ -54,16 +62,16 @@ function drawSalePaymentSummary(
   doc.setFont('helvetica', 'normal');
 
   if (sale.discount > 0) {
-    doc.text(`${saleLabels.subtotal}: ${formatPdfNumber(sale.subtotal)} FCFA`, 5, y);
+    doc.text(`${saleLabels.subtotal}: ${formatMoney(sale.subtotal)}`, 5, y);
     y += lineHeight;
-    doc.text(`${saleLabels.discount}: -${formatPdfNumber(sale.discount)} FCFA`, 5, y);
+    doc.text(`${saleLabels.discount}: -${formatMoney(sale.discount)}`, 5, y);
     y += lineHeight;
   }
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(fontSize + (fontSize === 8 ? 1 : 2));
   doc.text(`${saleLabels.total}:`, 5, y);
-  doc.text(`${formatPdfNumber(sale.total)} FCFA`, rightX, y, { align: 'right' });
+  doc.text(formatMoney(sale.total), rightX, y, { align: 'right' });
   y += lineHeight + 1;
 
   doc.setFont('helvetica', 'normal');
@@ -78,7 +86,7 @@ function drawSalePaymentSummary(
     for (const payment of paidPayments) {
       const methodLabel = labels.resolvePaymentMethod(payment.method);
       doc.text(
-        `- ${methodLabel}: ${formatPdfNumber(payment.amount)} FCFA`,
+        `- ${methodLabel}: ${formatMoney(payment.amount)}`,
         5,
         y
       );
@@ -86,12 +94,12 @@ function drawSalePaymentSummary(
     }
   }
 
-  doc.text(`${saleLabels.amountPaid}: ${formatPdfNumber(sale.amountPaid)} FCFA`, 5, y);
+  doc.text(`${saleLabels.amountPaid}: ${formatMoney(sale.amountPaid)}`, 5, y);
   y += lineHeight;
 
   if (sale.debtAmount > 0) {
     doc.setFont('helvetica', 'bold');
-    doc.text(`${saleLabels.remainingDue}: ${formatPdfNumber(sale.debtAmount)} FCFA`, 5, y);
+    doc.text(`${saleLabels.remainingDue}: ${formatMoney(sale.debtAmount)}`, 5, y);
     y += lineHeight;
   }
 
@@ -103,7 +111,7 @@ function drawSalePaymentSummary(
  * Les libellés sont injectés via getPrintLabels(t) pour respecter la locale active.
  */
 export const PrintService = {
-  async generateThermalTicket(sale: Sale, store: Store, labels: PrintLabels) {
+  async generateThermalTicket(sale: Sale, store: Store, labels: PrintLabels, formatMoney: PdfMoneyFormatter = defaultPdfMoney) {
     const saleLabels = labels.sale;
     const paymentLineCount =
       (sale.discount > 0 ? 2 : 0) +
@@ -158,7 +166,7 @@ export const PrintService = {
       styles: { fontSize: 8, cellPadding: 1 },
     });
 
-    y = drawSalePaymentSummary(doc, sale, saleLabels, labels, pageWidth, (doc as any).lastAutoTable.finalY + 4, 8) + 4;
+    y = drawSalePaymentSummary(doc, sale, saleLabels, labels, pageWidth, (doc as any).lastAutoTable.finalY + 4, 8, formatMoney) + 4;
 
     try {
       const qrDataUrl = await QRCode.toDataURL(sale.id);
@@ -168,7 +176,7 @@ export const PrintService = {
     doc.save(`Ticket_${sale.id.slice(-6).toUpperCase()}.pdf`);
   },
 
-  async generateA4Invoice(sale: Sale, store: Store, labels: PrintLabels) {
+  async generateA4Invoice(sale: Sale, store: Store, labels: PrintLabels, formatMoney: PdfMoneyFormatter = defaultPdfMoney) {
     const saleLabels = labels.sale;
     const doc = new jsPDF('p', 'mm', 'a4');
     this.drawHeader(doc, saleLabels.titleInvoice, store, labels.phoneShort);
@@ -198,12 +206,12 @@ export const PrintService = {
     });
 
     y = (doc as any).lastAutoTable.finalY + 8;
-    drawSalePaymentSummary(doc, sale, saleLabels, labels, 190, y, 10);
+    drawSalePaymentSummary(doc, sale, saleLabels, labels, 190, y, 10, formatMoney);
 
     doc.save(`Vente_${sale.id.slice(-6)}.pdf`);
   },
 
-  async generatePurchaseOrder(purchase: Purchase, store: Store, labels: PrintLabels) {
+  async generatePurchaseOrder(purchase: Purchase, store: Store, labels: PrintLabels, formatMoney: PdfMoneyFormatter = defaultPdfMoney) {
     const l = labels.purchase;
     const doc = new jsPDF('p', 'mm', 'a4');
     this.drawHeader(doc, l.title, store, labels.phoneShort);
@@ -228,7 +236,7 @@ export const PrintService = {
         i.quantity, 
         formatPdfNumber(i.unitCost),
         i.currency,
-        formatPdfNumber(i.quantity * i.unitCost * i.exchangeRate)
+        formatMoney(i.quantity * i.unitCost * i.exchangeRate)
       ]),
       headStyles: { fillColor: [79, 70, 229] }
     });
@@ -327,7 +335,8 @@ export const PrintService = {
     sessions: CashSession[],
     store: Store,
     summary: { totalVariance: number; reliabilityPercent: number },
-    labels: PrintLabels
+    labels: PrintLabels,
+    formatMoney: PdfMoneyFormatter = defaultPdfMoney
   ) {
     const l = labels.cashAudit;
     const doc = new jsPDF('p', 'mm', 'a4');
@@ -357,7 +366,7 @@ export const PrintService = {
       y + 10
     );
     doc.text(
-      `${l.globalVariance} : ${formatPdfNumber(summary.totalVariance)} FCFA - ${l.reliability} : ${summary.reliabilityPercent}%`,
+      `${l.globalVariance} : ${formatMoney(summary.totalVariance)} - ${l.reliability} : ${summary.reliabilityPercent}%`,
       20,
       y + 15
     );
@@ -452,7 +461,8 @@ export const PrintService = {
     stockRecords: Record<string, DecomposedStock>,
     labels: PrintLabels,
     store?: Store | null,
-    categoryName?: string
+    categoryName?: string,
+    formatMoney: PdfMoneyFormatter = defaultPdfMoney
   ) {
     const l = labels.productSheet;
     const doc = new jsPDF('p', 'mm', 'a4');
@@ -495,9 +505,9 @@ export const PrintService = {
       [l.retailUnit, product.unit],
       [l.packagingUnit, normalized.packagingUnit || '-'],
       [l.packagingContent, packagingLabel],
-      [l.retailPrice, `${formatPdfNumber(product.sellingPriceFCFA)} FCFA`],
-      [l.wholesalePrice, `${formatPdfNumber(normalized.wholesalePriceFCFA)} FCFA`],
-      [l.purchasePrice, `${formatPdfNumber(product.purchasePriceRef)} FCFA`],
+      [l.retailPrice, formatMoney(product.sellingPriceFCFA)],
+      [l.wholesalePrice, formatMoney(normalized.wholesalePriceFCFA)],
+      [l.purchasePrice, formatMoney(product.purchasePriceRef)],
       [l.manufacturingDate, product.manufacturingDate || '-'],
       [l.expirationDate, product.expirationDate || '-'],
       [l.lowStockThreshold, String(product.lowStockThreshold)],
@@ -563,7 +573,8 @@ export const PrintService = {
       endDate: string;
       storeLabel: string;
     },
-    labels: PrintLabels
+    labels: PrintLabels,
+    formatMoney: PdfMoneyFormatter = defaultPdfMoney
   ) {
     const l = labels.salesReport;
     const doc = new jsPDF('p', 'mm', 'a4');
@@ -590,7 +601,7 @@ export const PrintService = {
     doc.text(`${l.store} : ${meta.storeLabel}`, 20, y + 5);
     doc.text(`${l.exportedSales} : ${sales.length}`, 20, y + 10);
     doc.text(
-      `${l.revenue} : ${formatPdfNumber(sales.reduce((sum, s) => sum + s.total, 0))} FCFA`,
+      `${l.revenue} : ${formatMoney(sales.reduce((sum, s) => sum + s.total, 0))}`,
       20,
       y + 15
     );
@@ -617,7 +628,7 @@ export const PrintService = {
         sale.clientName && isRegisteredSaleClient(sale) ? sale.clientName : l.walkIn,
         isRegisteredSaleClient(sale) ? sale.clientPhone || '-' : '-',
         sale.sellerName,
-        formatPdfNumber(sale.total),
+        formatMoney(sale.total),
         labels.resolveSaleStatus(sale.status),
       ]),
       headStyles: { fillColor: [29, 217, 124] },

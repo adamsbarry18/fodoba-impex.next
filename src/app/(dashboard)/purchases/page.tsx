@@ -64,6 +64,7 @@ import { TableColumnToggle } from "@/components/ui/table-column-toggle"
 import { VisibleTableColumn } from "@/components/ui/visible-table-column"
 import { PURCHASE_TABLE_COLUMNS } from "@/lib/table-column-presets"
 import { useT } from "@/i18n/context"
+import { useCurrency } from "@/hooks/use-currency"
 
 const PURCHASE_COLUMN_LABEL_KEYS: Record<string, string> = {
   ref: "purchases.colRefDate",
@@ -80,6 +81,7 @@ export default function PurchasesPage() {
   const { activeStore } = useStore()
   const { can } = usePermissions()
   const t = useT()
+  const { formatAmount } = useCurrency()
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -280,7 +282,7 @@ export default function PurchasesPage() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {t("purchases.statVolumeFcfa")}
               </p>
-              <p className="text-sm font-bold">{stats.totalAmount.toLocaleString("fr-FR")}</p>
+              <p className="text-sm font-bold">{formatAmount(stats.totalAmount)}</p>
             </div>
           </CardContent>
         </Card>
@@ -436,7 +438,7 @@ export default function PurchasesPage() {
                         </VisibleTableColumn>
                         <VisibleTableColumn id="total" isVisible={isVisible}>
                           <TableCell className="text-right font-headline font-bold">
-                            {p.totalFCFA.toLocaleString("fr-FR")}
+                            {formatAmount(p.totalFCFA)}
                           </TableCell>
                         </VisibleTableColumn>
                         <VisibleTableColumn id="status" isVisible={isVisible}>

@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
+import { useCurrency } from "@/hooks/use-currency"
 import { toast } from "sonner"
 import {
   ArrowLeft,
@@ -46,6 +47,7 @@ import { cn } from "@/lib/utils"
 import { useT } from "@/i18n/context"
 
 export default function NewSupplierPage() {
+  const { formatAmount } = useCurrency()
   const router = useRouter()
   const t = useT()
   const { redirectAfterCreate, cancelHref } = useCreateReturn(
@@ -290,7 +292,7 @@ export default function NewSupplierPage() {
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <p>
                   {t("suppliers.initialDebtHintPrefix")}{" "}
-                  <strong className="text-foreground">0 FCFA</strong>.{" "}
+                  <strong className="text-foreground">{formatAmount(0)}</strong>.{" "}
                   {t("suppliers.initialDebtHintSuffix")}
                 </p>
               </div>

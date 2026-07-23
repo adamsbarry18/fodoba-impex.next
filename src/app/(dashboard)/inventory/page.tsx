@@ -35,6 +35,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { useStore } from "@/lib/contexts/StoreContext"
+import { useCurrency } from "@/hooks/use-currency"
 import { usePermissions } from "@/hooks/use-permissions"
 import {
   DropdownMenu,
@@ -86,6 +87,7 @@ const INVENTORY_COLUMN_LABEL_KEYS: Record<string, string> = {
 export default function InventoryPage() {
   const router = useRouter()
   const { activeStore } = useStore()
+  const { formatAmount } = useCurrency()
   const { can } = usePermissions()
   const t = useT()
 
@@ -321,7 +323,7 @@ export default function InventoryPage() {
                 {t("inventory.statValuation")}
               </p>
               <p className="text-sm font-bold">
-                {stats.valuation.toLocaleString()} FCFA
+                {formatAmount(stats.valuation)}
               </p>
             </div>
           </CardContent>
@@ -502,7 +504,7 @@ export default function InventoryPage() {
                           </VisibleTableColumn>
                           <VisibleTableColumn id="price" isVisible={isVisible}>
                             <TableCell className="text-right font-headline font-bold">
-                              {(p.sellingPriceFCFA ?? 0).toLocaleString()}
+                              {formatAmount(p.sellingPriceFCFA ?? 0)}
                             </TableCell>
                           </VisibleTableColumn>
                           <VisibleTableColumn id="expiration" isVisible={isVisible}>

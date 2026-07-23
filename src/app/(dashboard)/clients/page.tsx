@@ -241,7 +241,7 @@ export default function ClientsPage() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {t("clients.statTotalDebt")}
               </p>
-              <p className="text-sm font-bold">{formatAmount(stats.totalDebt, "FCFA")}</p>
+              <p className="text-sm font-bold">{formatAmount(stats.totalDebt)}</p>
             </div>
           </CardContent>
         </Card>
@@ -424,11 +424,11 @@ export default function ClientsPage() {
                                     : "text-emerald-600"
                                 )}
                               >
-                                {formatAmount(client.currentDebt, "FCFA")}
+                                {formatAmount(client.currentDebt)}
                               </span>
                               {client.creditCeiling > 0 && (
                                 <span className="text-[10px] text-muted-foreground">
-                                  {t("clients.ceilingLabel", { amount: formatAmount(client.creditCeiling, "FCFA") })}
+                                  {t("clients.ceilingLabel", { amount: formatAmount(client.creditCeiling) })}
                                 </span>
                               )}
                             </div>

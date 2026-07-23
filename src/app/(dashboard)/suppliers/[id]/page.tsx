@@ -263,7 +263,7 @@ export default function SupplierDetailsPage() {
                 hasDebt ? "text-destructive" : "text-emerald-600"
               )}
             >
-              {formatAmount(supplier.currentDebt, "FCFA")}
+              {formatAmount(supplier.currentDebt)}
             </div>
             {hasDebt && (
               <p className="mt-1 flex items-center text-[10px] font-bold text-destructive">
@@ -378,7 +378,7 @@ export default function SupplierDetailsPage() {
                         </div>
                         <div className="text-right">
                           <p className="font-headline font-bold">
-                            {purchase.totalFCFA.toLocaleString("fr-FR")} FCFA
+                            {formatAmount(purchase.totalFCFA)}
                           </p>
                           <StatusBadge
                             preset="purchaseStatus"
@@ -444,7 +444,7 @@ export default function SupplierDetailsPage() {
                         </div>
                         <div>
                           <p className="font-bold text-emerald-600">
-                            −{payment.amount.toLocaleString("fr-FR")} FCFA
+                            −{formatAmount(payment.amount)}
                           </p>
                           <p className="text-[10px] text-muted-foreground">
                             {format(payment.timestamp.toDate(), "dd MMM yyyy à HH:mm", {
@@ -487,9 +487,8 @@ export default function SupplierDetailsPage() {
                     {t("suppliers.totalReceived")}
                   </span>
                   <span className="font-headline text-3xl font-bold text-destructive">
-                    {totalPurchased.toLocaleString("fr-FR")}
+                    {formatAmount(totalPurchased)}
                   </span>
-                  <span className="text-xs text-muted-foreground">FCFA</span>
                 </div>
                 <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center">
                   <Wallet className="mb-2 h-5 w-5 text-muted-foreground" />
@@ -497,9 +496,8 @@ export default function SupplierDetailsPage() {
                     {t("suppliers.totalPaid")}
                   </span>
                   <span className="font-headline text-3xl font-bold text-emerald-600">
-                    {totalPaid.toLocaleString("fr-FR")}
+                    {formatAmount(totalPaid)}
                   </span>
-                  <span className="text-xs text-muted-foreground">FCFA</span>
                 </div>
               </div>
 
@@ -518,7 +516,7 @@ export default function SupplierDetailsPage() {
                     hasDebt ? "text-destructive" : "text-emerald-600"
                   )}
                 >
-                  {formatAmount(supplier.currentDebt, "FCFA")}
+                  {formatAmount(supplier.currentDebt)}
                 </div>
               </div>
             </CardContent>

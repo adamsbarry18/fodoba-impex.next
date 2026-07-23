@@ -235,7 +235,7 @@ export default function DashboardPage() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {t("dashboard.storeRevenue")}
               </p>
-              <p className="text-sm font-bold">{formatAmount(stats.periodRevenue, "FCFA")}</p>
+              <p className="text-sm font-bold">{formatAmount(stats.periodRevenue)}</p>
               <p className="text-[10px] text-muted-foreground">
                 {t("dashboard.salesCount", { count: stats.salesCount })}
               </p>
@@ -253,7 +253,7 @@ export default function DashboardPage() {
                 {t("dashboard.clientDebts")}
               </p>
               <p className="text-sm font-bold text-destructive">
-                {formatAmount(stats.totalClientDebt, "FCFA")}
+                {formatAmount(stats.totalClientDebt)}
               </p>
               <p className="text-[10px] text-muted-foreground">{t("common.globalNetwork")}</p>
             </div>
@@ -269,7 +269,7 @@ export default function DashboardPage() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {t("dashboard.supplierDebts")}
               </p>
-              <p className="text-sm font-bold">{formatAmount(stats.totalSupplierDebt, "FCFA")}</p>
+              <p className="text-sm font-bold">{formatAmount(stats.totalSupplierDebt)}</p>
               <p className="text-[10px] text-muted-foreground">{t("common.globalFodoba")}</p>
             </div>
           </CardContent>
@@ -284,9 +284,9 @@ export default function DashboardPage() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {t("dashboard.cashRegister")}
               </p>
-              <p className="text-sm font-bold">{formatAmount(stats.cashCash, "FCFA")}</p>
+              <p className="text-sm font-bold">{formatAmount(stats.cashCash)}</p>
               <p className="text-[10px] text-muted-foreground">
-                {t("dashboard.totalCash", { amount: formatAmount(stats.cashTotal, "FCFA") })}
+                {t("dashboard.totalCash", { amount: formatAmount(stats.cashTotal) })}
               </p>
             </div>
           </CardContent>
@@ -426,7 +426,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold">{formatAmount(sale.total, "FCFA")}</p>
+                    <p className="text-sm font-bold">{formatAmount(sale.total)}</p>
                     <p className="text-[10px] text-muted-foreground">
                       {sale.timestamp?.toDate
                         ? format(sale.timestamp.toDate(), "HH:mm")

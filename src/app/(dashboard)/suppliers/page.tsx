@@ -246,7 +246,7 @@ export default function SuppliersPage() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {t("suppliers.statTotalDebt")}
               </p>
-              <p className="text-sm font-bold">{formatAmount(stats.totalDebt, "FCFA")}</p>
+              <p className="text-sm font-bold">{formatAmount(stats.totalDebt)}</p>
             </div>
           </CardContent>
         </Card>
@@ -451,7 +451,7 @@ export default function SuppliersPage() {
                                 : "text-emerald-600"
                             )}
                           >
-                            {formatAmount(supplier.currentDebt, "FCFA")}
+                            {formatAmount(supplier.currentDebt)}
                           </span>
                         </TableCell>
                       </VisibleTableColumn>

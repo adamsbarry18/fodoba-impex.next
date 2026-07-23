@@ -28,6 +28,7 @@ import {
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { useStore } from "@/lib/contexts/StoreContext"
+import { useCurrency } from "@/hooks/use-currency"
 import { usePermissions } from "@/hooks/use-permissions"
 import { toast } from "sonner"
 import { QRCodeSVG } from "qrcode.react"
@@ -46,6 +47,7 @@ import { cn } from "@/lib/utils"
 export default function ProductDetailsPage() {
   const params = useParams()
   const router = useRouter()
+  const { formatAmount } = useCurrency()
   const { activeStore } = useStore()
   const { userProfile } = useAuth()
   const { can } = usePermissions()
@@ -194,7 +196,8 @@ export default function ProductDetailsPage() {
         stockRecords,
         getPrintLabels(t),
         activeStore,
-        categoryName
+        categoryName,
+        formatAmount
       )
       toast.success(t("common.successExportPdf"))
     } catch {
@@ -372,7 +375,7 @@ export default function ProductDetailsPage() {
                   <div className={metaRowClassName}>
                     <span className={metaLabelClassName}>{t("inventory.form.retailPrice")}</span>
                     <span className="font-headline text-base font-bold text-primary">
-                      {product.sellingPriceFCFA.toLocaleString()}
+                      {formatAmount(product.sellingPriceFCFA)}
                     </span>
                   </div>
                   {(normalized.wholesalePriceFCFA ?? 0) > 0 && (
@@ -381,7 +384,7 @@ export default function ProductDetailsPage() {
                         {t("inventory.detail.wholesalePrice")}
                       </span>
                       <span className={metaValueClassName}>
-                        {normalized.wholesalePriceFCFA!.toLocaleString()}
+                        {formatAmount(normalized.wholesalePriceFCFA!)}
                       </span>
                     </div>
                   )}
@@ -391,7 +394,7 @@ export default function ProductDetailsPage() {
                         {t("inventory.detail.purchasePrice")}
                       </span>
                       <span className={metaValueClassName}>
-                        {product.purchasePriceRef.toLocaleString()}
+                        {formatAmount(product.purchasePriceRef)}
                       </span>
                     </div>
                   )}

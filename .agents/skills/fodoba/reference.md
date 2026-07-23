@@ -19,7 +19,7 @@
 
 ### Utils métier (`src/lib/`)
 
-`auth-utils` · `audit-utils` · `cash-session-utils` · `category-utils` · `client-utils` · `currency-utils` · `dashboard-utils` · `expense-utils` · `landed-cost-utils` · `notification-utils` · `pos-utils` · `product-utils` · `purchase-utils` · `report-utils` · `stock-movement-utils` · `store-utils` · `supplier-utils` · `user-utils` · `badge-tones.ts`
+`auth-utils` · `audit-utils` · `cash-session-utils` · `category-utils` · `client-utils` · `currency-utils` · `dashboard-utils` · `expense-utils` · `notification-utils` · `pos-utils` · `product-utils` · `purchase-utils` · `report-utils` · `stock-movement-utils` · `store-utils` · `supplier-utils` · `user-utils` · `badge-tones.ts`
 
 ## Providers (ordre fixe)
 
@@ -208,7 +208,7 @@ Voir routes : POS (`pos/`), Caisse (`reconciliation/`), Achats (`purchases/`), S
 | `/dashboard` | Tableau de bord |
 | `/pos` | Point de vente |
 | `/inventory`, `/inventory/history` | Stock & flux |
-| `/purchases`, `/landed-cost` | Achats & coût revient |
+| `/purchases` | Achats fournisseurs |
 | `/clients`, `/suppliers` | Tiers |
 | `/expenses` | Dépenses |
 | `/reconciliation` | Caisse |

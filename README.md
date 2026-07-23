@@ -152,7 +152,6 @@ src/
 | `/clients`, `/suppliers` | Tiers |
 | `/expenses` | Dépenses |
 | `/reconciliation` | Caisse & trésorerie |
-| `/landed-cost` | Coût de revient |
 | `/reports` | Rapports & BI |
 | `/admin/*` | Boutiques, users, catégories, devises, audit |
 | `/profile` | Profil utilisateur |

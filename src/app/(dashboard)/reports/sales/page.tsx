@@ -163,7 +163,7 @@ export default function SalesReportPage() {
               ? t("reports.sales.storeAll")
               : reportStore?.name || storeId,
         },
-        getPrintLabels(t)
+        getPrintLabels(t), formatAmount
       )
       toast.success(t("reports.sales.exportPdfSuccess"))
     } catch {
@@ -382,7 +382,7 @@ export default function SalesReportPage() {
                         </VisibleTableColumn>
                         <VisibleTableColumn id="total" isVisible={isVisible}>
                           <TableCell className="text-right font-headline font-bold">
-                            {s.total.toLocaleString()}
+                            {formatAmount(s.total)}
                           </TableCell>
                         </VisibleTableColumn>
                         <VisibleTableColumn id="payment" isVisible={isVisible}>

@@ -290,7 +290,8 @@ export default function ReconciliationPage() {
           totalVariance: summary.totalVariance,
           reliabilityPercent: summary.reliabilityPercent,
         },
-        getPrintLabels(t)
+        getPrintLabels(t),
+        formatAmount
       )
       toast.success(t("reconciliation.exportSuccess"))
     } catch {
@@ -432,7 +433,7 @@ export default function ReconciliationPage() {
                   {t("reconciliation.totalExpected")}
                 </p>
                 <p className="text-2xl font-bold font-headline text-foreground">
-                  {formatAmount(sessionTotalExpected, "FCFA")}
+                  {formatAmount(sessionTotalExpected)}
                 </p>
               </div>
             </CardContent>
@@ -449,7 +450,7 @@ export default function ReconciliationPage() {
                     {t("reconciliation.statEntries")}
                   </p>
                   <p className="text-sm font-bold text-emerald-600">
-                    +{formatAmount(movementStats.totalIn, "FCFA")}
+                    +{formatAmount(movementStats.totalIn)}
                   </p>
                 </div>
               </CardContent>
@@ -465,7 +466,7 @@ export default function ReconciliationPage() {
                     {t("reconciliation.statExits")}
                   </p>
                   <p className="text-sm font-bold text-destructive">
-                    −{formatAmount(movementStats.totalOut, "FCFA")}
+                    −{formatAmount(movementStats.totalOut)}
                   </p>
                 </div>
               </CardContent>
@@ -514,7 +515,7 @@ export default function ReconciliationPage() {
                   </CardHeader>
                   <CardContent className="p-3 pt-0">
                     <p className="text-lg font-bold font-headline sm:text-xl">
-                      {formatAmount(activeSession.expectedBalances[method] || 0, "FCFA")}
+                      {formatAmount(activeSession.expectedBalances[method] || 0)}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
                       {t("reconciliation.expectedShort")}
@@ -602,7 +603,7 @@ export default function ReconciliationPage() {
                                 )}
                               >
                                 {m.type === "IN" ? "+" : "−"}
-                                {formatAmount(m.amount, "FCFA")}
+                                {formatAmount(m.amount)}
                               </TableCell>
                             </TableRow>
                           ))
@@ -669,7 +670,7 @@ export default function ReconciliationPage() {
                         </Label>
                         <span className="shrink-0 text-[9px] font-semibold text-primary/80">
                           {t("reconciliation.expectedAbbrev")}{" "}
-                          {formatAmount(expected, "FCFA")}
+                          {formatAmount(expected)}
                         </span>
                       </div>
                       <div className="relative">
@@ -697,7 +698,7 @@ export default function ReconciliationPage() {
                           >
                             {variance === 0
                               ? t("reconciliation.varianceOk")
-                              : `${variance > 0 ? "+" : ""}${variance.toLocaleString(locale)}`}
+                              : `${variance > 0 ? "+" : ""}${formatAmount(Math.abs(variance))}`}
                           </div>
                         )}
                       </div>
@@ -735,7 +736,7 @@ export default function ReconciliationPage() {
                       {t("reconciliation.totalVarianceLabel")}{" "}
                       <strong>
                         {closureVariance > 0 ? "+" : ""}
-                        {formatAmount(Math.abs(closureVariance), "FCFA")}
+                        {formatAmount(Math.abs(closureVariance))}
                         {closureVariance < 0
                           ? t("reconciliation.varianceShortage")
                           : closureVariance > 0
@@ -845,10 +846,10 @@ export default function ReconciliationPage() {
                         {session.openedByName}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatAmount(totalExpected, "FCFA")}
+                        {formatAmount(totalExpected)}
                       </TableCell>
                       <TableCell className="hidden text-right font-bold md:table-cell">
-                        {formatAmount(totalActual, "FCFA")}
+                        {formatAmount(totalActual)}
                       </TableCell>
                       <TableCell className="text-center">
                         <StatusBadge
@@ -858,7 +859,7 @@ export default function ReconciliationPage() {
                         >
                           {totalVar === 0
                             ? undefined
-                            : `${totalVar > 0 ? "+" : ""}${totalVar.toLocaleString(locale)}`}
+                            : `${totalVar > 0 ? "+" : ""}${formatAmount(Math.abs(totalVar))}`}
                         </StatusBadge>
                       </TableCell>
                       <TableCell className="pr-4 sm:pr-6">

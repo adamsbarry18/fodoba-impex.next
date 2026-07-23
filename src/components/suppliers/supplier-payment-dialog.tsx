@@ -22,6 +22,7 @@ import { Loader2, Wallet } from "lucide-react"
 import type { Supplier, SupplierPayment } from "@/lib/types"
 import { POS_PAYMENT_METHODS } from "@/lib/constants/payment-methods"
 import { useT } from "@/i18n/context"
+import { useCurrency } from "@/hooks/use-currency"
 
 type SupplierPaymentDialogProps = {
   open: boolean
@@ -43,6 +44,7 @@ export function SupplierPaymentDialog({
   onSubmit,
 }: SupplierPaymentDialogProps) {
   const t = useT()
+  const { formatAmount } = useCurrency()
   const [amount, setAmount] = useState("")
   const [method, setMethod] = useState<SupplierPayment["method"]>("CASH")
   const [notes, setNotes] = useState("")
@@ -75,7 +77,7 @@ export function SupplierPaymentDialog({
                 {t("suppliers.payment.debtLabel")}
               </p>
               <p className="font-headline text-2xl font-bold text-destructive">
-                {supplier.currentDebt.toLocaleString("fr-FR")} FCFA
+                {formatAmount(supplier.currentDebt)}
               </p>
             </div>
           </div>

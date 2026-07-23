@@ -180,10 +180,10 @@ export default function InventoryReportPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          {item.unitCost.toLocaleString()} FCFA
+                          {formatAmount(item.unitCost)}
                         </TableCell>
                         <TableCell className="text-right font-headline font-bold text-accent">
-                          {item.valuation.toLocaleString()}
+                          {formatAmount(item.valuation)}
                         </TableCell>
                       </TableRow>
                     ))

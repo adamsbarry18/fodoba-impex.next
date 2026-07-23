@@ -143,7 +143,7 @@ export default function ClientDebtReportPage() {
             <div className="text-3xl font-bold font-headline text-gray-900">
               {totalDebtors > 0
                 ? formatAmount(data.summary.totalClientDebt / totalDebtors)
-                : "0 FCFA"}
+                : formatAmount(0)}
             </div>
             <p className="mt-1 text-[10px] font-medium text-gray-400">
               {t("reports.clients.statAvgRiskDesc")}
@@ -187,7 +187,7 @@ export default function ClientDebtReportPage() {
                       <StatusBadge preset="clientStatus" value={c.status} className="text-[10px]" />
                     </TableCell>
                     <TableCell className="pr-8 text-right font-headline font-bold text-destructive">
-                      {c.currentDebt.toLocaleString()}
+                      {formatAmount(c.currentDebt)}
                     </TableCell>
                   </TableRow>
                 ))

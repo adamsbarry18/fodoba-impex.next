@@ -36,6 +36,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/lib/contexts/AuthContext"
+import { useCurrency } from "@/hooks/use-currency"
 import { useStore } from "@/lib/contexts/StoreContext"
 import { SaleTicketButton } from "@/components/sales/sale-ticket-button"
 import { StatusBadge } from "@/components/ui/status-badge"
@@ -53,6 +54,7 @@ export default function ClientDetailsPage() {
   const { locale } = useLocale()
   const dateLocale = useMemo(() => getDateLocale(locale), [locale])
   const { userProfile } = useAuth()
+  const { formatAmount } = useCurrency()
   const { availableStores, activeStore, loading: storeLoading } = useStore()
   const [client, setClient] = useState<Client | null>(null)
   const [payments, setPayments] = useState<ClientPayment[]>([])
@@ -205,7 +207,7 @@ export default function ClientDetailsPage() {
                       {t("clients.detail.totalDebt")}
                     </p>
                     <p className="text-2xl font-headline font-bold text-destructive">
-                      {client.currentDebt.toLocaleString()} FCFA
+                      {formatAmount(client.currentDebt)}
                     </p>
                   </div>
                 </div>
@@ -288,7 +290,7 @@ export default function ClientDetailsPage() {
             <div
               className={`text-xl font-headline font-bold ${client.currentDebt > 0 ? "text-destructive" : ""}`}
             >
-              {client.currentDebt.toLocaleString()} FCFA
+              {formatAmount(client.currentDebt)}
             </div>
             {isOverLimit && (
               <div className="flex items-center text-[10px] text-destructive mt-1 font-bold">
@@ -306,7 +308,7 @@ export default function ClientDetailsPage() {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-xl font-headline font-bold">
-              {client.creditCeiling.toLocaleString()} FCFA
+              {formatAmount(client.creditCeiling)}
             </div>
             <div className="text-[10px] text-muted-foreground mt-1">
               {t("clients.detail.overdraftAuth")}
@@ -379,7 +381,7 @@ export default function ClientDetailsPage() {
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           <div className="font-headline font-bold">
-                            {sale.total.toLocaleString()} FCFA
+                            {formatAmount(sale.total)}
                           </div>
                           <StatusBadge
                             preset="paymentMethod"
@@ -425,7 +427,7 @@ export default function ClientDetailsPage() {
                         </div>
                         <div>
                           <p className="font-bold text-emerald-600">
-                            +{p.amount.toLocaleString()} FCFA
+                            +{formatAmount(p.amount)}
                           </p>
                           <p className="text-[10px] text-muted-foreground">
                             {format(p.timestamp.toDate(), "dd MMM yyyy à HH:mm", {
@@ -464,7 +466,7 @@ export default function ClientDetailsPage() {
                     {t("clients.detail.totalCreditGranted")}
                   </span>
                   <span className="text-3xl font-headline font-bold text-destructive">
-                    {sales.reduce((acc, s) => acc + (s.debtAmount || 0), 0).toLocaleString()}
+                    {formatAmount(sales.reduce((acc, s) => acc + (s.debtAmount || 0), 0))}
                   </span>
                 </div>
                 <div className="p-6 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center">
@@ -472,7 +474,7 @@ export default function ClientDetailsPage() {
                     {t("clients.detail.totalRepaid")}
                   </span>
                   <span className="text-3xl font-headline font-bold text-emerald-600">
-                    {payments.reduce((acc, p) => acc + p.amount, 0).toLocaleString()}
+                    {formatAmount(payments.reduce((acc, p) => acc + p.amount, 0))}
                   </span>
                 </div>
               </div>
@@ -487,7 +489,7 @@ export default function ClientDetailsPage() {
                   </p>
                 </div>
                 <div className="text-4xl font-headline font-bold text-destructive">
-                  {client.currentDebt.toLocaleString()} FCFA
+                  {formatAmount(client.currentDebt)}
                 </div>
               </div>
             </CardContent>

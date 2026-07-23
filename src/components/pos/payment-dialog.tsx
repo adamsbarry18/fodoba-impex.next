@@ -20,7 +20,7 @@ import {
   Banknote,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { Client, PaymentMethod } from "@/lib/types"
+import type { Client, CurrencyCode, PaymentMethod } from "@/lib/types"
 import {
   POS_PAYMENT_METHODS,
   POS_FRACTIONAL_METHODS,
@@ -158,7 +158,7 @@ export function PaymentDialog({
                 {t("pos.netAmount")}
               </span>
               <span className="font-headline text-2xl font-bold text-primary">
-                {formatAmount(total, "FCFA")}
+                {formatAmount(total)}
               </span>
             </div>
           </div>
@@ -296,7 +296,7 @@ export function PaymentDialog({
               </div>
               <div className="flex justify-between rounded-lg bg-background p-3 text-xs">
                 <span className="text-muted-foreground">{t("pos.pay.remainingCredit")}</span>
-                <span className="font-bold text-amber-600">{formatAmount(debtAmount, "FCFA")}</span>
+                <span className="font-bold text-amber-600">{formatAmount(debtAmount)}</span>
               </div>
               {selectedClient && (
                 <ClientCreditSummary client={selectedClient} formatAmount={formatAmount} />
@@ -309,7 +309,7 @@ export function PaymentDialog({
             <div className="space-y-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
               <p className="text-sm font-semibold">{t("pos.pay.fullCredit")}</p>
               <p className="text-xs text-muted-foreground">
-                {t("pos.pay.fullCreditDesc", { amount: formatAmount(total, "FCFA") })}
+                {t("pos.pay.fullCreditDesc", { amount: formatAmount(total) })}
               </p>
               {!hasClient && (
                 <AlertBlock message={t("pos.pay.selectClientFirst")} />
@@ -355,7 +355,7 @@ export function PaymentDialog({
               </div>
               {!hasClient && debtAmount > 0 && (
                 <AlertBlock
-                  message={t("pos.pay.partialNeedsClient", { amount: formatAmount(debtAmount, "FCFA") })}
+                  message={t("pos.pay.partialNeedsClient", { amount: formatAmount(debtAmount) })}
                 />
               )}
             </div>
@@ -368,18 +368,18 @@ export function PaymentDialog({
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">{t("pos.pay.cashCollected")}</span>
-              <span className="font-bold text-emerald-600">{formatAmount(totalPaid, "FCFA")}</span>
+              <span className="font-bold text-emerald-600">{formatAmount(totalPaid)}</span>
             </div>
             {debtAmount > 0 && (
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">{t("pos.pay.onCredit")}</span>
-                <span className="font-bold text-amber-600">{formatAmount(debtAmount, "FCFA")}</span>
+                <span className="font-bold text-amber-600">{formatAmount(debtAmount)}</span>
               </div>
             )}
             {change > 0 && (
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">{t("pos.pay.changeDue")}</span>
-                <span className="font-bold text-primary">{formatAmount(change, "FCFA")}</span>
+                <span className="font-bold text-primary">{formatAmount(change)}</span>
               </div>
             )}
             {payments.length > 0 && (
@@ -391,7 +391,7 @@ export function PaymentDialog({
                     value={p.method}
                     className="text-[10px]"
                   >
-                    {formatAmount(p.amount, "FCFA")}
+                    {formatAmount(p.amount)}
                   </StatusBadge>
                 ))}
               </div>
@@ -434,20 +434,20 @@ function ClientCreditSummary({
   formatAmount,
 }: {
   client: Client
-  formatAmount: (amount: number, code?: "FCFA") => string
+  formatAmount: (amount: number, code?: CurrencyCode) => string
 }) {
   const t = useT()
   return (
     <div className="grid grid-cols-2 gap-2 text-xs">
       <div className="rounded-lg bg-background p-2.5">
         <p className="text-muted-foreground">{t("pos.pay.currentDebt")}</p>
-        <p className="font-bold">{formatAmount(client.currentDebt, "FCFA")}</p>
+        <p className="font-bold">{formatAmount(client.currentDebt)}</p>
       </div>
       <div className="rounded-lg bg-background p-2.5">
         <p className="text-muted-foreground">{t("pos.pay.creditCeiling")}</p>
         <p className="font-bold">
           {client.creditCeiling > 0
-            ? formatAmount(client.creditCeiling, "FCFA")
+            ? formatAmount(client.creditCeiling)
             : t("pos.pay.unlimited")}
         </p>
       </div>
