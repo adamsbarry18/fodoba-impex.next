@@ -14,7 +14,7 @@ export function useClientPagination<T>(
 
   useEffect(() => {
     setPage(1)
-  }, [options?.resetKey, items.length])
+  }, [options?.resetKey])
 
   const totalItems = items.length
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))

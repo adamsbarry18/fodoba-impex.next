@@ -12,12 +12,12 @@ import {
   where,
   limit,
   startAfter,
+  writeBatch,
   DocumentSnapshot
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Product, StockLevel } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestore-utils";
-import { computeInitialStockTotal } from "@/lib/product-utils";
 import {
   buildDecomposedStock,
   buildStockLevelPayload,
@@ -31,15 +31,56 @@ import { AppNotificationHelper } from "@/lib/notifications/app-notification-help
 const COLLECTION_NAME = "products";
 const STOCKS_COLLECTION = "stocks";
 
+function buildProductPayload(
+  id: string,
+  data: Omit<Product, "id" | "createdAt">
+) {
+  return stripUndefined({
+    id,
+    name: data.name.trim(),
+    sku: data.sku.trim(),
+    barcode: data.barcode?.trim() || undefined,
+    categoryId: data.categoryId,
+    imageUrl: data.imageUrl || undefined,
+    packagingUnit: data.packagingUnit || undefined,
+    unit: data.unit,
+    unitsPerPack: data.unitsPerPack ?? 1,
+    retailQtyFactor: data.retailQtyFactor ?? 1,
+    conditionnement: data.conditionnement || undefined,
+    purchasePriceRef: data.purchasePriceRef ?? 0,
+    wholesalePriceFCFA: data.wholesalePriceFCFA ?? 0,
+    sellingPriceFCFA: data.sellingPriceFCFA ?? 0,
+    manufacturingDate: data.manufacturingDate || undefined,
+    expirationDate: data.expirationDate || undefined,
+    prices: data.prices
+      ? stripUndefined({
+          GNF: data.prices.GNF,
+          USD: data.prices.USD,
+          EUR: data.prices.EUR,
+        })
+      : undefined,
+    lowStockThreshold: data.lowStockThreshold ?? 10,
+    active: data.active ?? true,
+    createdAt: serverTimestamp(),
+  });
+}
+
 export const ProductService = {
   async createProduct(data: Omit<Product, "id" | "createdAt">) {
+    if (!db) {
+      throw new Error("Base de données non configurée. Vérifiez NEXT_PUBLIC_FIREBASE_*.");
+    }
+
     const newDocRef = doc(collection(db, COLLECTION_NAME));
-    const product: Product = {
-      ...data,
-      id: newDocRef.id,
-      createdAt: serverTimestamp(),
-    };
-    await setDoc(newDocRef, stripUndefined(product));
+    const payload = buildProductPayload(newDocRef.id, data);
+    await setDoc(newDocRef, payload);
+
+    const snap = await getDoc(newDocRef);
+    if (!snap.exists()) {
+      throw new Error("Le produit n'a pas pu être enregistré dans Firestore.");
+    }
+
+    const product = { id: newDocRef.id, ...snap.data() } as Product;
     void AppNotificationHelper.notifyProductExpiration({ product });
     return product;
   },
@@ -52,23 +93,36 @@ export const ProductService = {
       detailStock?: number
     }
   ) {
-    const product = await this.createProduct(data);
-    const totalStock = computeInitialStockTotal(
-      options.initialStockPackaging ?? 0,
-      data.unitsPerPack ?? 1,
-      options.detailStock ?? 0
-    );
-
-    if (totalStock > 0) {
-      await this.setStockDecomposed(
-        product.id,
-        options.storeId,
-        options.initialStockPackaging ?? 0,
-        options.detailStock ?? 0,
-        data.unitsPerPack ?? 1
-      );
+    if (!db) {
+      throw new Error("Base de données non configurée. Vérifiez NEXT_PUBLIC_FIREBASE_*.");
     }
 
+    const productRef = doc(collection(db, COLLECTION_NAME));
+    const productPayload = buildProductPayload(productRef.id, data);
+    const decomposed = buildDecomposedStock(
+      options.initialStockPackaging ?? 0,
+      options.detailStock ?? 0,
+      data.unitsPerPack ?? 1
+    );
+    const stockId = `${options.storeId}_${productRef.id}`;
+    const stockRef = doc(db, STOCKS_COLLECTION, stockId);
+    const stockPayload = {
+      ...buildStockLevelPayload(productRef.id, options.storeId, decomposed),
+      lastUpdated: serverTimestamp(),
+    };
+
+    // Écriture atomique produit + stock boutique
+    const batch = writeBatch(db);
+    batch.set(productRef, productPayload);
+    batch.set(stockRef, stockPayload);
+    await batch.commit();
+
+    const snap = await getDoc(productRef);
+    if (!snap.exists()) {
+      throw new Error("Le produit n'a pas pu être enregistré dans Firestore.");
+    }
+
+    const product = { id: productRef.id, ...snap.data() } as Product;
     void AppNotificationHelper.notifyProductExpiration({
       product,
       storeId: options.storeId,
@@ -120,11 +174,20 @@ export const ProductService = {
   async getProduct(id: string) {
     const docRef = doc(db, COLLECTION_NAME, id);
     const snap = await getDoc(docRef);
-    return snap.exists() ? (snap.data() as Product) : null;
+    return snap.exists() ? ({ id: snap.id, ...snap.data() } as Product) : null;
   },
 
   /**
-   * Version optimisée pour prototype (évite les index composites)
+   * Catalogue complet (tri nom). Pour listes inventaire avec filtres client.
+   */
+  async listAllProducts(): Promise<Product[]> {
+    const q = query(collection(db, COLLECTION_NAME), orderBy("name", "asc"));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
+  },
+
+  /**
+   * Version paginée (évite les index composites si filtres).
    */
   async listProducts(filters?: { categoryId?: string; active?: boolean }, pageSize = 25, lastVisible?: DocumentSnapshot) {
     let constraints: any[] = [];
@@ -150,12 +213,21 @@ export const ProductService = {
 
     const q = query(collection(db, COLLECTION_NAME), ...constraints);
     const snap = await getDocs(q);
-    
-    let products = snap.docs.map(doc => doc.data() as Product);
-    
+
+    let products = snap.docs.map(
+      (d) => ({ id: d.id, ...d.data() }) as Product
+    );
+
     // Tri en mémoire si on a des filtres (car le orderBy a été omis de la requête)
-    if (constraints.length > 0 && !constraints.some(c => c.type === 'orderBy')) {
-      products.sort((a, b) => a.name.localeCompare(b.name));
+    const hasOrderBy = constraints.some(
+      (c) =>
+        c &&
+        typeof c === "object" &&
+        "type" in c &&
+        (c as { type?: string }).type === "orderBy"
+    );
+    if (!hasOrderBy) {
+      products.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }
     
     return {

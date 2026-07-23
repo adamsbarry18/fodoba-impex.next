@@ -137,3 +137,42 @@ export function countOutOfStock(
 ): number {
   return products.filter((p) => isOutOfStock(stocks[p.id] ?? 0)).length
 }
+
+export function filterProducts(
+  products: Product[],
+  options: {
+    search?: string
+    categoryId?: string
+    stockFilter?: StockFilter
+    stocks?: Record<string, number>
+  }
+): Product[] {
+  const term = options.search?.trim().toLowerCase() ?? ""
+  const categoryId = options.categoryId
+  const stockFilter = options.stockFilter ?? "all"
+  const stocks = options.stocks ?? {}
+
+  return products.filter((p) => {
+    const name = (p.name ?? "").toLowerCase()
+    const sku = (p.sku ?? "").toLowerCase()
+    const barcode = (p.barcode ?? "").toLowerCase()
+
+    const matchesSearch =
+      !term ||
+      name.includes(term) ||
+      sku.includes(term) ||
+      barcode.includes(term)
+
+    const matchesCategory =
+      !categoryId || categoryId === "all" || p.categoryId === categoryId
+
+    const stock = stocks[p.id] ?? 0
+    const status = getStockStatus(stock, p.lowStockThreshold ?? 10)
+    const matchesStock =
+      stockFilter === "all" ||
+      (stockFilter === "low" && status === "low") ||
+      (stockFilter === "out" && status === "out")
+
+    return matchesSearch && matchesCategory && matchesStock
+  })
+}

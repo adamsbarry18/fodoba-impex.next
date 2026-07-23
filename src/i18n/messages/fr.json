@@ -1764,6 +1764,7 @@
   "common.errorUpdate": "Erreur lors de la mise à jour",
   "common.errorPasswordChange": "Erreur lors du changement de mot de passe",
   "common.errorCreation": "Erreur lors de la création",
+  "common.accessDenied": "Accès refusé. Droits insuffisants.",
   "common.successUpdate": "Mise à jour réussie",
   "common.successProfileUpdate": "Profil mis à jour avec succès",
   "common.successPasswordUpdate": "Mot de passe mis à jour avec succès",

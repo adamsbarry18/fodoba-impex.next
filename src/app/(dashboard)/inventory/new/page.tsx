@@ -20,10 +20,13 @@ import { generateProductSku } from "@/lib/product-utils"
 import { useStore } from "@/lib/contexts/StoreContext"
 import { ProductFormFields } from "@/components/inventory/product-form-fields"
 import { useT } from "@/i18n/context"
+import { usePermissions } from "@/hooks/use-permissions"
 
 export default function NewProductPage() {
   const router = useRouter()
   const { activeStore } = useStore()
+  const { can } = usePermissions()
+  const canManageCatalog = can("manage:catalog")
   const { redirectAfterCreate, cancelHref } = useCreateReturn(
     "/inventory",
     ENTITY_ROUTES.product.param
@@ -57,6 +60,13 @@ export default function NewProductPage() {
       prices: { GNF: 0, USD: 0, EUR: 0 },
     },
   })
+
+  useEffect(() => {
+    if (!canManageCatalog) {
+      toast.error(t("common.accessDenied"))
+      router.replace("/inventory")
+    }
+  }, [canManageCatalog, router, t])
 
   useEffect(() => {
     let cancelled = false
@@ -93,6 +103,10 @@ export default function NewProductPage() {
   }, [form, t])
 
   const onSubmit = async (values: ProductCreateFormValues) => {
+    if (!canManageCatalog) {
+      toast.error(t("common.accessDenied"))
+      return
+    }
     if (!activeStore) {
       toast.error(t("inventory.selectStoreForStock"))
       return
@@ -102,15 +116,22 @@ export default function NewProductPage() {
       const {
         initialStockPackaging,
         detailStock,
-        ...productData
+        barcode,
+        packagingUnit,
+        manufacturingDate,
+        expirationDate,
+        imageUrl: _imageUrl,
+        sku: _sku,
+        ...productFields
       } = values
 
       const payload = {
-        ...productData,
+        ...productFields,
         sku: generateProductSku(values.name),
-        manufacturingDate: values.manufacturingDate || undefined,
-        expirationDate: values.expirationDate || undefined,
-        packagingUnit: values.packagingUnit || undefined,
+        barcode: barcode?.trim() || undefined,
+        packagingUnit: packagingUnit?.trim() || undefined,
+        manufacturingDate: manufacturingDate || undefined,
+        expirationDate: expirationDate || undefined,
         imageUrl: undefined as string | undefined,
       }
 
@@ -129,15 +150,27 @@ export default function NewProductPage() {
         }
       }
 
-      if (!readReturnContext(ENTITY_ROUTES.product.param).returnTo) {
-        toast.success(t("common.successProductAdded"))
+      const { returnTo } = readReturnContext(ENTITY_ROUTES.product.param)
+      if (returnTo) {
+        redirectAfterCreate(product.id)
+        return
       }
-      redirectAfterCreate(product.id)
+
+      toast.success(t("common.successProductAdded"))
+      router.push(`/inventory/${product.id}`)
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : t("common.errorCreation")
       toast.error(message)
     }
+  }
+
+  if (!canManageCatalog) {
+    return (
+      <div className="flex justify-center p-16">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   if (loading) {

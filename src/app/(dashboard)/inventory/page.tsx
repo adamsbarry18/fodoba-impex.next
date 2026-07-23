@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { DocumentSnapshot } from "firebase/firestore"
 import { ProductService } from "@/services/product.service"
 import { CategoryService } from "@/services/category.service"
 import { Product, Category } from "@/lib/types"
@@ -24,7 +23,6 @@ import {
   Edit,
   Package,
   Loader2,
-  ChevronDown,
   Eye,
   RefreshCw,
   History,
@@ -56,6 +54,7 @@ import {
   countLowStock,
   countOutOfStock,
   estimateStockValue,
+  filterProducts,
   getStockStatus,
   normalizeProduct,
   type StockFilter,
@@ -72,8 +71,7 @@ import { useT } from "@/i18n/context"
 import { AppNotificationHelper } from "@/lib/notifications/app-notification-helper"
 import { ProductExpirationDisplay } from "@/components/inventory/product-expiration-display"
 
-const FETCH_SIZE = 50
-const TABLE_PAGE_SIZE = 10
+const TABLE_PAGE_SIZE = 20
 
 const INVENTORY_COLUMN_LABEL_KEYS: Record<string, string> = {
   product: "inventory.colProduct",
@@ -95,12 +93,9 @@ export default function InventoryPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [stocks, setStocks] = useState<Record<string, DecomposedStock>>({})
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterCategory, setFilterCategory] = useState<string>("all")
   const [stockFilter, setStockFilter] = useState<StockFilter>("all")
-  const [lastVisible, setLastVisible] = useState<DocumentSnapshot | undefined>()
-  const [hasMore, setHasMore] = useState(true)
   const [scanProcessing, setScanProcessing] = useState(false)
 
   const canManage = can("manage:catalog")
@@ -108,98 +103,44 @@ export default function InventoryPage() {
   const { isVisible, toggleColumn, resetColumns, columns: tableColumns } =
     useTranslatedTableColumns("inventory", INVENTORY_TABLE_COLUMNS, INVENTORY_COLUMN_LABEL_KEYS)
 
-  const loadData = useCallback(
-    async (options?: { loadMore?: boolean; reset?: boolean }) => {
-      if (!activeStore) return
-      const loadMore = options?.loadMore ?? false
-      if (loadMore) setLoadingMore(true)
-      else setLoading(true)
+  const storeId = activeStore?.id
 
-      try {
-        const [prodData, catData] = await Promise.all([
-          ProductService.listProducts(
-            {
-              categoryId: filterCategory === "all" ? undefined : filterCategory,
-            },
-            FETCH_SIZE,
-            loadMore && !options?.reset ? lastVisible : undefined
-          ),
-          loadMore ? Promise.resolve(null) : CategoryService.listCategories(),
-        ])
-
-        if (catData) setCategories(catData)
-
-        const newProducts = loadMore
-          ? [...products, ...prodData.products]
-          : prodData.products
-        setProducts(newProducts)
-        setLastVisible(prodData.lastVisible)
-        setHasMore(prodData.products.length === FETCH_SIZE)
-
-        const newStocks = await ProductService.getStockRecordsForProducts(
-          prodData.products,
-          activeStore.id
-        )
-        setStocks((prev) => (loadMore ? { ...prev, ...newStocks } : newStocks))
-      } catch {
-        toast.error(t("inventory.errorLoading"))
-      } finally {
-        setLoading(false)
-        setLoadingMore(false)
-      }
-    },
-    [activeStore, filterCategory, lastVisible, products, t]
-  )
+  const loadCatalog = useCallback(async () => {
+    if (!storeId) return
+    setLoading(true)
+    try {
+      const [prodData, catData] = await Promise.all([
+        ProductService.listAllProducts(),
+        CategoryService.listCategories(),
+      ])
+      setProducts(prodData)
+      setCategories(catData)
+      const newStocks = await ProductService.getStockRecordsForProducts(
+        prodData,
+        storeId
+      )
+      setStocks(newStocks)
+    } catch {
+      toast.error(t("inventory.errorLoading"))
+    } finally {
+      setLoading(false)
+    }
+  }, [storeId, t])
 
   useEffect(() => {
-    if (!activeStore) {
+    if (!storeId) {
       setProducts([])
       setStocks({})
       setLoading(false)
       return
     }
-
-    let cancelled = false
-
-    const fetchInitial = async () => {
-      setLoading(true)
-      try {
-        const [prodData, catData] = await Promise.all([
-          ProductService.listProducts(
-            { categoryId: filterCategory === "all" ? undefined : filterCategory },
-            FETCH_SIZE
-          ),
-          CategoryService.listCategories(),
-        ])
-        if (cancelled) return
-
-        setProducts(prodData.products)
-        setCategories(catData)
-        setLastVisible(prodData.lastVisible)
-        setHasMore(prodData.products.length === FETCH_SIZE)
-
-        const newStocks = await ProductService.getStockRecordsForProducts(
-          prodData.products,
-          activeStore.id
-        )
-        if (!cancelled) setStocks(newStocks)
-      } catch {
-        if (!cancelled) toast.error(t("inventory.errorLoading"))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    fetchInitial()
-    return () => {
-      cancelled = true
-    }
-  }, [filterCategory, activeStore?.id, t])
+    void loadCatalog()
+  }, [storeId, loadCatalog])
 
   useEffect(() => {
     if (products.length === 0) return
-    void AppNotificationHelper.scanProductExpirations(products, activeStore?.id)
-  }, [products, activeStore?.id])
+    void AppNotificationHelper.scanProductExpirations(products, storeId)
+  }, [products, storeId])
 
   const stockQuantities = useMemo(
     () =>
@@ -209,26 +150,16 @@ export default function InventoryPage() {
     [stocks]
   )
 
-  const filteredProducts = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase()
-    return products.filter((p) => {
-      const stock = stockQuantities[p.id] ?? 0
-      const status = getStockStatus(stock, p.lowStockThreshold)
-
-      const matchesSearch =
-        !term ||
-        p.name.toLowerCase().includes(term) ||
-        p.sku.toLowerCase().includes(term) ||
-        (p.barcode ?? "").toLowerCase().includes(term)
-
-      const matchesStock =
-        stockFilter === "all" ||
-        (stockFilter === "low" && status === "low") ||
-        (stockFilter === "out" && status === "out")
-
-      return matchesSearch && matchesStock
-    })
-  }, [products, searchTerm, stockQuantities, stockFilter])
+  const filteredProducts = useMemo(
+    () =>
+      filterProducts(products, {
+        search: searchTerm,
+        categoryId: filterCategory,
+        stockFilter,
+        stocks: stockQuantities,
+      }),
+    [products, searchTerm, filterCategory, stockFilter, stockQuantities]
+  )
 
   const filterKey = `${searchTerm}|${filterCategory}|${stockFilter}`
   const {
@@ -254,12 +185,13 @@ export default function InventoryPage() {
     [products, stockQuantities]
   )
 
-  const hasActiveFilters = searchTerm.trim().length > 0 || stockFilter !== "all"
+  const hasActiveFilters =
+    searchTerm.trim().length > 0 ||
+    filterCategory !== "all" ||
+    stockFilter !== "all"
 
   const handleRefresh = async () => {
-    setLastVisible(undefined)
-    setHasMore(true)
-    await loadData({ reset: true })
+    await loadCatalog()
   }
 
   const handleProductScan = useCallback(
@@ -570,7 +502,7 @@ export default function InventoryPage() {
                           </VisibleTableColumn>
                           <VisibleTableColumn id="price" isVisible={isVisible}>
                             <TableCell className="text-right font-headline font-bold">
-                              {p.sellingPriceFCFA.toLocaleString()}
+                              {(p.sellingPriceFCFA ?? 0).toLocaleString()}
                             </TableCell>
                           </VisibleTableColumn>
                           <VisibleTableColumn id="expiration" isVisible={isVisible}>
@@ -680,25 +612,6 @@ export default function InventoryPage() {
                 rangeEnd={rangeEnd}
                 onPageChange={setPage}
               />
-
-              {hasMore && !hasActiveFilters && page === totalPages && (
-                <div className="flex justify-center border-t p-3">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => loadData({ loadMore: true })}
-                    disabled={loadingMore}
-                    className="rounded-xl text-xs font-semibold"
-                  >
-                    {loadingMore ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <ChevronDown className="mr-2 h-4 w-4" />
-                    )}
-                    {t("inventory.loadMore")}
-                  </Button>
-                </div>
-              )}
             </>
           )}
         </CardContent>

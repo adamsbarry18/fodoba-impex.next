@@ -1751,6 +1751,7 @@
   "common.errorUpdate": "Erro ao atualizar",
   "common.errorPasswordChange": "Erro ao alterar senha",
   "common.errorCreation": "Erro ao criar",
+  "common.accessDenied": "Acesso negado. Permissões insuficientes.",
   "common.successUpdate": "Atualização bem-sucedida",
   "common.successProfileUpdate": "Perfil atualizado com sucesso",
   "common.successPasswordUpdate": "Senha atualizada com sucesso",

@@ -1764,6 +1764,7 @@
   "common.errorUpdate": "Update error",
   "common.errorPasswordChange": "Password change error",
   "common.errorCreation": "Creation error",
+  "common.accessDenied": "Access denied. Insufficient permissions.",
   "common.successUpdate": "Update successful",
   "common.successProfileUpdate": "Profile updated successfully",
   "common.successPasswordUpdate": "Password updated successfully",
