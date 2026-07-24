@@ -12,14 +12,11 @@ import { Store, UserProfile } from "@/lib/types"
 import { useAuth } from "./AuthContext"
 import { StoreService } from "@/services/store.service"
 import { toast } from "sonner"
+import { useT } from "@/i18n/context"
 import {
   clearLegacyActiveStoreKey,
-  clearStoreWelcomeSession,
-  hasStoreWelcomeBeenShown,
-  markStoreWelcomeShown,
   readSavedActiveStoreId,
   resolveActiveStore,
-  type StoreSelectionSource,
   writeSavedActiveStoreId,
 } from "@/lib/store-utils"
 
@@ -49,82 +46,38 @@ async function fetchStoresForProfile(
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const { userProfile, isAdmin } = useAuth()
+  const t = useT()
   const [activeStore, setActiveStore] = useState<Store | null>(null)
   const [availableStores, setAvailableStores] = useState<Store[]>([])
   const [loading, setLoading] = useState(true)
   const loadGenerationRef = useRef(0)
-  const lastSelectionSourceRef = useRef<StoreSelectionSource | null>(null)
-  const previousUidRef = useRef<string | null>(null)
 
-  const notifyStoreSelection = useCallback(
-    (profile: UserProfile, store: Store, source: StoreSelectionSource, storeCount: number) => {
-      if (hasStoreWelcomeBeenShown(profile.uid)) return
-      markStoreWelcomeShown(profile.uid)
+  const applyStoreSelection = useCallback((profile: UserProfile, stores: Store[]) => {
+    const preferredDefaultId =
+      profile.storeIds?.find((id) => stores.some((store) => store.id === id)) ?? null
+    const { store } = resolveActiveStore(
+      stores,
+      readSavedActiveStoreId(profile.uid),
+      preferredDefaultId
+    )
 
-      if (storeCount === 1 || source === "single") {
-        toast.success(`Bienvenue - ${store.name}`, {
-          description: "Votre boutique a été activée automatiquement.",
-        })
-        return
-      }
+    setActiveStore(store)
 
-      if (source === "saved") {
-        toast.info(`Boutique active : ${store.name}`, {
-          description: "Dernière boutique utilisée avant votre déconnexion.",
-        })
-        return
-      }
-
-      toast.info(`Boutique active : ${store.name}`, {
-        description: "Changez de boutique depuis l'en-tête si nécessaire.",
-      })
-    },
-    []
-  )
-
-  const applyStoreSelection = useCallback(
-    (profile: UserProfile, stores: Store[]) => {
-      const preferredDefaultId =
-        profile.storeIds?.find((id) => stores.some((store) => store.id === id)) ?? null
-      const { store, source } = resolveActiveStore(
-        stores,
-        readSavedActiveStoreId(profile.uid),
-        preferredDefaultId
-      )
-
-      lastSelectionSourceRef.current = source
-      setActiveStore(store)
-
-      if (store) {
-        writeSavedActiveStoreId(profile.uid, store.id)
-        if (source) {
-          notifyStoreSelection(profile, store, source, stores.length)
-        }
-      }
-    },
-    [notifyStoreSelection]
-  )
+    if (store) {
+      writeSavedActiveStoreId(profile.uid, store.id)
+    }
+  }, [])
 
   const loadStoresForUser = useCallback(async () => {
     const generation = ++loadGenerationRef.current
 
     if (!userProfile) {
-      if (previousUidRef.current) {
-        clearStoreWelcomeSession(previousUidRef.current)
-      }
-      previousUidRef.current = null
-      lastSelectionSourceRef.current = null
       setAvailableStores([])
       setActiveStore(null)
       setLoading(false)
       clearLegacyActiveStoreKey()
       return
     }
-
-    if (previousUidRef.current && previousUidRef.current !== userProfile.uid) {
-      clearStoreWelcomeSession(previousUidRef.current)
-    }
-    previousUidRef.current = userProfile.uid
 
     setActiveStore(null)
     setLoading(true)
@@ -156,11 +109,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const setActiveStoreById = (id: string) => {
     const store = availableStores.find((s) => s.id === id)
-    if (store && userProfile) {
-      setActiveStore(store)
-      writeSavedActiveStoreId(userProfile.uid, id)
-      lastSelectionSourceRef.current = "saved"
-    }
+    if (!store || !userProfile) return
+    if (activeStore?.id === id) return
+
+    setActiveStore(store)
+    writeSavedActiveStoreId(userProfile.uid, id)
+    toast.success(t("stores.switched", { name: store.name }), {
+      id: "active-store",
+    })
   }
 
   return (

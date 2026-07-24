@@ -26,20 +26,26 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const { userProfile } = useAuth();
   const { activeStore } = useStore();
-  const initializedRef = useRef(false);
   const knownIdsRef = useRef<Set<string>>(new Set());
+  const subscribedUidRef = useRef<string | null>(null);
 
   useEffect(() => {
-    initializedRef.current = false;
-    knownIdsRef.current = new Set();
-
     if (!userProfile) {
       setNotifications([]);
       setSubscriptionError(null);
-      initializedRef.current = false;
       knownIdsRef.current = new Set();
+      subscribedUidRef.current = null;
       return;
     }
+
+    // Ne réinitialiser les IDs connus qu'au changement d'utilisateur
+    // (pas au passage null → boutique active après login).
+    if (subscribedUidRef.current !== userProfile.uid) {
+      knownIdsRef.current = new Set();
+      subscribedUidRef.current = userProfile.uid;
+    }
+
+    let isFirstSnapshot = true;
 
     const unsubscribe = NotificationService.subscribe(
       { storeId: activeStore?.id, userId: userProfile.uid },
@@ -47,11 +53,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         setSubscriptionError(null);
         const important = notes.filter(isImportantNotification);
 
-        if (!initializedRef.current) {
-          initializedRef.current = true;
-          knownIdsRef.current = new Set(important.map((n) => n.id));
+        if (isFirstSnapshot) {
+          isFirstSnapshot = false;
+          // Amorçage silencieux : pas de toast pour l'historique au login / changement de boutique
+          important.forEach((n) => knownIdsRef.current.add(n.id));
           setNotifications(important);
-          // Nettoie en arrière-plan les anciennes notifs routinières (ventes, achats…)
           void NotificationService.purgeRoutineNotifications({
             storeId: activeStore?.id,
             userId: userProfile.uid,
@@ -64,12 +70,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         );
         newUnread.forEach((notification) => {
           toast.info(notification.title, {
+            id: `notif-${notification.id}`,
             description: notification.message,
             duration: 5000,
           });
         });
 
-        knownIdsRef.current = new Set(important.map((n) => n.id));
+        important.forEach((n) => knownIdsRef.current.add(n.id));
         setNotifications(important);
       },
       () => {

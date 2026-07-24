@@ -108,21 +108,3 @@ export function resolveActiveStore(
     source: stores.length === 1 ? "single" : "default",
   }
 }
-
-const STORE_WELCOME_SESSION_PREFIX = "storeWelcome:"
-
-export function getStoreWelcomeSessionKey(uid: string): string {
-  return `${STORE_WELCOME_SESSION_PREFIX}${uid}`
-}
-
-export function clearStoreWelcomeSession(uid: string): void {
-  sessionStorage.removeItem(getStoreWelcomeSessionKey(uid))
-}
-
-export function hasStoreWelcomeBeenShown(uid: string): boolean {
-  return sessionStorage.getItem(getStoreWelcomeSessionKey(uid)) === "1"
-}
-
-export function markStoreWelcomeShown(uid: string): void {
-  sessionStorage.setItem(getStoreWelcomeSessionKey(uid), "1")
-}

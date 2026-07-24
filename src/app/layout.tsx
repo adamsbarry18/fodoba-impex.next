@@ -58,7 +58,14 @@ export default function RootLayout({
                   <AuthLayoutWrapper>
                     {children}
                   </AuthLayoutWrapper>
-                  <Toaster position="top-right" richColors closeButton />
+                  <Toaster
+                    position="top-right"
+                    richColors
+                    closeButton
+                    visibleToasts={3}
+                    duration={3500}
+                    gap={8}
+                  />
                 </NotificationProvider>
               </StoreProvider>
             </CurrencyProvider>

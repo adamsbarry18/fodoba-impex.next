@@ -39,7 +39,6 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(values.email.trim(), values.password)
-      toast.success(t("auth.loginSuccess"))
     } catch (error: unknown) {
       const rawMessage = error instanceof Error ? error.message : "auth.error.generic"
       const displayMessage = t.has(rawMessage) ? t(rawMessage) : t("auth.loginError")
