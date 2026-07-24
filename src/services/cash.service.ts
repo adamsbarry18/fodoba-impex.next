@@ -47,7 +47,7 @@ export const CashService = {
       status: "OPEN",
       openedAt: serverTimestamp(),
       openedBy: user.uid,
-      openedByName: `${user.prenom} ${user.nom}`,
+      openedByName: `${user.firstName} ${user.lastName}`,
       initialBalances,
       expectedBalances: { ...initialBalances },
     };
@@ -114,7 +114,7 @@ export const CashService = {
       method,
       timestamp: serverTimestamp(),
       performedBy: user.uid,
-      performedByName: `${user.prenom} ${user.nom}`,
+      performedByName: `${user.firstName} ${user.lastName}`,
       relatedDocId,
       description,
     });

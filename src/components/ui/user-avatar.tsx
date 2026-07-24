@@ -17,8 +17,8 @@ const SIZE_CLASSES = {
 export interface UserAvatarUser {
   uid?: string
   email?: string
-  prenom: string
-  nom: string
+  firstName: string
+  lastName: string
   photoURL?: string
 }
 

@@ -59,6 +59,7 @@
   "common.appName": "FODOBA BUSINESS",
   "header.storeSelect": "Choisir une boutique",
   "header.noStoreAssigned": "Aucune boutique assignée",
+  "header.createFirstStore": "Créer ma boutique",
   "header.notifications": "Notifications",
   "header.accountMenu": "Menu du compte",
   "header.myProfile": "Mon profil",
@@ -211,6 +212,7 @@
   "table.columns.shown": "Colonnes affichées",
   "table.columns.reset": "Réinitialiser",
   "dashboard.greeting": "Bonjour, {name}",
+  "dashboard.greetingPrefix": "Bonjour,",
   "dashboard.overview": "Vue d'ensemble",
   "dashboard.storeRevenue": "CA boutique",
   "dashboard.salesCount": "{count, plural, =0 {0 vente} one {1 vente} other {# ventes}}",
@@ -1716,5 +1718,15 @@
   "pos.ticket.download": "Télécharger le ticket",
   "pos.ticket.downloadSuccess": "Ticket téléchargé",
   "pos.ticket.downloadError": "Erreur lors de la génération du ticket",
-  "pos.ticket.storeNotFound": "Boutique introuvable pour ce ticket"
+  "pos.ticket.storeNotFound": "Boutique introuvable pour ce ticket",
+  "onboarding.welcome": "Bienvenue",
+  "onboarding.welcomePrefix": "Bienvenue,",
+  "onboarding.firstStoreDesc": "Pour démarrer FODOBA BUSINESS, créez votre première boutique. Elle sera automatiquement attribuée à votre compte administrateur.",
+  "onboarding.firstStoreHint": "Sans boutique active, les ventes, stocks et caisses ne peuvent pas être utilisés.",
+  "onboarding.createStoreCta": "Créer ma première boutique",
+  "onboarding.createStoreTitle": "Première boutique",
+  "onboarding.createStoreSubtitle": "Configurez votre point de vente — il sera lié à votre profil admin.",
+  "onboarding.createStoreFormHint": "Après enregistrement, la boutique sera activée et attribuée à votre compte.",
+  "onboarding.saveAndContinue": "Enregistrer et continuer",
+  "onboarding.storeCreatedAssigned": "Boutique créée et attribuée à votre compte"
 }

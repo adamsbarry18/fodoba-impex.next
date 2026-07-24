@@ -77,7 +77,7 @@ const USER_COLUMN_LABEL_KEYS: Record<string, string> = {
 type ToggleTarget = {
   uid: string
   name: string
-  actif: boolean
+  active: boolean
 }
 
 export default function UsersAdminPage() {
@@ -171,7 +171,7 @@ export default function UsersAdminPage() {
       const matchesRole = roleFilter === "all" || user.role === roleFilter
       const matchesStatus =
         statusFilter === "all" ||
-        (statusFilter === "active" ? user.actif : !user.actif)
+        (statusFilter === "active" ? user.active : !user.active)
       return matchesSearch && matchesRole && matchesStatus
     })
   }, [users, searchTerm, roleFilter, statusFilter])
@@ -179,8 +179,8 @@ export default function UsersAdminPage() {
   const stats = useMemo(
     () => ({
       total: users.length,
-      active: users.filter((u) => u.actif).length,
-      suspended: users.filter((u) => !u.actif).length,
+      active: users.filter((u) => u.active).length,
+      suspended: users.filter((u) => !u.active).length,
       admins: users.filter((u) => u.role === "admin").length,
     }),
     [users]
@@ -210,9 +210,9 @@ export default function UsersAdminPage() {
 
     setToggling(true)
     try {
-      await UserService.toggleUserStatus(toggleTarget.uid, !toggleTarget.actif)
+      await UserService.toggleUserStatus(toggleTarget.uid, !toggleTarget.active)
       toast.success(
-        toggleTarget.actif
+        toggleTarget.active
           ? t("users.suspended", { name: toggleTarget.name })
           : t("users.reactivated", { name: toggleTarget.name })
       )
@@ -420,7 +420,7 @@ export default function UsersAdminPage() {
                 <TableBody>
                   {filteredUsers.map((user) => {
                     const isSelf = user.uid === currentUser?.uid
-                    const assignedStores = (user.boutiqueIds ?? [])
+                    const assignedStores = (user.storeIds ?? [])
                       .map((id) => storeMap.get(id))
                       .filter(Boolean) as Store[]
 
@@ -499,7 +499,7 @@ export default function UsersAdminPage() {
                           <TableCell>
                             <StatusBadge
                               preset="activeState"
-                              value={user.actif ? "active" : "inactive"}
+                              value={user.active ? "active" : "inactive"}
                               className="text-[10px]"
                             />
                           </TableCell>
@@ -523,7 +523,7 @@ export default function UsersAdminPage() {
                                 size="icon"
                                 className={cn(
                                   "h-8 w-8 rounded-lg",
-                                  user.actif
+                                  user.active
                                     ? "text-destructive hover:text-destructive"
                                     : "text-primary hover:text-primary"
                                 )}
@@ -531,13 +531,13 @@ export default function UsersAdminPage() {
                                   setToggleTarget({
                                     uid: user.uid,
                                     name: getUserDisplayName(user),
-                                    actif: user.actif,
+                                    active: user.active,
                                   })
                                 }
-                                title={user.actif ? t("users.suspend") : t("users.reactivate")}
+                                title={user.active ? t("users.suspend") : t("users.reactivate")}
                                 disabled={isSelf}
                               >
-                                {user.actif ? (
+                                {user.active ? (
                                   <UserX className="h-4 w-4" />
                                 ) : (
                                   <UserCheck className="h-4 w-4" />
@@ -578,12 +578,12 @@ export default function UsersAdminPage() {
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {toggleTarget?.actif
+              {toggleTarget?.active
                 ? t("users.confirmSuspendTitle")
                 : t("users.confirmReactivateTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {toggleTarget?.actif
+              {toggleTarget?.active
                 ? t("users.confirmSuspendDesc", { name: toggleTarget.name })
                 : t("users.confirmReactivateDesc", { name: toggleTarget?.name ?? "" })}
             </AlertDialogDescription>
@@ -595,7 +595,7 @@ export default function UsersAdminPage() {
             <AlertDialogAction
               className={cn(
                 "rounded-xl",
-                toggleTarget?.actif && "bg-destructive hover:bg-destructive/90"
+                toggleTarget?.active && "bg-destructive hover:bg-destructive/90"
               )}
               onClick={(e) => {
                 e.preventDefault()

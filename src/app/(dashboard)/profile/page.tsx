@@ -43,8 +43,8 @@ import { cn } from "@/lib/utils"
 import { useT } from "@/i18n/context"
 
 const ProfileFormSchema = UserProfileSchema.pick({
-  prenom: true,
-  nom: true,
+  firstName: true,
+  lastName: true,
   phone: true,
 })
 
@@ -83,7 +83,7 @@ export default function ProfilePage() {
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(ProfileFormSchema),
-    defaultValues: { prenom: "", nom: "", phone: "" },
+    defaultValues: { firstName: "", lastName: "", phone: "" },
   })
 
   const passwordForm = useForm<PasswordFormValues>({
@@ -94,8 +94,8 @@ export default function ProfilePage() {
   useEffect(() => {
     if (userProfile) {
       profileForm.reset({
-        prenom: userProfile.prenom || "",
-        nom: userProfile.nom || "",
+        firstName: userProfile.firstName || "",
+        lastName: userProfile.lastName || "",
         phone: userProfile.phone || "",
       })
     }
@@ -175,7 +175,7 @@ export default function ProfilePage() {
                 />
                 <StatusBadge
                   preset="activeState"
-                  value={userProfile.actif ? "active" : "inactive"}
+                  value={userProfile.active ? "active" : "inactive"}
                   className="text-[10px]"
                 />
               </div>
@@ -257,7 +257,7 @@ export default function ProfilePage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={profileForm.control}
-                  name="prenom"
+                  name="firstName"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel required>{t("profile.firstName")}</FormLabel>
@@ -270,7 +270,7 @@ export default function ProfilePage() {
                 />
                 <FormField
                   control={profileForm.control}
-                  name="nom"
+                  name="lastName"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel required>{t("profile.lastName")}</FormLabel>

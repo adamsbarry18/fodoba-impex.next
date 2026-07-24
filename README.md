@@ -37,6 +37,20 @@ Copier [`.env.example`](.env.example) vers `.env.local` et remplir les clés `NE
 
 Le fichier [`firestore.rules`](firestore.rules) à la racine définit le RBAC côté base. **À publier** dans Firebase Console → Firestore → Règles (remplacement complet de la règle temporaire `/{document=**}`).
 
+### Migration champs utilisateur (FR → EN)
+
+Les profils `users` utilisent `firstName`, `lastName`, `active`, `storeIds`. Si des documents existent encore avec `prenom` / `nom` / `actif` / `boutiqueIds` :
+
+```bash
+# Dry-run
+DRY_RUN=1 GOOGLE_APPLICATION_CREDENTIALS=./serviceAccount.json npm run migrate:user-fields
+
+# Écriture
+GOOGLE_APPLICATION_CREDENTIALS=./serviceAccount.json npm run migrate:user-fields
+```
+
+Ensuite déployer le code et republier `firestore.rules`.
+
 Points clés des règles :
 
 - Accès scoping par `storeId` + `boutiqueIds` du profil utilisateur

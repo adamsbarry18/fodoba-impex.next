@@ -63,7 +63,7 @@ Fichier : `src/app/layout.tsx`
 - Rôles Firestore : `"admin"`, `"manager"`, `"seller"` (lowercase)
 - Permissions : `"action:ressource"` - `permissions.ts`
 - Services : `{Domain}Service` dans `{domain}.service.ts`
-- Champs mixtes : `nom`/`prenom`/`boutiqueIds` (profil) vs `storeId`/`activeStore` (contexte)
+- Champs mixtes : `lastName`/`firstName`/`storeIds` (profil) vs `storeId`/`activeStore` (contexte)
 - localStorage boutique : clé `activeStoreId`
 - Devise référence comptable : **FCFA** ; aussi GNF, USD, EUR via `currencies`
 - UI : textes via i18n ; réponses agents IA au user en **français**
@@ -92,10 +92,10 @@ Config : `NEXT_PUBLIC_FIREBASE_*` - `.env.example` → `.env.local`
 | Helper | Rôle |
 |--------|------|
 | `isSignedIn()` | Utilisateur authentifié |
-| `isActif()` | Profil `users/{uid}` avec `actif == true` |
+| `isActive()` | Profil `users/{uid}` avec `active == true` |
 | `isAdmin()` / `isManager()` | Rôle dans le profil |
-| `isStoreAuthorized(storeId)` | Admin ou `storeId in boutiqueIds` |
-| `isSelfProfileUpdate(userId)` | Auto-édition : `prenom`, `nom`, `phone`, `photoURL` |
+| `isStoreAuthorized(storeId)` | Admin ou `storeId in storeIds` |
+| `isSelfProfileUpdate(userId)` | Auto-édition : `firstName`, `lastName`, `phone`, `photoURL` |
 
 **Impact requêtes client** : si une règle lit `resource.data.storeId`, la requête Firestore **doit** filtrer par `storeId` (sinon `permission-denied`). Exemple : `CashService.getMovements(sessionId, storeId)`.
 

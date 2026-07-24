@@ -32,7 +32,9 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useMemo } from "react"
+import { useSearchParams } from "next/navigation"
 import { useStore } from "@/lib/contexts/StoreContext"
+import { useAuth } from "@/lib/contexts/AuthContext"
 import { z } from "zod"
 import {
   STORE_CODE_EXAMPLE,
@@ -45,7 +47,10 @@ type FormValues = Omit<Store, "id" | "createdAt">
 
 export default function NewStorePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isSetup = searchParams.get("setup") === "1"
   const { refreshStores } = useStore()
+  const { userProfile, refreshProfile } = useAuth()
   const t = useT()
 
   const formSchema = useMemo(
@@ -74,10 +79,15 @@ export default function NewStorePage() {
 
   const onSubmit = async (values: FormValues) => {
     try {
-      await StoreService.createStore(values)
-      toast.success(t("stores.form.created"))
+      await StoreService.createStore(values, {
+        assignToUid: userProfile?.uid,
+      })
+      toast.success(
+        isSetup ? t("onboarding.storeCreatedAssigned") : t("stores.form.created")
+      )
+      await refreshProfile()
       await refreshStores()
-      router.push("/admin/stores")
+      router.push(isSetup ? "/dashboard" : "/admin/stores")
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : t("stores.form.createError")
@@ -89,7 +99,7 @@ export default function NewStorePage() {
     <div className="mx-auto max-w-2xl space-y-6 pb-8">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild className="rounded-xl">
-          <Link href="/admin/stores">
+          <Link href={isSetup ? "/dashboard" : "/admin/stores"}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
@@ -98,13 +108,22 @@ export default function NewStorePage() {
             <StoreIcon className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{t("stores.form.newTitle")}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {isSetup ? t("onboarding.createStoreTitle") : t("stores.form.newTitle")}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              {t("stores.form.newSubtitle")}
+              {isSetup ? t("onboarding.createStoreSubtitle") : t("stores.form.newSubtitle")}
             </p>
           </div>
         </div>
       </div>
+
+      {isSetup && (
+        <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <p>{t("onboarding.createStoreFormHint")}</p>
+        </div>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -249,7 +268,7 @@ export default function NewStorePage() {
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              {t("stores.form.saveStore")}
+              {isSetup ? t("onboarding.saveAndContinue") : t("stores.form.saveStore")}
             </Button>
           </div>
         </form>

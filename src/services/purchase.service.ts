@@ -199,7 +199,7 @@ export const PurchaseService = {
           newStock: next.quantity,
           reason: `Réception achat #${purchase.id.slice(-6)}`,
           performedBy: user.uid,
-          performedByName: `${user.prenom} ${user.nom}`,
+          performedByName: `${user.firstName} ${user.lastName}`,
           timestamp: serverTimestamp(),
           relatedDocId: purchase.id,
         });

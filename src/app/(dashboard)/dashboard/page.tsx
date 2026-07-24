@@ -63,14 +63,15 @@ import { getStockStatus } from "@/lib/product-utils"
 import { cn } from "@/lib/utils"
 import { useT, useLocale } from "@/i18n/context"
 import { getDateLocale } from "@/i18n/get-date-locale"
+import { FirstStoreOnboarding } from "@/components/auth/first-store-onboarding"
 
 interface LowStockItem extends Product {
   currentStock: number
 }
 
 export default function DashboardPage() {
-  const { userProfile } = useAuth()
-  const { activeStore } = useStore()
+  const { userProfile, isAdmin } = useAuth()
+  const { activeStore, availableStores } = useStore()
   const { formatAmount } = useCurrency()
   const [loading, setLoading] = useState(true)
   const [timeRange, setTimeRange] = useState<DashboardTimeRange>("7d")
@@ -143,6 +144,9 @@ export default function DashboardPage() {
   )
 
   if (!activeStore) {
+    if (isAdmin && availableStores.length === 0) {
+      return <FirstStoreOnboarding userName={userProfile?.firstName} />
+    }
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
         <LayoutDashboard className="h-10 w-10 opacity-30" />
@@ -172,7 +176,8 @@ export default function DashboardPage() {
               {format(new Date(), "EEEE d MMMM yyyy", { locale: dateLocale })}
             </p>
             <h1 className="text-3xl font-bold tracking-tight">
-              {t("dashboard.greeting", { name: userProfile?.prenom || "" })}
+              {t("dashboard.greetingPrefix")}{" "}
+              <span className="text-primary">{userProfile?.firstName || ""}</span>
             </h1>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>

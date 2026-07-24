@@ -48,3 +48,5 @@ firestore-debug.log
 # uploads produits (stockage local dev)
 /public/uploads/*
 !/public/uploads/.gitkeep
+serviceAccount.json
+*-firebase-adminsdk-*.json

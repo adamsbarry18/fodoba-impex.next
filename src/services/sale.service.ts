@@ -173,7 +173,7 @@ export const SaleService = {
           newStock: update.next.quantity,
           relatedDocId: saleRef.id,
           performedBy: user.uid,
-          performedByName: `${user.prenom} ${user.nom}`,
+          performedByName: `${user.firstName} ${user.lastName}`,
           timestamp: serverTimestamp(),
         });
       }
@@ -193,7 +193,7 @@ export const SaleService = {
         id: saleRef.id,
         storeId: store.id,
         sellerId: user.uid,
-        sellerName: `${user.prenom} ${user.nom}`,
+        sellerName: `${user.firstName} ${user.lastName}`,
         timestamp: serverTimestamp(),
         items: enrichedItems,
         subtotal,

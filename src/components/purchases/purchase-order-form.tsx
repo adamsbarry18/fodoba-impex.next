@@ -330,7 +330,7 @@ export function PurchaseOrderForm({
           storeId: activeStore.id,
           storeName: activeStore.name,
           performedBy: userProfile.uid,
-          performedByName: `${userProfile.prenom} ${userProfile.nom}`,
+          performedByName: `${userProfile.firstName} ${userProfile.lastName}`,
         })
         toast.success(
           status === "DRAFT"

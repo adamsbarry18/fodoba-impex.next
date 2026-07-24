@@ -41,8 +41,8 @@ async function fetchStoresForProfile(
     const result = await StoreService.listStores(100)
     return result.stores
   }
-  if (profile.boutiqueIds?.length > 0) {
-    return StoreService.getStoresByIds(profile.boutiqueIds)
+  if (profile.storeIds?.length > 0) {
+    return StoreService.getStoresByIds(profile.storeIds)
   }
   return []
 }
@@ -85,7 +85,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const applyStoreSelection = useCallback(
     (profile: UserProfile, stores: Store[]) => {
       const preferredDefaultId =
-        profile.boutiqueIds?.find((id) => stores.some((store) => store.id === id)) ?? null
+        profile.storeIds?.find((id) => stores.some((store) => store.id === id)) ?? null
       const { store, source } = resolveActiveStore(
         stores,
         readSavedActiveStoreId(profile.uid),
@@ -148,11 +148,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [userProfile, isAdmin, applyStoreSelection])
 
-  const boutiqueIdsKey = userProfile?.boutiqueIds?.join(",") ?? ""
+  const storeIdsKey = userProfile?.storeIds?.join(",") ?? ""
 
   useEffect(() => {
     void loadStoresForUser()
-  }, [userProfile?.uid, isAdmin, boutiqueIdsKey, loadStoresForUser])
+  }, [userProfile?.uid, isAdmin, storeIdsKey, loadStoresForUser])
 
   const setActiveStoreById = (id: string) => {
     const store = availableStores.find((s) => s.id === id)

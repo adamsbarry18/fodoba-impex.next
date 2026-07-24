@@ -6,11 +6,11 @@ export type Role = "admin" | "manager" | "seller";
 export const UserProfileSchema = z.object({
   uid: z.string(),
   email: z.string().email(),
-  nom: z.string(),
-  prenom: z.string(),
+  lastName: z.string(),
+  firstName: z.string(),
   role: z.enum(["admin", "manager", "seller"]),
-  boutiqueIds: z.array(z.string()),
-  actif: z.boolean(),
+  storeIds: z.array(z.string()),
+  active: z.boolean(),
   phone: z.string().optional(),
   photoURL: z.string().optional(),
 });

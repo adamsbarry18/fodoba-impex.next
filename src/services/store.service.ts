@@ -35,7 +35,10 @@ export const StoreService = {
     return false;
   },
 
-  async createStore(data: Omit<Store, "id" | "createdAt">) {
+  async createStore(
+    data: Omit<Store, "id" | "createdAt">,
+    options?: { assignToUid?: string }
+  ) {
     const formatError = validateStoreCodeFormat(data.code);
     if (formatError) throw new Error(formatError);
 
@@ -51,6 +54,19 @@ export const StoreService = {
       createdAt: serverTimestamp(),
     };
     await setDoc(newDocRef, stripUndefined(store));
+
+    if (options?.assignToUid) {
+      const profile = await UserService.getUser(options.assignToUid);
+      if (profile) {
+        const storeIds = profile.storeIds ?? [];
+        if (!storeIds.includes(newDocRef.id)) {
+          await UserService.updateUserProfile(options.assignToUid, {
+            storeIds: [...storeIds, newDocRef.id],
+          });
+        }
+      }
+    }
+
     await UserService.logAudit(
       "CREATE_STORE",
       `Création de la boutique ${code} - ${data.name}`,

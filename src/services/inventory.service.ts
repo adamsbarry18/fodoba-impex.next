@@ -80,7 +80,7 @@ export const InventoryService = {
         previousStock: currentQty,
         newStock: newQty,
         performedBy: user.uid,
-        performedByName: `${user.prenom} ${user.nom}`,
+        performedByName: `${user.firstName} ${user.lastName}`,
         timestamp: serverTimestamp()
       };
 
@@ -179,7 +179,7 @@ export const InventoryService = {
             reason,
             relatedDocId,
             performedBy: user.uid,
-            performedByName: `${user.prenom} ${user.nom}`,
+            performedByName: `${user.firstName} ${user.lastName}`,
             timestamp: serverTimestamp(),
           })
         );
@@ -299,7 +299,7 @@ export const InventoryService = {
             newStock: next.quantity,
             reason,
             performedBy: user.uid,
-            performedByName: `${user.prenom} ${user.nom}`,
+            performedByName: `${user.firstName} ${user.lastName}`,
             timestamp: serverTimestamp(),
           })
         )
@@ -420,7 +420,7 @@ export const InventoryService = {
         newStock: nextFrom.quantity,
         reason: reason || `Transfert vers ${toStore.name}`,
         performedBy: user.uid,
-        performedByName: `${user.prenom} ${user.nom}`,
+        performedByName: `${user.firstName} ${user.lastName}`,
         timestamp: serverTimestamp()
       };
       transaction.set(moveOutRef, moveOutData);
@@ -438,7 +438,7 @@ export const InventoryService = {
         newStock: nextTo.quantity,
         reason: reason || `Transfert depuis ${fromStore.name}`,
         performedBy: user.uid,
-        performedByName: `${user.prenom} ${user.nom}`,
+        performedByName: `${user.firstName} ${user.lastName}`,
         timestamp: serverTimestamp()
       };
       transaction.set(moveInRef, moveInData);

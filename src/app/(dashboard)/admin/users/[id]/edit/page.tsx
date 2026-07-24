@@ -40,10 +40,10 @@ export default function EditUserPage() {
   const editSchema = useMemo(
     () =>
       UserProfileSchema.refine(
-        (data) => data.role === "admin" || (data.boutiqueIds?.length ?? 0) > 0,
+        (data) => data.role === "admin" || (data.storeIds?.length ?? 0) > 0,
         {
           message: t("users.form.storesRequired"),
-          path: ["boutiqueIds"],
+          path: ["storeIds"],
         }
       ),
     [t]
@@ -147,7 +147,7 @@ export default function EditUserPage() {
             <StatusBadge preset="userRole" value={form.getValues("role")} className="text-[10px]" />
             <StatusBadge
               preset="activeState"
-              value={form.getValues("actif") ? "active" : "inactive"}
+              value={form.getValues("active") ? "active" : "inactive"}
               className="text-[10px]"
             />
           </CardDescription>
@@ -158,7 +158,7 @@ export default function EditUserPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name="prenom"
+                  name="firstName"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel required>{t("users.form.firstName")}</FormLabel>
@@ -171,7 +171,7 @@ export default function EditUserPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="nom"
+                  name="lastName"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel required>{t("users.form.lastName")}</FormLabel>
@@ -255,7 +255,7 @@ export default function EditUserPage() {
                       <FormField
                         key={store.id}
                         control={form.control}
-                        name="boutiqueIds"
+                        name="storeIds"
                         render={({ field }) => (
                           <FormItem className="flex flex-row items-center gap-3 rounded-lg p-2 hover:bg-background">
                             <FormControl>
@@ -282,7 +282,7 @@ export default function EditUserPage() {
                 )}
                 <FormField
                   control={form.control}
-                  name="boutiqueIds"
+                  name="storeIds"
                   render={() => (
                     <FormItem>
                       <FormMessage />

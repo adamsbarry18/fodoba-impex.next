@@ -84,14 +84,14 @@ export const CurrencyService = {
       {
         referenceCurrency: code,
         updatedAt: serverTimestamp(),
-        updatedBy: `${user.prenom} ${user.nom}`,
+        updatedBy: `${user.firstName} ${user.lastName}`,
       },
       { merge: true }
     )
 
     await UserService.logAudit(
       "UPDATE_REFERENCE_CURRENCY",
-      `Devise de référence définie sur ${code} par ${user.prenom}`,
+      `Devise de référence définie sur ${code} par ${user.firstName}`,
       code
     )
   },
@@ -143,14 +143,14 @@ export const CurrencyService = {
       code: targetCode,
       rateToRef: rateToFcfa,
       lastUpdated: serverTimestamp(),
-      updatedBy: `${user.prenom} ${user.nom}`,
+      updatedBy: `${user.firstName} ${user.lastName}`,
     }
 
     await setDoc(docRef, data, { merge: true })
 
     await UserService.logAudit(
       "UPDATE_EXCHANGE_RATE",
-      `Mise à jour du taux ${targetCode} à ${rateToFcfa} FCFA (saisie ${code}=${displayedRateVsReference} ${reference}) par ${user.prenom}`,
+      `Mise à jour du taux ${targetCode} à ${rateToFcfa} FCFA (saisie ${code}=${displayedRateVsReference} ${reference}) par ${user.firstName}`,
       targetCode
     )
   },

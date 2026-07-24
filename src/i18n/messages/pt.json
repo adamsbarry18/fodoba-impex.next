@@ -59,6 +59,7 @@
   "common.appName": "FODOBA BUSINESS",
   "header.storeSelect": "Escolher uma loja",
   "header.noStoreAssigned": "Nenhuma loja atribuída",
+  "header.createFirstStore": "Criar minha loja",
   "header.notifications": "Notificações",
   "header.accountMenu": "Menu da conta",
   "header.myProfile": "Meu perfil",
@@ -211,6 +212,7 @@
   "table.columns.shown": "Colunas exibidas",
   "table.columns.reset": "Redefinir",
   "dashboard.greeting": "Olá, {name}",
+  "dashboard.greetingPrefix": "Olá,",
   "dashboard.overview": "Visão geral",
   "dashboard.storeRevenue": "Faturamento da loja",
   "dashboard.salesCount": "{count, plural, =0 {0 vendas} one {1 venda} other {# vendas}}",
@@ -1716,5 +1718,15 @@
   "pos.ticket.download": "Baixar recibo",
   "pos.ticket.downloadSuccess": "Recibo baixado",
   "pos.ticket.downloadError": "Erro ao gerar recibo",
-  "pos.ticket.storeNotFound": "Loja não encontrada para este recibo"
+  "pos.ticket.storeNotFound": "Loja não encontrada para este recibo",
+  "onboarding.welcome": "Bem-vindo",
+  "onboarding.welcomePrefix": "Bem-vindo,",
+  "onboarding.firstStoreDesc": "Para começar o FODOBA BUSINESS, crie sua primeira loja. Ela será automaticamente atribuída à sua conta de administrador.",
+  "onboarding.firstStoreHint": "Sem uma loja ativa, vendas, estoque e caixas não podem ser usados.",
+  "onboarding.createStoreCta": "Criar minha primeira loja",
+  "onboarding.createStoreTitle": "Primeira loja",
+  "onboarding.createStoreSubtitle": "Configure seu ponto de venda — será vinculado ao seu perfil admin.",
+  "onboarding.createStoreFormHint": "Após salvar, a loja será ativada e atribuída à sua conta.",
+  "onboarding.saveAndContinue": "Salvar e continuar",
+  "onboarding.storeCreatedAssigned": "Loja criada e atribuída à sua conta"
 }

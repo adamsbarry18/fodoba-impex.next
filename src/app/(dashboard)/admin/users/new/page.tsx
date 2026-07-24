@@ -53,10 +53,10 @@ export default function NewUserPage() {
           password: z.string().min(6, t("users.form.passwordMin")),
         })
         .refine(
-          (data) => data.role === "admin" || (data.boutiqueIds?.length ?? 0) > 0,
+          (data) => data.role === "admin" || (data.storeIds?.length ?? 0) > 0,
           {
             message: t("users.form.storesRequired"),
-            path: ["boutiqueIds"],
+            path: ["storeIds"],
           }
         ),
     [t]
@@ -66,11 +66,11 @@ export default function NewUserPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: "",
-      nom: "",
-      prenom: "",
+      lastName: "",
+      firstName: "",
       role: "seller",
-      boutiqueIds: [],
-      actif: true,
+      storeIds: [],
+      active: true,
       password: "",
       phone: "",
     },
@@ -189,7 +189,7 @@ export default function NewUserPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name="prenom"
+                  name="firstName"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel required>{t("users.form.firstName")}</FormLabel>
@@ -202,7 +202,7 @@ export default function NewUserPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="nom"
+                  name="lastName"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel required>{t("users.form.lastName")}</FormLabel>
@@ -332,7 +332,7 @@ export default function NewUserPage() {
               ) : (
                 <FormField
                   control={form.control}
-                  name="boutiqueIds"
+                  name="storeIds"
                   render={() => (
                     <FormItem>
                       <div className="grid gap-2 sm:grid-cols-2">
@@ -340,7 +340,7 @@ export default function NewUserPage() {
                           <FormField
                             key={store.id}
                             control={form.control}
-                            name="boutiqueIds"
+                            name="storeIds"
                             render={({ field }) => (
                               <FormItem className="flex flex-row items-center gap-3 rounded-xl border bg-background p-3 transition-colors hover:bg-muted/20">
                                 <FormControl>

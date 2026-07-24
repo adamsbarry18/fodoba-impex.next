@@ -549,7 +549,7 @@ export default function POSPage() {
             </div>
             <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
               <User className="h-3.5 w-3.5" />
-              {t("pos.cashier")} : {userProfile?.prenom} {userProfile?.nom}
+              {t("pos.cashier")} : {userProfile?.firstName} {userProfile?.lastName}
             </div>
           </div>
         </div>

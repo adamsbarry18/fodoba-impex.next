@@ -28,7 +28,7 @@ export const UserService = {
   async listUsers(pageSize = 20, lastVisible?: DocumentSnapshot) {
     let q = query(
       collection(db, COLLECTION_NAME),
-      orderBy("nom", "asc"),
+      orderBy("lastName", "asc"),
       limit(pageSize)
     );
 
@@ -107,7 +107,7 @@ export const UserService = {
    */
   async updateOwnProfile(
     uid: string,
-    data: Pick<UserProfile, "prenom" | "nom"> & {
+    data: Pick<UserProfile, "firstName" | "lastName"> & {
       phone?: string;
       photoURL?: string;
     }
@@ -117,8 +117,8 @@ export const UserService = {
     }
 
     const payload: Record<string, string> = {
-      prenom: data.prenom.trim(),
-      nom: data.nom.trim(),
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
     };
 
     if (data.phone !== undefined) {
@@ -134,7 +134,7 @@ export const UserService = {
   },
 
   async toggleUserStatus(uid: string, active: boolean) {
-    await this.updateUserProfile(uid, { actif: active });
+    await this.updateUserProfile(uid, { active });
     await this.logAudit(active ? "ACTIVATE_USER" : "SUSPEND_USER", `Changement de statut pour ${uid}`, uid);
   },
 
@@ -145,7 +145,7 @@ export const UserService = {
     if (currentUser?.uid) {
       const profile = await this.getUser(currentUser.uid);
       performedByName = profile
-        ? `${profile.prenom} ${profile.nom}`
+        ? `${profile.firstName} ${profile.lastName}`
         : currentUser.email || currentUser.uid;
     }
 

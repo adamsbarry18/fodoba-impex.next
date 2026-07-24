@@ -41,7 +41,7 @@ interface AppHeaderProps {
 
 export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps) {
   const { activeStore, availableStores, setActiveStoreById } = useStore()
-  const { userProfile, logout } = useAuth()
+  const { userProfile, logout, isAdmin } = useAuth()
   const { unreadCount } = useNotifications()
   const t = useT()
   const { locale, setLocale } = useLocale()
@@ -112,8 +112,20 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
             <span className="min-w-0 truncate">{activeStore.name}</span>
           </div>
         ) : (
-          <div className="text-[12px] font-medium italic text-muted-foreground group-data-[collapsible=icon]:hidden">
-            {t("header.noStoreAssigned")}
+          <div className="group-data-[collapsible=icon]:hidden">
+            {isAdmin ? (
+              <Button
+                asChild
+                variant="ghost"
+                className="h-8 rounded-lg px-2.5 text-[12px] font-semibold text-primary hover:bg-primary/10 hover:text-primary sm:h-9"
+              >
+                <Link href="/admin/stores/new?setup=1">{t("header.createFirstStore")}</Link>
+              </Button>
+            ) : (
+              <p className="text-[12px] font-medium italic text-muted-foreground">
+                {t("header.noStoreAssigned")}
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -180,15 +192,15 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
                 user={{
                   uid: userProfile?.uid,
                   email: userProfile?.email,
-                  prenom: userProfile?.prenom ?? "",
-                  nom: userProfile?.nom ?? "",
+                  firstName: userProfile?.firstName ?? "",
+                  lastName: userProfile?.lastName ?? "",
                   photoURL: userProfile?.photoURL,
                 }}
                 size="sm"
                 className="border border-sidebar-border"
               />
-              <span className="hidden max-w-[10rem] truncate text-sm font-bold sm:inline">
-                {userProfile?.prenom}
+              <span className="hidden max-w-[10rem] truncate text-sm font-bold text-primary sm:inline">
+                {userProfile?.firstName}
               </span>
               <ChevronDown
                 className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block"
@@ -207,8 +219,8 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
                   user={{
                     uid: userProfile?.uid,
                     email: userProfile?.email,
-                    prenom: userProfile?.prenom ?? "",
-                    nom: userProfile?.nom ?? "",
+                    firstName: userProfile?.firstName ?? "",
+                    lastName: userProfile?.lastName ?? "",
                     photoURL: userProfile?.photoURL,
                   }}
                   size="md"
@@ -216,7 +228,7 @@ export const AppHeader = memo(function AppHeader({ onNotifOpen }: AppHeaderProps
                 />
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="truncate text-sm font-bold leading-none text-popover-foreground">
-                    {userProfile?.prenom} {userProfile?.nom}
+                    {userProfile?.firstName} {userProfile?.lastName}
                   </p>
                   {userProfile?.email ? (
                     <p className="truncate text-xs text-muted-foreground">{userProfile.email}</p>

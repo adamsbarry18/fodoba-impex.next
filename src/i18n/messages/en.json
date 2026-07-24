@@ -59,6 +59,7 @@
   "common.appName": "FODOBA BUSINESS",
   "header.storeSelect": "Select a store",
   "header.noStoreAssigned": "No store assigned",
+  "header.createFirstStore": "Create my store",
   "header.notifications": "Notifications",
   "header.accountMenu": "Account menu",
   "header.myProfile": "My profile",
@@ -211,6 +212,7 @@
   "table.columns.shown": "Displayed columns",
   "table.columns.reset": "Reset",
   "dashboard.greeting": "Hello, {name}",
+  "dashboard.greetingPrefix": "Hello,",
   "dashboard.overview": "Overview",
   "dashboard.storeRevenue": "Store revenue",
   "dashboard.salesCount": "{count, plural, =0 {0 sales} one {1 sale} other {# sales}}",
@@ -1716,5 +1718,15 @@
   "pos.ticket.download": "Download receipt",
   "pos.ticket.downloadSuccess": "Receipt downloaded",
   "pos.ticket.downloadError": "Error generating receipt",
-  "pos.ticket.storeNotFound": "Store not found for this receipt"
+  "pos.ticket.storeNotFound": "Store not found for this receipt",
+  "onboarding.welcome": "Welcome",
+  "onboarding.welcomePrefix": "Welcome,",
+  "onboarding.firstStoreDesc": "To start FODOBA BUSINESS, create your first store. It will be automatically assigned to your admin account.",
+  "onboarding.firstStoreHint": "Without an active store, sales, stock and cash sessions cannot be used.",
+  "onboarding.createStoreCta": "Create my first store",
+  "onboarding.createStoreTitle": "First store",
+  "onboarding.createStoreSubtitle": "Set up your point of sale — it will be linked to your admin profile.",
+  "onboarding.createStoreFormHint": "After saving, the store will be activated and assigned to your account.",
+  "onboarding.saveAndContinue": "Save and continue",
+  "onboarding.storeCreatedAssigned": "Store created and assigned to your account"
 }

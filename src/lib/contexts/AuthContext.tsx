@@ -2,11 +2,12 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User } from "firebase/auth";
-import { doc, getDoc, setDoc, collection, getDocs, query, limit } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, limit, writeBatch } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase/client";
 import { AuthService } from "@/services/auth.service";
 import { UserProfile } from "@/lib/types";
 import { UserService } from "@/services/user.service";
+import { extractFirstNameFromEmail } from "@/lib/user-utils";
 import { toast } from "sonner";
 
 interface AuthContextType {
@@ -24,6 +25,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const BOOTSTRAP_SETTINGS_ID = "bootstrap";
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -33,34 +36,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!db) {
       throw new Error("Base de données non configurée. Vérifiez votre fichier .env");
     }
-    
+
     const userDocRef = doc(db, "users", uid);
     const userDoc = await getDoc(userDocRef);
-    
+
     if (!userDoc.exists()) {
-      // Logique de Bootstrap : Si aucun utilisateur n'existe, on crée le premier Admin
+      // Bootstrap : premier compte Auth → profil Admin (prénom dérivé de l'email)
       const usersSnap = await getDocs(query(collection(db, "users"), limit(1)));
-      
+
       if (usersSnap.empty) {
+        const email = user.email || "";
+        const firstName = extractFirstNameFromEmail(email);
         const initialProfile: UserProfile = {
-          uid: uid,
-          email: user.email || "",
-          nom: "Admin",
-          prenom: "Initial",
+          uid,
+          email,
+          lastName: "",
+          firstName,
           role: "admin",
-          boutiqueIds: [],
-          actif: true,
+          storeIds: [],
+          active: true,
         };
-        await setDoc(userDocRef, initialProfile);
-        toast.info("Premier compte détecté : Profil configuré en tant que Admin.");
+        const batch = writeBatch(db);
+        batch.set(userDocRef, initialProfile);
+        batch.set(doc(db, "settings", BOOTSTRAP_SETTINGS_ID), {
+          completed: true,
+          adminUid: uid,
+          createdAt: new Date().toISOString(),
+        });
+        await batch.commit();
+        toast.info(`Bienvenue ${firstName} — profil administrateur créé.`);
         return initialProfile;
       }
-      
+
       throw new Error("Compte non configuré dans Firestore. Contactez l'administrateur.");
     }
-    
+
     const profile = { uid, ...userDoc.data() } as UserProfile;
-    if (!profile.actif) {
+    if (!profile.active) {
       throw new Error("Votre compte a été suspendu. Contactez l'administrateur.");
     }
     return profile;

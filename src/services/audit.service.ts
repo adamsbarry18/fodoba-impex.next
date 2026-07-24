@@ -55,7 +55,7 @@ export const AuditService = {
     await Promise.all(
       missingUids.map(async (uid) => {
         const user = await UserService.getUser(uid)
-        if (user) nameMap[uid] = `${user.prenom} ${user.nom}`
+        if (user) nameMap[uid] = `${user.firstName} ${user.lastName}`
       })
     )
 

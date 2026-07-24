@@ -46,28 +46,38 @@ export function getRoleMeta(role: Role): RoleMeta {
 }
 
 export function getUserDisplayName(user: {
-  prenom: string
-  nom: string
+  firstName: string
+  lastName: string
 }): string {
-  return `${user.prenom} ${user.nom}`.trim()
+  return `${user.firstName} ${user.lastName}`.trim()
+}
+
+/**
+ * Déduit un prénom à partir de l'email Auth (ex. mamadou@gmail.com → Mamadou).
+ */
+export function extractFirstNameFromEmail(email: string): string {
+  const localPart = email.split("@")[0]?.trim() ?? ""
+  const token = localPart.split(/[._+\-]/).find((part) => part.length > 0) ?? localPart
+  if (!token) return "Admin"
+  return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase()
 }
 
 export function getUserInitials(user: {
-  prenom: string
-  nom: string
+  firstName: string
+  lastName: string
 }): string {
-  const prenom = user.prenom?.charAt(0) ?? ""
-  const nom = user.nom?.charAt(0) ?? ""
-  return `${prenom}${nom}`.toUpperCase() || "?"
+  const firstInitial = user.firstName?.charAt(0) ?? ""
+  const lastInitial = user.lastName?.charAt(0) ?? ""
+  return `${firstInitial}${lastInitial}`.toUpperCase() || "?"
 }
 
 export function getUserAvatarSeed(user: {
   uid?: string
   email?: string
-  prenom?: string
-  nom?: string
+  firstName?: string
+  lastName?: string
 }): string {
-  return user.uid || user.email || `${user.prenom ?? ""}${user.nom ?? ""}` || "user"
+  return user.uid || user.email || `${user.firstName ?? ""}${user.lastName ?? ""}` || "user"
 }
 
 /** Couleur d'avatar stable et distincte par utilisateur (dérivée du seed). */

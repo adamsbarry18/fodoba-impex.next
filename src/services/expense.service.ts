@@ -42,7 +42,7 @@ export const ExpenseService = {
         method,
         timestamp: serverTimestamp(),
         performedBy: user.uid,
-        performedByName: `${user.prenom} ${user.nom}`,
+        performedByName: `${user.firstName} ${user.lastName}`,
         notes: notes || "",
         receiptUrl: receiptUrl || ""
       };

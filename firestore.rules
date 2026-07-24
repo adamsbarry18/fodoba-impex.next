@@ -13,9 +13,9 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
-    function isActif() {
+    function isActive() {
       let profile = getProfile();
-      return profile != null && profile.actif == true;
+      return profile != null && profile.active == true;
     }
     
     function hasRole(role) {
@@ -32,60 +32,72 @@ service cloud.firestore {
 
     function isStoreAuthorized(storeId) {
       let profile = getProfile();
-      return isAdmin() || (profile.boutiqueIds != null && storeId in profile.boutiqueIds);
+      return isAdmin() || (profile.storeIds != null && storeId in profile.storeIds);
     }
 
     // --- RÈGLES PAR COLLECTION (Alignées CDC v1.0) ---
 
     // Utilisateurs : lecture par soi-même ou admin ; écriture admin ou auto-édition limitée.
+    // Bootstrap : premier compte Auth peut créer son profil admin si settings/bootstrap absent.
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow create, delete: if isAdmin();
+      allow create: if isBootstrapAdminCreate(userId) || isAdmin();
+      allow delete: if isAdmin();
       allow update: if isAdmin() || isSelfProfileUpdate(userId);
+    }
+
+    function isBootstrapAdminCreate(userId) {
+      return isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == 'admin'
+        && request.resource.data.active == true
+        && !exists(/databases/$(database)/documents/settings/bootstrap);
     }
 
     function isSelfProfileUpdate(userId) {
       return isSignedIn()
-        && isActif()
+        && isActive()
         && request.auth.uid == userId
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.email == resource.data.email
         && request.resource.data.role == resource.data.role
-        && request.resource.data.actif == resource.data.actif
-        && request.resource.data.boutiqueIds == resource.data.boutiqueIds
+        && request.resource.data.active == resource.data.active
+        && request.resource.data.storeIds == resource.data.storeIds
         && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['prenom', 'nom', 'phone', 'photoURL']);
+            .hasOnly(['firstName', 'lastName', 'phone', 'photoURL']);
     }
 
     // Boutiques : Écriture Admin uniquement (CDC 2.2).
     match /stores/{storeId} {
-      allow read: if isSignedIn() && isActif();
+      allow read: if isSignedIn() && isActive();
       allow write: if isAdmin();
     }
 
     // Produits (Catalogue Global) : Admin et Manager peuvent éditer (CDC 2.2).
     match /products/{productId} {
-      allow read: if isSignedIn() && isActif();
+      allow read: if isSignedIn() && isActive();
       allow write: if isAdmin() || isManager();
     }
 
     // Catégories (Catalogue Global)
     match /categories/{categoryId} {
-      allow read: if isSignedIn() && isActif();
+      allow read: if isSignedIn() && isActive();
       allow write: if isAdmin() || isManager();
     }
 
     // Ventes : Isolation par boutique. Tous peuvent créer (CDC 2.2).
     match /sales/{saleId} {
-      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
-      allow create: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId);
+      allow read: if isSignedIn() && isActive() && isStoreAuthorized(resource.data.storeId);
+      allow create: if isSignedIn() && isActive() && isStoreAuthorized(request.resource.data.storeId);
       allow update, delete: if isAdmin();
     }
 
     // Mouvements de stock : admin/gérant ou sortie automatique lors d'une vente
     match /inventory_movements/{moveId} {
-      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
-      allow create: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId)
+      allow read: if isSignedIn() && isActive() && isStoreAuthorized(resource.data.storeId);
+      allow create: if isSignedIn() && isActive() && isStoreAuthorized(request.resource.data.storeId)
         && (
           isAdmin() || isManager()
           || request.resource.data.type == 'SALE'
@@ -95,8 +107,8 @@ service cloud.firestore {
     
     // Niveaux de stock : admin/gérant ou mise à jour liée à une vente (vendeur POS)
     match /stocks/{stockId} {
-      allow read: if isSignedIn() && isActif();
-      allow create, update: if isSignedIn() && isActif()
+      allow read: if isSignedIn() && isActive();
+      allow create, update: if isSignedIn() && isActive()
         && (
           isAdmin() || isManager()
           || (
@@ -108,46 +120,46 @@ service cloud.firestore {
 
     // Dépenses : Tous les rôles peuvent créer (CDC 2.2).
     match /expenses/{expenseId} {
-      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
-      allow create: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId);
+      allow read: if isSignedIn() && isActive() && isStoreAuthorized(resource.data.storeId);
+      allow create: if isSignedIn() && isActive() && isStoreAuthorized(request.resource.data.storeId);
       allow update, delete: if isAdmin();
     }
 
     // Caisse et Sessions : Tous les rôles peuvent ouvrir/clôturer (CDC 2.2).
     match /cash_sessions/{sessionId} {
-      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
-      allow write: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId);
+      allow read: if isSignedIn() && isActive() && isStoreAuthorized(resource.data.storeId);
+      allow write: if isSignedIn() && isActive() && isStoreAuthorized(request.resource.data.storeId);
     }
     
     match /cash_movements/{moveId} {
-      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
-      allow create: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId);
+      allow read: if isSignedIn() && isActive() && isStoreAuthorized(resource.data.storeId);
+      allow create: if isSignedIn() && isActive() && isStoreAuthorized(request.resource.data.storeId);
       allow update, delete: if isAdmin();
     }
 
     // Achats : Admin et Manager uniquement (CDC 2.2).
     match /purchases/{purchaseId} {
-      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
-      allow write: if isSignedIn() && isActif() && (isAdmin() || isManager()) && isStoreAuthorized(request.resource.data.storeId);
+      allow read: if isSignedIn() && isActive() && isStoreAuthorized(resource.data.storeId);
+      allow write: if isSignedIn() && isActive() && (isAdmin() || isManager()) && isStoreAuthorized(request.resource.data.storeId);
     }
 
     // Clients & Fournisseurs : Accès global.
     match /clients/{clientId} {
-      allow read: if isSignedIn() && isActif();
-      allow write: if isSignedIn() && isActif();
+      allow read: if isSignedIn() && isActive();
+      allow write: if isSignedIn() && isActive();
     }
     match /client_payments/{paymentId} {
-      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
-      allow create: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId);
+      allow read: if isSignedIn() && isActive() && isStoreAuthorized(resource.data.storeId);
+      allow create: if isSignedIn() && isActive() && isStoreAuthorized(request.resource.data.storeId);
     }
 
     match /supplier_payments/{paymentId} {
-      allow read: if isSignedIn() && isActif() && isStoreAuthorized(resource.data.storeId);
-      allow create: if isSignedIn() && isActif() && isStoreAuthorized(request.resource.data.storeId);
+      allow read: if isSignedIn() && isActive() && isStoreAuthorized(resource.data.storeId);
+      allow create: if isSignedIn() && isActive() && isStoreAuthorized(request.resource.data.storeId);
     }
     
     match /suppliers/{supplierId} {
-      allow read: if isSignedIn() && isActif();
+      allow read: if isSignedIn() && isActive();
       allow write: if isAdmin() || isManager();
     }
 
@@ -158,22 +170,29 @@ service cloud.firestore {
     }
 
     // Paramètres applicatifs (ex. devise de référence d'affichage)
+    // Bootstrap : création du doc settings/bootstrap uniquement lors du 1er admin
     match /settings/{settingId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow create: if (
+          settingId == 'bootstrap'
+          && isSignedIn()
+          && !exists(/databases/$(database)/documents/settings/bootstrap)
+          && request.resource.data.adminUid == request.auth.uid
+        ) || isAdmin();
+      allow update, delete: if isAdmin();
     }
 
     // Logs d'Audit
     match /audit_logs/{logId} {
       allow read: if isAdmin();
-      allow create: if isSignedIn() && isActif();
+      allow create: if isSignedIn() && isActive();
     }
 
     // Notifications in-app
     match /notifications/{notificationId} {
-      allow read: if isSignedIn() && isActif();
-      allow create: if isSignedIn() && isActif();
-      allow update, delete: if isSignedIn() && isActif();
+      allow read: if isSignedIn() && isActive();
+      allow create: if isSignedIn() && isActive();
+      allow update, delete: if isSignedIn() && isActive();
     }
   }
 }

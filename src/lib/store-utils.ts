@@ -70,7 +70,7 @@ function sortStoresByName(stores: Store[]): Store[] {
 /**
  * Choisit la boutique active parmi celles autorisées :
  * 1. dernière boutique utilisée (localStorage par uid)
- * 2. première boutique assignée au profil (ordre boutiqueIds)
+ * 2. première boutique assignée au profil (ordre storeIds)
  * 3. première boutique par nom (fallback admin/manager)
  */
 export function resolveActiveStore(
