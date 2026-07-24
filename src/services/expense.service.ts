@@ -72,7 +72,7 @@ export const ExpenseService = {
       limit(count)
     );
     const snap = await getDocs(q);
-    let expenses = snap.docs.map(doc => ({
+    const expenses = snap.docs.map(doc => ({
       ...doc.data(),
       id: doc.id,
     } as Expense));

@@ -1,6 +1,6 @@
 "use client"
 
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { UserProfileSchema, UserProfile, Store } from "@/lib/types"
 import { UserService } from "@/services/user.service"
@@ -53,7 +53,7 @@ export default function EditUserPage() {
     resolver: zodResolver(editSchema),
   })
 
-  const selectedRole = form.watch("role")
+  const selectedRole = useWatch({ control: form.control, name: "role" })
 
   useEffect(() => {
     if (!isAdmin) {

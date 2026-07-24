@@ -115,7 +115,7 @@ export default function ExpensesPage() {
     return () => {
       cancelled = true
     }
-  }, [activeStore?.id, t])
+  }, [activeStore, t])
 
   const filteredExpenses = useMemo(
     () =>

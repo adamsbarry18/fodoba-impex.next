@@ -54,7 +54,10 @@ const AUDIT_CATEGORIES: AuditCategory[] = ["user", "currency", "system"]
 
 function toDate(ts: AuditLog["timestamp"]): Date | null {
   if (!ts) return null
-  return ts.toDate ? ts.toDate() : new Date(ts)
+  if (typeof ts === "object" && ts !== null && "toDate" in ts && typeof ts.toDate === "function") {
+    return ts.toDate()
+  }
+  return new Date(ts as Date | string)
 }
 
 export default function AuditLogsPage() {

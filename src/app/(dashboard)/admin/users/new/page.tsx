@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { UserProfileSchema, Store, Role } from "@/lib/types"
 import { UserService } from "@/services/user.service"
@@ -76,7 +76,7 @@ export default function NewUserPage() {
     },
   })
 
-  const selectedRole = form.watch("role")
+  const selectedRole = useWatch({ control: form.control, name: "role" })
 
   useEffect(() => {
     let cancelled = false

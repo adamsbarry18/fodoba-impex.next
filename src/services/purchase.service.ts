@@ -13,7 +13,8 @@ import {
   runTransaction,
   updateDoc,
   DocumentSnapshot,
-  startAfter
+  startAfter,
+  type QueryConstraint
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Purchase, UserProfile, Product, Supplier, StockLevel } from "@/lib/types";
@@ -77,7 +78,7 @@ export const PurchaseService = {
   },
 
   async listPurchases(filters?: { storeId?: string; supplierId?: string }, pageSize = 20, lastVisible?: DocumentSnapshot) {
-    let constraints: any[] = [];
+    const constraints: QueryConstraint[] = [];
 
     if (filters?.storeId) {
       constraints.push(where("storeId", "==", filters.storeId));
@@ -99,7 +100,7 @@ export const PurchaseService = {
 
     const q = query(collection(db, COLLECTION_NAME), ...constraints);
     const snap = await getDocs(q);
-    let purchases = snap.docs.map(doc => doc.data() as Purchase);
+    const purchases = snap.docs.map(doc => doc.data() as Purchase);
 
     // Tri manuel si nécessaire
     if (constraints.length > 0 && !constraints.some(c => c.type === 'orderBy')) {
@@ -116,7 +117,6 @@ export const PurchaseService = {
     const purchaseRef = doc(db, COLLECTION_NAME, purchaseId);
     const purchaseSnap = await getDoc(purchaseRef);
     if (!purchaseSnap.exists()) throw new Error("Commande introuvable");
-    const purchasePreview = purchaseSnap.data() as Purchase;
 
     await runTransaction(db, async (transaction) => {
       const purchaseSnapInTx = await transaction.get(purchaseRef);

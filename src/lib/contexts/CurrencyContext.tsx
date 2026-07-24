@@ -93,7 +93,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   }, [refreshRates, refreshSettings])
 
   useEffect(() => {
-    if (!userProfile) {
+    if (!userProfile?.uid) {
       setLoading(false)
       return
     }

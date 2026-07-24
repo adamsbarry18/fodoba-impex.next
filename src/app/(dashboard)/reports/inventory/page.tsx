@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { ReportService } from "@/services/report.service"
 import { StoreService } from "@/services/store.service"
 import { Store } from "@/lib/types"
@@ -55,7 +55,7 @@ export default function InventoryReportPage() {
     rangeEnd,
   } = useClientPagination(items, { pageSize: PAGE_SIZE, resetKey: itemsResetKey })
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     try {
       const [reportRes, storesRes] = await Promise.all([
@@ -70,11 +70,11 @@ export default function InventoryReportPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [storeId, t])
 
   useEffect(() => {
-    loadData()
-  }, [storeId])
+    void loadData()
+  }, [loadData])
 
   return (
     <div className="space-y-6">

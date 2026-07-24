@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useMemo } from "react"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
@@ -37,7 +37,6 @@ import { type FundOperationType } from "@/lib/cash-session-utils"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { cn } from "@/lib/utils"
 import { useT } from "@/i18n/context"
-import { useMemo } from "react"
 
 type CashFundFormValues = {
   type: FundOperationType
@@ -96,7 +95,7 @@ export function CashFundDialog({ open, onOpenChange, onSubmit }: CashFundDialogP
     },
   })
 
-  const selectedType = form.watch("type")
+  const selectedType = useWatch({ control: form.control, name: "type" })
 
   const handleOpenChange = (next: boolean) => {
     if (!next) form.reset()

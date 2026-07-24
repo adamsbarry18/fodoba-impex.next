@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { ClientSchema, Client } from "@/lib/types"
 import { ClientService } from "@/services/client.service"
@@ -70,8 +70,8 @@ export default function NewClientPage() {
     }
   }, [activeStore?.id, form])
 
-  const selectedType = form.watch("type")
-  const selectedStatus = form.watch("status")
+  const selectedType = useWatch({ control: form.control, name: "type" })
+  const selectedStatus = useWatch({ control: form.control, name: "status" })
 
   const onSubmit = async (values: Omit<Client, "id" | "createdAt" | "currentDebt">) => {
     try {

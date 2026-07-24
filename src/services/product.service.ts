@@ -13,7 +13,8 @@ import {
   limit,
   startAfter,
   writeBatch,
-  DocumentSnapshot
+  DocumentSnapshot,
+  type QueryConstraint
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Product, StockLevel } from "@/lib/types";
@@ -190,7 +191,7 @@ export const ProductService = {
    * Version paginée (évite les index composites si filtres).
    */
   async listProducts(filters?: { categoryId?: string; active?: boolean }, pageSize = 25, lastVisible?: DocumentSnapshot) {
-    let constraints: any[] = [];
+    const constraints: QueryConstraint[] = [];
 
     // Filtres d'égalité simples (ne nécessitent pas d'index si pas de orderBy sur un autre champ)
     if (filters?.categoryId) {
@@ -214,7 +215,7 @@ export const ProductService = {
     const q = query(collection(db, COLLECTION_NAME), ...constraints);
     const snap = await getDocs(q);
 
-    let products = snap.docs.map(
+    const products = snap.docs.map(
       (d) => ({ id: d.id, ...d.data() }) as Product
     );
 

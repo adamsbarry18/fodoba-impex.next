@@ -29,7 +29,10 @@ export const NOTIFICATION_TYPE_META: Record<
 
 export function toNotificationDate(ts: AppNotification["timestamp"]): Date | null {
   if (!ts) return null
-  return ts.toDate ? ts.toDate() : new Date(ts)
+  if (typeof ts === "object" && ts !== null && "toDate" in ts && typeof ts.toDate === "function") {
+    return ts.toDate()
+  }
+  return new Date(ts as Date | string)
 }
 
 export function formatNotificationTime(ts: AppNotification["timestamp"]): string {

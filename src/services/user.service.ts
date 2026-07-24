@@ -72,7 +72,7 @@ export const UserService = {
       const uid = userCred.user.uid;
 
       // 2. Création du profil dans Firestore
-      const profile = await this.createUserProfile(uid, profileData as any);
+      const profile = await this.createUserProfile(uid, profileData);
 
       // 3. Nettoyage
       await deleteApp(tempApp);
@@ -112,7 +112,7 @@ export const UserService = {
       photoURL?: string;
     }
   ) {
-    if (auth.currentUser?.uid !== uid) {
+    if (!auth || auth.currentUser?.uid !== uid) {
       throw new Error("Vous ne pouvez modifier que votre propre profil.");
     }
 
@@ -139,7 +139,7 @@ export const UserService = {
   },
 
   async logAudit(action: string, details: string, targetId?: string) {
-    const currentUser = auth.currentUser;
+    const currentUser = auth?.currentUser;
     let performedByName = "Système";
 
     if (currentUser?.uid) {

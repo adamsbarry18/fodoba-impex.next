@@ -18,7 +18,7 @@ export const ReportService = {
     endDate: Date, 
     storeId?: string 
   }) {
-    let constraints = [
+    const constraints = [
       where("timestamp", ">=", Timestamp.fromDate(params.startDate)),
       where("timestamp", "<=", Timestamp.fromDate(params.endDate))
     ];

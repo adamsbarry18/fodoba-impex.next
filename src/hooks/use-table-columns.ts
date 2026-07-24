@@ -9,15 +9,13 @@ import {
 } from "@/lib/table-columns"
 
 export function useTableColumns(tableKey: string, columns: TableColumnDef[]) {
-  const columnSignature = columns.map((c) => `${c.id}:${c.defaultVisible ?? true}`).join("|")
-
   const [visibility, setVisibility] = useState<Record<string, boolean>>(() =>
     readTableColumnVisibility(tableKey, columns)
   )
 
   useEffect(() => {
     setVisibility(readTableColumnVisibility(tableKey, columns))
-  }, [tableKey, columnSignature])
+  }, [tableKey, columns])
 
   const isVisible = useCallback(
     (id: string) => {

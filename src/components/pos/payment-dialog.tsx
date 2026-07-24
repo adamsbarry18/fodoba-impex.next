@@ -24,7 +24,6 @@ import type { Client, CurrencyCode, PaymentMethod } from "@/lib/types"
 import {
   POS_PAYMENT_METHODS,
   POS_FRACTIONAL_METHODS,
-  getPaymentMethodLabel,
   EMPTY_PAYMENT_AMOUNTS,
   buildSalePayments,
   type PosPaymentMode,

@@ -150,7 +150,7 @@ export default function PurchasesPage() {
     return () => {
       cancelled = true
     }
-  }, [activeStore])
+  }, [activeStore, t])
 
   const filteredPurchases = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()

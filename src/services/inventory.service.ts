@@ -10,7 +10,8 @@ import {
   runTransaction,
   serverTimestamp,
   startAfter,
-  DocumentSnapshot
+  DocumentSnapshot,
+  type QueryConstraint
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { StockMovement, StockLevel, Product, Store, UserProfile } from "@/lib/types";
@@ -27,6 +28,12 @@ import { normalizeProduct } from "@/lib/product-utils";
 
 const MOVEMENTS_COLLECTION = "inventory_movements";
 const STOCKS_COLLECTION = "stocks";
+
+type StockMovementWrite = Omit<StockMovement, "timestamp" | "reason" | "relatedDocId"> & {
+  timestamp: ReturnType<typeof serverTimestamp>;
+  reason?: string;
+  relatedDocId?: string;
+};
 
 export const InventoryService = {
   async recordMovement(params: {
@@ -69,7 +76,7 @@ export const InventoryService = {
         lastUpdated: serverTimestamp()
       }, { merge: true });
 
-      const movementData: any = {
+      const movementData: StockMovementWrite = {
         id: movementRef.id,
         productId,
         productName: product.name,
@@ -408,7 +415,7 @@ export const InventoryService = {
       );
 
       const moveOutRef = doc(collection(db, MOVEMENTS_COLLECTION));
-      const moveOutData: any = {
+      const moveOutData: StockMovementWrite = {
         id: moveOutRef.id,
         productId,
         productName: product.name,
@@ -426,7 +433,7 @@ export const InventoryService = {
       transaction.set(moveOutRef, moveOutData);
 
       const moveInRef = doc(collection(db, MOVEMENTS_COLLECTION));
-      const moveInData: any = {
+      const moveInData: StockMovementWrite = {
         id: moveInRef.id,
         productId,
         productName: product.name,
@@ -446,7 +453,7 @@ export const InventoryService = {
   },
 
   async listMovements(filters: { storeId?: string, productId?: string }, pageSize = 20, lastVisible?: DocumentSnapshot) {
-    let constraints: any[] = [];
+    const constraints: QueryConstraint[] = [];
 
     if (filters.storeId) {
       constraints.push(where("storeId", "==", filters.storeId));
@@ -468,7 +475,7 @@ export const InventoryService = {
     const q = query(collection(db, MOVEMENTS_COLLECTION), ...constraints);
     const snap = await getDocs(q);
     
-    let movements = snap.docs.map(doc => doc.data() as StockMovement);
+    const movements = snap.docs.map(doc => doc.data() as StockMovement);
     
     if (constraints.length > 0 && !constraints.some(c => c.type === 'orderBy')) {
       movements.sort((a, b) => {

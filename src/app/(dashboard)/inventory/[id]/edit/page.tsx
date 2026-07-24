@@ -13,7 +13,7 @@ import { useRouter, useParams } from "next/navigation"
 import { toast } from "sonner"
 import { ArrowLeft, Loader2, Save, Package } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { applyReturnSelection } from "@/hooks/use-return-selection"
 import { ENTITY_ROUTES } from "@/lib/navigation/return-to"
 import { normalizeProduct } from "@/lib/product-utils"
@@ -30,7 +30,11 @@ export default function EditProductPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const originalStockRef = useRef<DecomposedStock>({ packagingQty: 0, detailQty: 0, quantity: 0 })
+  const [originalStock, setOriginalStock] = useState<DecomposedStock>({
+    packagingQty: 0,
+    detailQty: 0,
+    quantity: 0,
+  })
   const t = useT()
   const { activeStore } = useStore()
   const { userProfile } = useAuth()
@@ -68,7 +72,7 @@ export default function EditProductPage() {
             )
             initialStockPackaging = stockRecord.packagingQty
             detailStock = stockRecord.detailQty
-            originalStockRef.current = stockRecord
+            setOriginalStock(stockRecord)
           }
           form.reset({
             ...normalized,
@@ -133,7 +137,7 @@ export default function EditProductPage() {
       if (activeStore && userProfile && canAdjustStock) {
         const packagingQty = initialStockPackaging ?? 0
         const detailQty = detailStock ?? 0
-        const original = originalStockRef.current
+        const original = originalStock
 
         if (packagingQty !== original.packagingQty || detailQty !== original.detailQty) {
           await InventoryService.setStockDecomposed({

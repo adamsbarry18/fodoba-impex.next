@@ -62,7 +62,10 @@ const VALIDATION_I18N_KEYS: Record<string, string> = {
 
 function toDate(ts: ExchangeRate["lastUpdated"]): Date | null {
   if (!ts) return null
-  return ts.toDate ? ts.toDate() : new Date(ts)
+  if (typeof ts === "object" && ts !== null && "toDate" in ts && typeof ts.toDate === "function") {
+    return ts.toDate()
+  }
+  return new Date(ts as Date | string)
 }
 
 export default function CurrenciesAdminPage() {

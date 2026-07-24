@@ -10,7 +10,8 @@ import {
   getDocs,
   limit,
   startAfter,
-  DocumentSnapshot
+  DocumentSnapshot,
+  type QueryConstraint
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Sale, SaleItem, UserProfile, Client, StockLevel, Store, Product } from "@/lib/types";
@@ -252,7 +253,7 @@ export const SaleService = {
   },
 
   async listRecentSales(storeId?: string, pageSize = 20, lastVisible?: DocumentSnapshot) {
-    let constraints: any[] = [];
+    const constraints: QueryConstraint[] = [];
     if (storeId) {
       constraints.push(where("storeId", "==", storeId));
     }
@@ -266,7 +267,7 @@ export const SaleService = {
 
     const q = query(collection(db, COLLECTION_NAME), ...constraints);
     const snap = await getDocs(q);
-    let sales = snap.docs.map(doc => doc.data() as Sale);
+    const sales = snap.docs.map(doc => doc.data() as Sale);
     
     if (storeId) {
       sales.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));

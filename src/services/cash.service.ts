@@ -9,7 +9,8 @@ import {
   limit, 
   serverTimestamp,
   runTransaction,
-  increment
+  increment,
+  type Transaction
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { CashSession, CashMovement, UserProfile } from "@/lib/types";
@@ -88,7 +89,7 @@ export const CashService = {
    * Enregistre un mouvement de caisse (Utilisé par Ventes, Dépenses, etc.)
    * IMPORTANT: Ne doit pas effectuer de query interne si utilisé dans une transaction.
    */
-  async recordMovement(transaction: any, params: {
+  async recordMovement(transaction: Transaction, params: {
     sessionId: string,
     storeId: string,
     type: "IN" | "OUT",
@@ -135,7 +136,7 @@ export const CashService = {
       limit(count)
     );
     const snap = await getDocs(q);
-    let sessions = snap.docs.map(doc => doc.data() as CashSession);
+    const sessions = snap.docs.map(doc => doc.data() as CashSession);
     sessions.sort((a, b) => (b.openedAt?.seconds || 0) - (a.openedAt?.seconds || 0));
     return sessions;
   },
@@ -146,7 +147,7 @@ export const CashService = {
       where("storeId", "==", storeId)
     );
     const snap = await getDocs(q);
-    let movements = snap.docs
+    const movements = snap.docs
       .map((doc) => doc.data() as CashMovement)
       .filter((movement) => movement.sessionId === sessionId);
     movements.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));

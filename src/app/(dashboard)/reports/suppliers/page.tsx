@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { ReportService } from "@/services/report.service"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -39,7 +39,7 @@ export default function SupplierDebtReportPage() {
     }>
   } | null>(null)
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     try {
       const res = await ReportService.getFinanceConsolidation()
@@ -49,11 +49,11 @@ export default function SupplierDebtReportPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [t])
 
   useEffect(() => {
-    loadData()
-  }, [])
+    void loadData()
+  }, [loadData])
 
   const suppliers = data?.suppliers ?? []
 

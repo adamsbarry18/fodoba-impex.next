@@ -124,7 +124,7 @@ export default function SuppliersPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   const filteredSuppliers = useMemo(
     () =>

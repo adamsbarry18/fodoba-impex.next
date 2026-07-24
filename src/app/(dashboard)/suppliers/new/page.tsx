@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { SupplierSchema, Supplier } from "@/lib/types"
 import { SupplierService } from "@/services/supplier.service"
@@ -69,7 +69,7 @@ export default function NewSupplierPage() {
     },
   })
 
-  const selectedType = form.watch("type")
+  const selectedType = useWatch({ control: form.control, name: "type" })
 
   const onSubmit = async (values: Omit<Supplier, "id" | "createdAt" | "currentDebt">) => {
     try {

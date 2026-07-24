@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { ReportService } from "@/services/report.service"
 import { StoreService } from "@/services/store.service"
 import { Sale, Store } from "@/lib/types"
@@ -81,7 +81,7 @@ export default function SalesReportPage() {
     visibleColumnCount,
   } = useTranslatedTableColumns("sales-report", SALES_REPORT_TABLE_COLUMNS, SALES_REPORT_COLUMN_LABEL_KEYS)
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     try {
       const [salesRes, storesRes] = await Promise.all([
@@ -100,11 +100,11 @@ export default function SalesReportPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [endDate, startDate, storeId, t])
 
   useEffect(() => {
-    loadData()
-  }, [startDate, endDate, storeId])
+    void loadData()
+  }, [loadData])
 
   const handleExportCsv = () => {
     if (sales.length === 0) {

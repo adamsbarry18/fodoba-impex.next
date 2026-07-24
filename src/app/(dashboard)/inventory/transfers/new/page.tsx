@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { InventoryService } from "@/services/inventory.service"
@@ -95,9 +95,9 @@ export default function NewTransferPage() {
     },
   })
 
-  const productId = form.watch("productId")
-  const destinationStoreId = form.watch("destinationStoreId")
-  const quantity = form.watch("quantity")
+  const productId = useWatch({ control: form.control, name: "productId" })
+  const destinationStoreId = useWatch({ control: form.control, name: "destinationStoreId" })
+  const quantity = useWatch({ control: form.control, name: "quantity" })
 
   const destinationStores = useMemo(
     () => stores.filter((s) => s.id !== activeStore?.id),
@@ -178,7 +178,7 @@ export default function NewTransferPage() {
     return () => {
       cancelled = true
     }
-  }, [productId, destinationStoreId, activeStore?.id, t])
+  }, [activeStore, destinationStoreId, productId, t])
 
   const handleProductScan = async (code: string) => {
     setScanProcessing(true)

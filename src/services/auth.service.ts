@@ -12,6 +12,14 @@ import {
 import { auth } from "@/lib/firebase/client";
 import { mapAuthErrorCode, type AuthErrorContext } from "@/lib/auth-utils";
 
+function getAuthErrorCode(error: unknown): string | undefined {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = (error as { code: unknown }).code;
+    return typeof code === "string" ? code : undefined;
+  }
+  return undefined;
+}
+
 /**
  * Service gérant les interactions directes avec Firebase Authentication.
  */
@@ -23,7 +31,7 @@ export const AuthService = {
     if (!auth) throw new Error("Firebase Auth n'est pas configuré.");
     try {
       return await signInWithEmailAndPassword(auth, email, pass);
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleAuthError(error, "login");
     }
   },
@@ -47,7 +55,7 @@ export const AuthService = {
     if (!auth) throw new Error("Firebase Auth n'est pas configuré.");
     try {
       await sendPasswordResetEmail(auth, email);
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleAuthError(error, "reset");
     }
   },
@@ -64,7 +72,7 @@ export const AuthService = {
       const credential = EmailAuthProvider.credential(user.email!, currentPass);
       await reauthenticateWithCredential(user, credential);
       await firebaseUpdatePassword(user, newPass);
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw this.handleAuthError(error, "changePassword");
     }
   },
@@ -80,7 +88,7 @@ export const AuthService = {
   /**
    * Traduit les codes d'erreur Firebase en messages compréhensibles.
    */
-  handleAuthError(error: any, context: AuthErrorContext = "login"): Error {
-    return new Error(mapAuthErrorCode(error?.code, context));
+  handleAuthError(error: unknown, context: AuthErrorContext = "login"): Error {
+    return new Error(mapAuthErrorCode(getAuthErrorCode(error), context));
   }
 };

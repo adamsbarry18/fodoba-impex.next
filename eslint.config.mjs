@@ -8,7 +8,9 @@ export default defineConfig([
     rules: {
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-empty-object-type": "warn",
-      "react-hooks/set-state-in-effect": "warn",
+      // Data loading = useEffect + services Firestore (pas de useCollection).
+      // Cette règle React Compiler flagge ce pattern intentionnel.
+      "react-hooks/set-state-in-effect": "off",
       "react-hooks/incompatible-library": "warn",
       "react-hooks/refs": "warn",
       "react/no-unescaped-entities": "warn",

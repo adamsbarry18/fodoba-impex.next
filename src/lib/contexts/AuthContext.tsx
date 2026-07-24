@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { User } from "firebase/auth";
+import { User, type UserCredential } from "firebase/auth";
 import { doc, getDoc, collection, getDocs, query, limit, writeBatch } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase/client";
 import { AuthService } from "@/services/auth.service";
@@ -17,7 +17,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isManager: boolean;
   isSeller: boolean;
-  login: (email: string, pass: string) => Promise<any>;
+  login: (email: string, pass: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -91,8 +91,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const profile = await fetchProfile(user.uid, user);
           setCurrentUser(user);
           setUserProfile(profile);
-        } catch (error: any) {
-          toast.error(error.message);
+        } catch (error: unknown) {
+          toast.error(error instanceof Error ? error.message : "Erreur d'authentification");
           await AuthService.logout();
           setCurrentUser(null);
           setUserProfile(null);

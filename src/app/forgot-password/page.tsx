@@ -24,8 +24,8 @@ export default function ForgotPasswordPage() {
     try {
       await resetPassword(email);
       toast.success(t("auth.resetSuccess"));
-    } catch (error: any) {
-      const rawMessage = error?.message || "auth.error.generic"
+    } catch (error: unknown) {
+      const rawMessage = error instanceof Error ? error.message : "auth.error.generic"
       const displayMessage = t.has(rawMessage) ? t(rawMessage) : t("auth.error.resetFailed")
       toast.error(displayMessage);
     } finally {

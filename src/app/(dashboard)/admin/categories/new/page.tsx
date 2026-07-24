@@ -1,6 +1,6 @@
 "use client"
 
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { CategorySchema, Category } from "@/lib/types"
 import { CategoryService } from "@/services/category.service"
@@ -66,8 +66,8 @@ export default function NewCategoryPage() {
     },
   })
 
-  const parentId = form.watch("parentId")
-  const isActive = form.watch("active")
+  const parentId = useWatch({ control: form.control, name: "parentId" })
+  const isActive = useWatch({ control: form.control, name: "active" })
 
   useEffect(() => {
     let cancelled = false

@@ -1,5 +1,9 @@
 
 import { z } from "zod";
+import type { FieldValue, Timestamp } from "firebase/firestore";
+
+/** Horodatage Firestore : Timestamp lu, FieldValue à l'écriture, Date JS ou chaîne. */
+export type FirestoreDate = Timestamp | FieldValue | Date | string | { toDate?: () => Date };
 
 export type Role = "admin" | "manager" | "seller";
 
@@ -196,7 +200,7 @@ export type CurrencyCode = "FCFA" | "GNF" | "USD" | "EUR";
 export interface ExchangeRate {
   code: CurrencyCode;
   rateToRef: number;
-  lastUpdated: any;
+  lastUpdated: FirestoreDate | null;
   updatedBy: string;
 }
 
@@ -345,7 +349,7 @@ export interface AppNotification {
   type: AppNotificationType;
   title: string;
   message: string;
-  timestamp: any;
+  timestamp: FirestoreDate;
   read: boolean;
   storeId?: string;
   userId?: string;
@@ -370,5 +374,5 @@ export interface AuditLog {
   targetId?: string;
   performedBy: string;
   performedByName?: string;
-  timestamp: any;
+  timestamp: FirestoreDate;
 }

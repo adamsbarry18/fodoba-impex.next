@@ -153,7 +153,7 @@ export default function StockHistoryPage() {
     return () => {
       cancelled = true
     }
-  }, [activeStore?.id, t])
+  }, [activeStore, t])
 
   const filteredMovements = useMemo(
     () => filterMovements(movements, { search: searchTerm, type: typeFilter }),

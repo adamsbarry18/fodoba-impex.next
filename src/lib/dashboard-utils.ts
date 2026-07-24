@@ -8,8 +8,6 @@ import {
   subMonths,
   eachMonthOfInterval,
 } from "date-fns"
-import { fr } from "date-fns/locale"
-
 export type DashboardTimeRange = "24h" | "7d" | "30d" | "3m" | "12m"
 
 export const DASHBOARD_TIME_RANGES: { value: DashboardTimeRange; label: string }[] = [

@@ -25,6 +25,14 @@ function defaultPdfMoney(amountFcfa: number): string {
   return `${formatPdfNumber(amountFcfa)} FCFA`;
 }
 
+interface JsPdfWithAutoTable extends jsPDF {
+  lastAutoTable: { finalY: number };
+}
+
+function getAutoTableFinalY(doc: jsPDF): number {
+  return (doc as JsPdfWithAutoTable).lastAutoTable.finalY;
+}
+
 function drawSaleClientLines(
   doc: jsPDF,
   sale: Sale,
@@ -166,7 +174,7 @@ export const PrintService = {
       styles: { fontSize: 8, cellPadding: 1 },
     });
 
-    y = drawSalePaymentSummary(doc, sale, saleLabels, labels, pageWidth, (doc as any).lastAutoTable.finalY + 4, 8, formatMoney) + 4;
+    y = drawSalePaymentSummary(doc, sale, saleLabels, labels, pageWidth, getAutoTableFinalY(doc) + 4, 8, formatMoney) + 4;
 
     try {
       const qrDataUrl = await QRCode.toDataURL(sale.id);
@@ -205,7 +213,7 @@ export const PrintService = {
       headStyles: { fillColor: [29, 217, 124] }
     });
 
-    y = (doc as any).lastAutoTable.finalY + 8;
+    y = getAutoTableFinalY(doc) + 8;
     drawSalePaymentSummary(doc, sale, saleLabels, labels, 190, y, 10, formatMoney);
 
     doc.save(`Vente_${sale.id.slice(-6)}.pdf`);
@@ -216,7 +224,7 @@ export const PrintService = {
     const doc = new jsPDF('p', 'mm', 'a4');
     this.drawHeader(doc, l.title, store, labels.phoneShort);
     
-    let y = 50;
+    const y = 50;
     doc.setFontSize(10);
     doc.text(`${l.order}: #${purchase.id.slice(-6).toUpperCase()}`, 20, y);
     const orderDate = purchase.timestamp?.toDate
@@ -242,7 +250,7 @@ export const PrintService = {
     });
 
     if (purchase.notes) {
-      const notesY = (doc as any).lastAutoTable.finalY + 8;
+      const notesY = getAutoTableFinalY(doc) + 8;
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.text(`${l.notes}:`, 20, notesY);
@@ -259,7 +267,7 @@ export const PrintService = {
     doc.setFontSize(22);
     doc.text(`${getAppName()} - ${l.title}`, 20, 20);
     
-    let y = 40;
+    const y = 40;
     doc.setFontSize(10);
     doc.text(`${l.reference}: #${movement.id.slice(-6).toUpperCase()}`, 20, y);
     doc.text(`${l.date}: ${format(new Date(), 'dd/MM/yyyy')}`, 20, y + 5);
@@ -291,7 +299,7 @@ export const PrintService = {
     };
 
     const generatedAt = format(new Date(), 'dd/MM/yyyy HH:mm');
-    let y = 50;
+    const y = 50;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`${l.store} : ${store.name} (${store.code})`, 20, y);
@@ -412,7 +420,7 @@ export const PrintService = {
       },
     });
 
-    y = (doc as any).lastAutoTable.finalY + 12;
+    y = getAutoTableFinalY(doc) + 12;
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.text(l.consolidatedSummary, 20, y);
@@ -526,7 +534,7 @@ export const PrintService = {
       columnStyles: { 0: { fontStyle: 'bold', cellWidth: 55 } },
     });
 
-    y = (doc as any).lastAutoTable.finalY + 12;
+    y = getAutoTableFinalY(doc) + 12;
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.text(l.stockByStore, 20, y);
@@ -545,7 +553,7 @@ export const PrintService = {
       headStyles: { fillColor: [29, 217, 124] },
     });
 
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = getAutoTableFinalY(doc) + 10;
     try {
       const qrDataUrl = await QRCode.toDataURL(product.id);
       doc.setFontSize(9);
@@ -593,7 +601,7 @@ export const PrintService = {
       doc.line(20, 38, 190, 38);
     }
 
-    let y = 50;
+    const y = 50;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);

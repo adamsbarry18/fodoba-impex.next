@@ -1,5 +1,6 @@
 
 import type { Metadata } from 'next';
+import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
@@ -9,6 +10,20 @@ import { NotificationProvider } from "@/lib/contexts/NotificationContext";
 import { AuthLayoutWrapper } from "@/components/auth/auth-layout-wrapper";
 
 import { I18nProvider } from "@/i18n/context";
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-inter',
+  display: 'swap',
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['500', '700'],
+  variable: '--font-space-grotesk',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Fodoba Business',
@@ -44,12 +59,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
-      </head>
-      <body className="font-body antialiased selection:bg-accent/30">
+      <body className={`${inter.variable} ${spaceGrotesk.variable} font-body antialiased selection:bg-accent/30`}>
         <I18nProvider>
           <AuthProvider>
             <CurrencyProvider>

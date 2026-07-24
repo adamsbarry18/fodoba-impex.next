@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { DocumentSnapshot } from "firebase/firestore"
 import { ProductService } from "@/services/product.service"
 import { ClientService } from "@/services/client.service"
 import { SaleService } from "@/services/sale.service"
@@ -42,7 +43,6 @@ import { useAuth } from "@/lib/contexts/AuthContext"
 import { 
   Dialog, 
   DialogContent, 
-  DialogHeader, 
   DialogTitle, 
   DialogDescription
 } from "@/components/ui/dialog"
@@ -92,7 +92,7 @@ export default function POSPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all")
   
-  const [lastVisible, setLastVisible] = useState<any>(undefined)
+  const [lastVisible, setLastVisible] = useState<DocumentSnapshot | undefined>(undefined)
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -174,14 +174,14 @@ export default function POSPage() {
             },
           }
         )
-      } catch (error) {
+      } catch {
         toast.error(t("pos.errorLoadingData"))
       } finally {
         setLoading(false)
       }
     }
     loadInitialData()
-  }, [activeStore?.id, loadStocksForProducts, t])
+  }, [activeStore, loadStocksForProducts, t])
 
   useEffect(() => {
     if (!activeStore?.id) {
@@ -194,7 +194,7 @@ export default function POSPage() {
   }, [activeStore?.id, isPaymentOpen, isSuccessOpen])
 
   // Load products when active category changes (excluding search query matches)
-  const loadProductsByCategory = async (categoryId: string, isLoadMore = false) => {
+  const loadProductsByCategory = useCallback(async (categoryId: string, isLoadMore = false) => {
     if (isLoadMore) {
       if (loadingMore || !hasMore) return
       setLoadingMore(true)
@@ -224,13 +224,13 @@ export default function POSPage() {
       
       setLastVisible(result.lastVisible)
       setHasMore(result.products.length === POS_FETCH_SIZE)
-    } catch (error) {
+    } catch {
       toast.error(t("pos.errorLoadingItems"))
     } finally {
       setLoading(false)
       setLoadingMore(false)
     }
-  }
+  }, [hasMore, lastVisible, loadStocksForProducts, loadingMore, t])
 
   // Handle Category Selection
   const handleCategoryChange = (categoryId: string) => {
@@ -261,7 +261,7 @@ export default function POSPage() {
         setProducts(searchResults)
         setHasMore(false) // search returns maximum matches
         void loadStocksForProducts(searchResults)
-      } catch (error) {
+      } catch {
         toast.error(t("pos.errorSearch"))
       } finally {
         setLoadingMore(false)
@@ -269,7 +269,7 @@ export default function POSPage() {
     }, 450)
 
     return () => clearTimeout(searchDebounce)
-  }, [searchTerm])
+  }, [searchTerm, loadProductsByCategory, loadStocksForProducts, products.length, selectedCategoryId, t])
 
   // Barcode / douchette / caméra
   const addToCart = useCallback((product: Product, tier: PriceTier = "retail") => {
@@ -361,7 +361,7 @@ export default function POSPage() {
     } finally {
       setScanProcessing(false)
     }
-  }, [t])
+  }, [addToCart, t])
 
   useGlobalBarcodeListener(handleProductScan)
 
@@ -472,8 +472,8 @@ export default function POSPage() {
       setIsSuccessOpen(true)
       CashService.getActiveSession(activeStore.id).then(setCashSession)
       void loadStocksForProducts(products)
-    } catch (error: any) {
-      toast.error(error.message || t("pos.transactionError"))
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : t("pos.transactionError"))
     } finally {
       setProcessing(false)
     }

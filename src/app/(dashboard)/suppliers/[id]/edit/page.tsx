@@ -8,7 +8,7 @@ import { SupplierService } from "@/services/supplier.service"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter, useParams } from "next/navigation"
 import { toast } from "sonner"
@@ -37,14 +37,14 @@ export default function EditSupplierPage() {
           toast.error(t("suppliers.notFound"))
           router.push("/suppliers")
         }
-      } catch (error) {
+      } catch {
         toast.error(t("common.errorLoading"))
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [params.id, router, t])
+  }, [form, params.id, router, t])
 
   const onSubmit = async (values: Supplier) => {
     try {
@@ -58,7 +58,7 @@ export default function EditSupplierPage() {
       })
       toast.success(t("suppliers.updateSuccess"))
       router.push(`/suppliers/${params.id}`)
-    } catch (error) {
+    } catch {
       toast.error(t("common.errorUpdate"))
     }
   }
